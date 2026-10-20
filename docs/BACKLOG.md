@@ -145,10 +145,12 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Acampamentos, ruínas, santuários e baús desenhados no Tiled (.tmx) e carimbados na geração pela seed.
 - [ ] **M5-04** Salas pré-montadas nas masmorras _(código, ~3 d)_  
   Trocar retângulos por salas desenhadas no Tiled, com conectores marcados como objetos.
+- [ ] **M5-09** Continuidade entre áreas _(código, ~0.5 d)_ — **escrito, validar**  
+  areas.json mapPos coloca as áreas no mapa do ato: a saída para um vizinho fica na borda voltada para ele, e a volta na borda oposta, no mesmo ponto ao longo da borda (a vila, feita à mão, fixa o ponto). validate() exige vizinhos lado a lado.
 - [ ] **M5-05** Waypoints com menu de viagem _(código, ~1.5 d)_ — **escrito, validar**  
   Pisar ativa (salvo no personagem, save v4) e abre o menu com todos os waypoints do ato; os não encontrados ficam cinza. Chegar por waypoint não reabre o menu até sair dele. Comando TravelWaypoint.
-- [ ] **M5-06** Portal de cidade (pergaminho) _(código, ~1 d)_ — **escrito, validar**  
-  E abre o portal onde você está; entrar leva à vila, onde o portal aparece ao lado do waypoint; entrar de novo volta ao mesmo ponto. O portal fica até o próximo pergaminho. As áreas agora guardam o estado na partida (monstros mortos continuam mortos, itens no chão continuam lá).
+- [ ] **M5-06** Portal de cidade _(código, ~1 d)_ — **escrito, validar**  
+  Sempre disponível, sem pergaminho (recarga de 5 s em balance.json townPortal). E abre o portal onde você está; entrar leva à vila, onde o portal aparece ao lado do waypoint; entrar de novo volta ao mesmo ponto. O portal fica até o próximo pergaminho. As áreas agora guardam o estado na partida (monstros mortos continuam mortos, itens no chão continuam lá).
 - [x] **M5-07** Névoa de guerra e mapa automático (Tab) _(UI, ~2 d)_  
   Feito: campo de visão do tcod revela o mapa, monstros fora da visão somem, mapa pequeno no canto e grande com Tab. Saídas, waypoint, NPCs e portal só aparecem depois de explorados.
 - [x] **M5-08** Cidade feita à mão no Tiled _(conteúdo, ~2 d)_  

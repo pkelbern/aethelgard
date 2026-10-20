@@ -30,6 +30,7 @@ from ..core.world import (
     AttackTarget,
     MonsterActor,
     MoveTo,
+    OpenPortal,
     PickUp,
     Respawn,
     SetGuard,
@@ -507,7 +508,11 @@ class Game:
                 self.use_slot(slot)
             return
         action = self.keys.action_for(key)
-        if action in CONSUMABLE_KEYS:
+        if action == "townPortal":
+            msg = self.world.apply(OpenPortal(self.session.player_id))
+            if msg:
+                self.hud.add(msg, C.MUTED)
+        elif action in CONSUMABLE_KEYS:
             msg = self.world.apply(UseConsumable(self.session.player_id, CONSUMABLE_KEYS[action]))
             if msg:
                 self.hud.add(msg, C.MUTED)

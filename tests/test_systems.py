@@ -12,6 +12,7 @@ from aethelgard.core.combat import (
     player_defense,
     player_guard,
 )
+from aethelgard.core.data import validate
 from aethelgard.core.items import Item, ItemDrop, LootGenerator, Rarity, RolledAffix, SharedStash
 from aethelgard.core.monsters import MonsterFactory, PackKind, PackSpawner, unique_name
 from aethelgard.core.rng import Rng
@@ -363,3 +364,46 @@ def test_affixes_only_roll_where_they_make_sense(data):
     assert "body" not in seen.get("attackSpeedPct", set()), "no attack speed on body armor"
     assert seen.get("guardEfficiency", set()) <= {"offhand"}
     assert "mainhand" not in seen.get("armorPct", set())
+
+
+# ---------------------------------------------------------------- continuity between areas
+
+
+def _opposite(side):
+    from aethelgard.core.world_gen import EAST, NORTH, SOUTH, WEST
+
+    return {NORTH: SOUTH, SOUTH: NORTH, EAST: WEST, WEST: EAST}[side]
+
+
+def _side_of(L, pos):
+    from aethelgard.core.world_gen import EAST, NORTH, SOUTH, WEST
+
+    x, y = pos
+    return NORTH if y == 0 else SOUTH if y == L.height - 1 else WEST if x == 0 else EAST if x == L.width - 1 else None
+
+
+@pytest.mark.parametrize("seed", [1, 7, 42])
+def test_leaving_an_area_you_come_in_on_the_facing_side_at_the_same_point(data, seed):
+    """Walk out of the village's east edge and you enter the plains from the west, at the same height."""
+    from aethelgard.core.world_gen import side_toward
+
+    gen = AreaGenerator(data)
+    layouts = {a.id: gen.generate(a, 0, seed, 10) for a in data.all_areas if a.kind != "dungeon"}
+    for a_id, L in layouts.items():
+        a = data.area(a_id)
+        for e in L.exits:
+            b = data.area(e.target_area)
+            if e.kind != ExitKind.EDGE:
+                continue
+            back = next(x for x in layouts[b.id].exits if x.target_area == a_id)
+            Lb = layouts[b.id]
+            assert _side_of(L, e.pos) == side_toward(a, b), f"{a_id} → {b.id} on the side facing it"
+            assert _side_of(Lb, back.pos) == _opposite(_side_of(L, e.pos)), f"{b.id} → {a_id} on the opposite side"
+            along_a = (e.pos[1] / (L.height - 1)) if e.pos[0] in (0, L.width - 1) else e.pos[0] / (L.width - 1)
+            along_b = (back.pos[1] / (Lb.height - 1)) if back.pos[0] in (0, Lb.width - 1) else back.pos[0] / (Lb.width - 1)
+            assert along_a == pytest.approx(along_b, abs=0.08), "the same point along the edge"
+
+
+def test_linked_areas_must_sit_side_by_side_on_the_act_map(fresh_data):
+    fresh_data.area("woods").map_pos = [5, 5]
+    assert any("not side by side" in e for e in validate(fresh_data))

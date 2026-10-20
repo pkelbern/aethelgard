@@ -100,6 +100,7 @@ class AreaLayout:
 class AreaGenerator:
     def __init__(self, data: GameData):
         self._d = data
+        self._tiled_cache: dict[str, AreaLayout] = {}
 
     def generate(self, area: AreaDef, floor: int, master_seed: int, spawn_count: int) -> AreaLayout:
         if area.map:
@@ -115,7 +116,7 @@ class AreaGenerator:
             if area.kind == "dungeon":
                 layout = self._dungeon(area, floor, rng, spawn_count)
             else:
-                layout = self._open(area, rng, spawn_count)
+                layout = self._open(area, rng, spawn_count, master_seed)
             layout.attempts = attempt
             reason = layout.validate() or ""
             if not reason:
@@ -124,7 +125,26 @@ class AreaGenerator:
 
     # ------------------------------------------------------------ open area
 
-    def _open(self, area: AreaDef, rng: Rng, spawn_count: int) -> AreaLayout:
+    def edge_fraction(self, a: AreaDef, b: AreaDef, master_seed: int) -> float:
+        """Where along the shared edge the crossing is (0..1), the same seen from both areas.
+        A hand-made neighbour fixes it with its own exit; otherwise the seed picks it for the pair."""
+        for here, there in ((b, a), (a, b)):
+            if here.map:
+                tl = self._tiled(here.map)
+                e = next((x for x in tl.exits if x.target_area == there.id), None)
+                if e is not None:
+                    side = side_toward(here, there)
+                    along, length = (e.pos[1], tl.height) if side in (EAST, WEST) else (e.pos[0], tl.width)
+                    return along / max(1, length - 1)
+        pair = "|".join(sorted((a.id, b.id)))
+        return Rng.for_label(master_seed, f"edge:{pair}").uniform(0.25, 0.75)
+
+    def _tiled(self, path: str) -> AreaLayout:
+        if path not in self._tiled_cache:
+            self._tiled_cache[path] = load_tiled_map(path)
+        return self._tiled_cache[path]
+
+    def _open(self, area: AreaDef, rng: Rng, spawn_count: int, master_seed: int = 0) -> AreaLayout:
         cw, ch = area.size_chunks or (6, 6)
         w, h = cw * CHUNK, ch * CHUNK
         L = AreaLayout.filled(w, h)
@@ -142,9 +162,13 @@ class AreaGenerator:
         rng.shuffle(edges)
         k = 0
         for link in area.links:
-            if self._d.area(link).kind == "dungeon":
+            other = self._d.area(link)
+            if other.kind == "dungeon":
                 pos, kind = (rng.randint(12, w - 13), rng.randint(12, h - 13)), ExitKind.ENTRANCE
-            else:
+            elif area.map_pos is not None and other.map_pos is not None:  # the side facing the neighbour (continuity)
+                side = side_toward(area, other)
+                pos, kind = _edge_cell_at(L, side, self.edge_fraction(area, other, master_seed)), ExitKind.EDGE
+            else:  # no place on the act map: any free side
                 pos, kind = _edge_cell(L, edges[k % 4], rng), ExitKind.EDGE
                 k += 1
             L.exits.append(Exit(pos, kind, link))
@@ -233,6 +257,24 @@ def _smooth(L: AreaLayout) -> None:
     new = t.copy()
     new[inner] = np.where(n[inner] >= 5, WALL, np.where(n[inner] <= 3, FLOOR, t[inner]))
     L.tiles[:] = new
+
+
+NORTH, EAST, SOUTH, WEST = 0, 1, 2, 3  # same numbers as _edge_cell's edges: y=0, x=w-1, y=h-1, x=0
+
+
+def side_toward(a: AreaDef, b: AreaDef) -> int:
+    """The edge of ``a`` that faces ``b`` on the act map (mapPos)."""
+    dx, dy = b.map_pos[0] - a.map_pos[0], b.map_pos[1] - a.map_pos[1]
+    if abs(dx) >= abs(dy):
+        return EAST if dx > 0 else WEST
+    return SOUTH if dy > 0 else NORTH
+
+
+def _edge_cell_at(L: AreaLayout, side: int, frac: float) -> Cell:
+    """A cell on ``side`` at ``frac`` (0..1) of the way along it, kept 8 cells from the corners."""
+    length = L.height if side in (EAST, WEST) else L.width
+    along = max(8, min(length - 9, round(frac * (length - 1))))
+    return {NORTH: (along, 0), EAST: (L.width - 1, along), SOUTH: (along, L.height - 1), WEST: (0, along)}[side]
 
 
 def _edge_cell(L: AreaLayout, edge: int, rng: Rng) -> Cell:

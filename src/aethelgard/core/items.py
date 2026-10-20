@@ -121,8 +121,6 @@ class LootGenerator:
                 drops.append(GoldDrop(max(1, round(rng.uniform(2.0, 6.0) * item_level))))
             elif kind == "potion":
                 drops.append(PotionDrop("life" if rng.chance(0.6) else "energy"))
-            elif kind == "scroll":
-                drops.append(ScrollDrop("portal"))
             else:
                 minimum = Rarity.MAGIC if need_magic else Rarity.NORMAL
                 drops.append(ItemDrop(self.roll_item(item_level, rank.loot_quality_mult, magic_find, minimum, rng)))

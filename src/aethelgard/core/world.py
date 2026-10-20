@@ -137,6 +137,13 @@ class UseConsumable:
 
 
 @dataclass(frozen=True)
+class OpenPortal:
+    """Open a town portal where the player stands (always available, with a cooldown)."""
+
+    player_id: int
+
+
+@dataclass(frozen=True)
 class TravelWaypoint:
     """From the waypoint you stand on to another one you have touched before."""
 
@@ -212,7 +219,7 @@ class Respawn:
 
 Command = (
     MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
-    | TravelWaypoint | Buy | BuyConsumable | Sell | StashPut | StashTake | StashGold
+    | OpenPortal | TravelWaypoint | Buy | BuyConsumable | Sell | StashPut | StashTake | StashGold
 )
 TOWN_COMMANDS = (Buy, BuyConsumable, Sell, StashPut, StashTake, StashGold)
 
@@ -510,6 +517,8 @@ class World:
             return None
         if isinstance(cmd, UseConsumable):
             return self._use_consumable(p, cmd.consumable_id)
+        if isinstance(cmd, OpenPortal):
+            return self._open_portal(p)
         if isinstance(cmd, TravelWaypoint):
             return self._travel(p, cmd.area_id)
         if isinstance(cmd, TOWN_COMMANDS):
@@ -830,13 +839,7 @@ class World:
             return f"No {c.name} left"
         if not p.cooldowns.ready(cid):
             return None
-        if c.portal:
-            if self.area_id == self.data.town_id:
-                return "You are already in town"
-            self.portals[p.player_id] = TownPortal(self.area_id, self.floor, p.x, p.y)
-            p.exit_cooldown = EXIT_COOLDOWN  # do not step through it the moment it opens
-            self._float(p.x, p.y, "Town Portal", "info")
-        elif c.restore:
+        if c.restore:
             top = p.max_life if c.restore == "life" else p.max_energy
             secs = max(c.seconds, 1e-6)
             p.restores.append([c.restore, top * c.pct_of_max / secs, secs])
@@ -844,6 +847,17 @@ class World:
         s.consumables[cid] -= 1
         p.cooldowns.start(cid, c.cooldown_seconds)
         self.bus.publish(ConsumableUsed(p.player_id, cid))
+        return None
+
+    def _open_portal(self, p: PlayerActor) -> str | None:
+        if self.area_id == self.data.town_id:
+            return "You are already in town"
+        if not p.cooldowns.ready("town_portal"):
+            return f"Town Portal: {p.cooldowns.remaining('town_portal'):.1f}s"
+        self.portals[p.player_id] = TownPortal(self.area_id, self.floor, p.x, p.y)  # replaces the old one
+        p.exit_cooldown = EXIT_COOLDOWN  # do not step through it the moment it opens
+        p.cooldowns.start("town_portal", self.data.balance.town_portal.cooldown_seconds)
+        self._float(p.x, p.y, "Town Portal", "info")
         return None
 
     def take_portal(self, player_id: int) -> None:

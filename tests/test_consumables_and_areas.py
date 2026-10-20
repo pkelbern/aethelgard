@@ -5,7 +5,7 @@ import pytest
 from aethelgard.core.events import ConsumableUsed, ExitReached
 from aethelgard.core.items import GoldDrop
 from aethelgard.core.session import GameSession
-from aethelgard.core.world import UseConsumable, World
+from aethelgard.core.world import OpenPortal, UseConsumable, World
 from aethelgard.core.world_gen import ExitKind
 
 DT = 1 / 60
@@ -49,17 +49,24 @@ def test_potions_have_a_short_cooldown_and_run_out(data):
 
 def test_no_portal_from_town(data):
     s, w, p = world_in(data, data.town_id)
-    s.consumables["portal_scroll"] = 1
-    assert w.apply(UseConsumable(0, "portal_scroll")) == "You are already in town"
-    assert s.consumables["portal_scroll"] == 1
+    assert w.apply(OpenPortal(0)) == "You are already in town"
+
+
+def test_the_town_portal_needs_no_scroll_but_has_a_cooldown(data):
+    s, w, p = world_in(data, "plains")
+    assert "portal_scroll" not in data.items.consumables
+    assert w.apply(OpenPortal(0)) is None and 0 in w.portals
+    assert w.apply(OpenPortal(0)).startswith("Town Portal:"), "cooldown"
+    run(w, data.balance.town_portal.cooldown_seconds + 0.1)
+    p.x += 1
+    assert w.apply(OpenPortal(0)) is None and w.portals[0].x == pytest.approx(p.x), "a new portal replaces the old one"
 
 
 def test_town_portal_round_trip_brings_you_back_to_the_same_spot(data):
     s, w, p = world_in(data, "crypt", 1)
-    s.consumables["portal_scroll"] = 1
     w.monsters.clear()
     here = (p.x, p.y)
-    assert w.apply(UseConsumable(0, "portal_scroll")) is None
+    assert w.apply(OpenPortal(0)) is None
     exits = []
     s.bus.subscribe(ExitReached, exits.append)
     run(w, 1.0)  # standing on it: it only takes you once the short arrival cooldown is over

@@ -188,6 +188,11 @@ class GuardParams:
 
 
 @dataclass
+class TownPortalParams:
+    cooldown_seconds: float = 5.0
+
+
+@dataclass
 class DualWieldParams:
     off_hand_damage_mult: float = 0.7
 
@@ -224,6 +229,7 @@ class BalanceData:
     timing: TimingParams = field(default_factory=TimingParams)
     collision: CollisionParams = field(default_factory=CollisionParams)
     dual_wield: DualWieldParams = field(default_factory=DualWieldParams)
+    town_portal: TownPortalParams = field(default_factory=TownPortalParams)
     loot: LootParams = field(default_factory=LootParams)
 
 
@@ -363,6 +369,7 @@ class AreaDef:
     boss: str | None = None
     waypoint: bool = False
     map: str | None = None  # hand-made Tiled map (relative to aethelgard/data)
+    map_pos: list[int] | None = None  # [x, y] on the act map: which side each edge exit is on
 
     def level_for_floor(self, floor: int) -> int:
         if self.kind != "dungeon":
@@ -568,7 +575,6 @@ class ConsumableDef:
     pct_of_max: float = 0.0
     seconds: float = 0.0
     cooldown_seconds: float = 0.5
-    portal: bool = False
     price: int = 0
 
 
@@ -793,6 +799,20 @@ def validate(d: GameData) -> list[str]:
         errors += [f"areas: '{a.id}' uses missing family '{f}'" for f in a.families if f not in families]
         if a.boss and a.boss not in boss_ids:
             errors.append(f"areas: '{a.id}' has missing boss '{a.boss}'")
+    by_id = {a.id: a for a in d.all_areas}
+    for a in d.all_areas:
+        for lk in a.links:
+            b = by_id.get(lk)
+            if b is None or a.kind == "dungeon" or b.kind == "dungeon":
+                continue  # dungeons are entered from inside an area
+            if a.map_pos is None or b.map_pos is None:
+                errors.append(f"areas: '{a.id}' and '{lk}' share an edge, both need mapPos")
+                continue
+            dx, dy = b.map_pos[0] - a.map_pos[0], b.map_pos[1] - a.map_pos[1]
+            if abs(dx) + abs(dy) != 1:
+                errors.append(f"areas: '{a.id}' {a.map_pos} and '{lk}' {b.map_pos} are linked but not side by side on the act map")
+            if a.id not in b.links:
+                errors.append(f"areas: '{a.id}' links to '{lk}' but not the way back")
     if all(a.kind != "town" for a in d.all_areas):
         errors.append("areas: no town to start in")
 
@@ -829,7 +849,7 @@ def validate(d: GameData) -> list[str]:
     errors += [f"items: base '{b.id}' uses slot '{b.slot}' with no entry in slotNames" for b in d.items.bases if b.slot not in d.items.slot_names]
     accepted = {t for e in d.items.equipment.values() for t in e.accepts}
     errors += [f"items: no equipment slot accepts '{b.slot}' (base '{b.id}')" for b in d.items.bases if b.slot not in accepted]
-    for cid in ("life_potion", "energy_potion", "portal_scroll"):  # what PotionDrop/ScrollDrop give
+    for cid in ("life_potion", "energy_potion"):  # what PotionDrop gives
         if cid not in d.items.consumables:
             errors.append(f"items: consumable '{cid}' missing (drops give it)")
     errors += [f"items: consumable '{k}' restores unknown '{c.restore}'" for k, c in d.items.consumables.items() if c.restore not in (None, "life", "energy")]
