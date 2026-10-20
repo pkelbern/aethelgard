@@ -10,7 +10,8 @@ core/                   regras, sem pygame
    data.py              modelos dos JSON, curvas por fórmula, validate()
    rng.py               xoshiro256** determinístico, Rng.for_label(seed, "rótulo")
    events.py            EventBus e eventos (todos com player_id)
-   progression.py       XpCurve, LevelFactor, XpCalculator, ProficiencySet, CharacterSheet, SkillTrees
+   progression.py       XpCurve, LevelFactor, XpCalculator, ProficiencySet, CharacterSheet, SkillTrees, SkillBar (atalhos)
+   describe.py          texto dos tooltips (habilidades agora, itens no M6-04) a partir de skills.json e stats.json
    combat.py            CombatMath (acerto, armadura, guarda ativa), números do jogador e do monstro
    timing.py            Cooldowns, recuperação de golpe e de bloqueio, recarga de habilidade
    monsters.py          MonsterFactory (nível × rank), PackSpawner, nomes de únicos
@@ -36,6 +37,14 @@ core/                   regras, sem pygame
 | client/vision.py | tcod | campo de visão (`compute_fov`), névoa de guerra, mapa automático |
 | client/ui.py | pygame_gui | janela de árvores (T), console (F1); tema em `data/ui/theme.json` |
 | client/* | pygame-ce | janela, desenho isométrico, entrada, HUD |
+
+## Tooltips, atalhos e teclas
+
+- `data/stats.json`: rótulo e formato de cada atributo (pct, seconds, degrees…). Um catálogo para habilidades e afixos; `validate()` acusa atributo sem entrada.
+- `skills.json`: `effects` crescem por ponto; `base` é fixo depois de aprender (arco do Wide Slash, atordoamento do Shield Bash, 3 s da Bulwark); `description` tem `{stat}` trocado pelo valor do nível mostrado.
+- `SkillTrees.effect_at(nó, stat, pontos)` dá o valor em qualquer nível; o tooltip mostra o atual e o próximo.
+- `SkillBar` (núcleo, salva no personagem) guarda qual habilidade está em cada atalho. `data/ui/keys.json` (cliente) diz qual tecla é cada atalho. O cliente traduz tecla → atalho → habilidade e manda `UseSkill(skill_id)`; o mundo nunca vê teclas.
+- `client/tooltip.py` desenha qualquer lista de `describe.Line`; a barra e a janela de árvores usam o mesmo texto.
 
 ## Laço do jogo
 

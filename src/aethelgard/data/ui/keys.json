@@ -1,0 +1,10 @@
+{
+  "_comment": "Keyboard keys, by pygame key name (pygame.key.key_code). skillBar = one key per action-bar slot, in order; it must have as many keys as skills.json barSlots. Which SKILL sits in each slot is the player's choice (hover a skill in the trees and press the key, or click a slot) and is saved with the character. Default keys follow GDD 12.3 (skills 1–6). The options menu (M7-05) will edit this file.",
+  "skillBar": ["1", "2", "3", "4", "5", "6"],
+  "guard": "space",
+  "skillTrees": "t",
+  "map": "tab",
+  "console": "f1",
+  "save": "f5",
+  "cancel": "escape"
+}

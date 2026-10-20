@@ -10,8 +10,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M0 – Base | 4 | 0 | 8 | 2.5 |
 | M1 – Combate | 6 | 0 | 10 | 5 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
-| M3 – Árvores | 2 | 0 | 7 | 8.5 |
-| M4 – Monstros | 2 | 0 | 6 | 9.5 |
+| M3 – Árvores | 2 | 1 | 7 | 8 |
+| M4 – Monstros | 2 | 1 | 7 | 9.5 |
 | M5 – Mundo | 4 | 0 | 8 | 8.5 |
 | M6 – Loot | 2 | 0 | 8 | 11 |
 | M7 – Vertical slice | 0 | 0 | 8 | 31.5 |
@@ -89,9 +89,9 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [x] **M3-01** Árvores no núcleo: camadas, pontos, sinergias _(código, ~1 d)_  
   SkillTrees com testes (bloqueio de camada, retorno decrescente, respec).
 - [x] **M3-02** Tela de árvores (pygame_gui) _(UI, ~3 d)_  
-  Feito: janela com as 3 árvores (T), botão + por nó, tooltip com valor atual, sinergias e recarga. Falta: arte dos ícones e linhas entre camadas.
-- [ ] **M3-03** Barra de habilidades com contagem regressiva _(UI, ~1 d)_  
-  Feito: Q W E R com setor de recarga e segundos restantes. Falta: arrastar habilidades para a barra e mostrar custo de Energia.
+  Feito: janela com as 3 árvores (T), botão + por nó, tooltip desenhado pelo jogo (core/describe.py) com descrição, valores do nível atual e do próximo, custo, sinergias e requisito. Falta: arte dos ícones e linhas entre camadas.
+- [ ] **M3-03** Barra de habilidades com contagem regressiva _(UI, ~1 d)_ — **escrito, validar**  
+  Feito: barra de 6 atalhos (GDD 6.1) nas teclas 1–6 (data/ui/keys.json), setor de recarga e segundos. O jogador escolhe a habilidade de cada tecla: passar o mouse na árvore e apertar a tecla, ou clicar no atalho (seletor); clique direito limpa. Habilidade nova vai para o primeiro atalho livre. Salva com o personagem (save v3). Tooltip ao passar o mouse no atalho. Falta: arrastar e soltar; clique direito para usar habilidade (GDD 12.3).
 - [ ] **M3-04** Implementar as ativas que faltam _(código, ~3 d)_  
   Feitas: Precise Strike, Shield Bash (atordoa), Wide Slash (arco), Bulwark (guarda 360°). Faltam: Charge, Whirlwind, Shield Throw, War Cry.
 - [ ] **M3-05** Implementar os passivos do MVP _(código, ~3 d)_  
@@ -117,6 +117,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   2–3 ataques telegrafados e uma fase abaixo de 50% de vida.
 - [ ] **M4-06** Desativar monstros longe do jogador _(desempenho, ~0.5 d)_  
   Pausar _Process fora de um raio. Critério: custo de CPU estável em áreas cheias.
+- [ ] **M4-07** Nome do monstro ao passar o mouse (GDD 12.1) _(UI, ~0.5 d)_ — **escrito, validar**  
+  Nome na cor do rank (branco, azul champion, dourado único, lilás chefe), contorno nos pés e quadro no topo com vida, nível, rank e modificadores. Vale para todos os monstros, não só únicos e champions.
 
 ## M5 – Mundo
 

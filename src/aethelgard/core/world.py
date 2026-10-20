@@ -56,6 +56,13 @@ TARGET_SKILLS = {"precise_strike", "shield_bash"}
 AREA_SKILLS = {"wide_slash"}
 SELF_SKILLS = {"bulwark"}
 IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS
+# Passives whose effect the rules already read (combat.py, world.py); the rest are M3-05.
+IMPLEMENTED_PASSIVES = {"sharp_blade", "defensive_stance", "parry", "heavy_shield", "iron_skin", "recovery", "steadfast"}
+
+
+def is_implemented(node_id: str) -> bool:
+    """Tooltips warn about nodes that accept points but do nothing in the prototype yet."""
+    return node_id in IMPLEMENTED_SKILLS or node_id in IMPLEMENTED_PASSIVES
 
 PLAYER_SPEED = 4.5  # tiles/s
 MELEE_RANGE = 1.4
@@ -325,8 +332,7 @@ class World:
             if p.busy or not p.cooldowns.ready("global"):
                 return None
             self._commit_skill(p, cmd.skill_id)
-            secs = 3 + p.session.skills.effect("bulwark", "durationSeconds")
-            p.bulwark_left = secs
+            p.bulwark_left = p.session.skills.effect("bulwark", "durationSeconds")  # 3 s base + per point (skills.json)
             self._float(p.x, p.y, "Bulwark!", "info")
             return None
         if cmd.skill_id in AREA_SKILLS:
@@ -470,7 +476,7 @@ class World:
         skill = p.attack_skill
         targets: list[MonsterActor] = []
         if skill in AREA_SKILLS:
-            arc = self.data.node("wide_slash").effects.get("arcDegrees", 120)  # fixed arc; points raise the damage
+            arc = s.skills.effect("wide_slash", "arcDegrees")  # fixed arc (base); points raise the damage
             for m in self.monsters.values():
                 if m.alive and math.hypot(m.x - p.x, m.y - p.y) <= MELEE_RANGE + 0.4:
                     if s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc):
@@ -488,7 +494,7 @@ class World:
                 continue
             self._damage_monster(p, t, r.final, prof, crit=r.crit)
             if skill == "shield_bash" and t.alive:
-                self._stun_monster(t, self.data.node("shield_bash").effects.get("stunSeconds", 0.6))
+                self._stun_monster(t, s.skills.effect("shield_bash", "stunSeconds"))
 
     def _damage_monster(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str, crit: bool = False) -> None:
         eff = t.monster.take_damage(amount)

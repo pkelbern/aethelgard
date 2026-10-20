@@ -12,17 +12,19 @@ from .events import EventBus
 from .items import GoldDrop, Inventory, ItemDrop, Loadout, LootGenerator, PotionDrop, ScrollDrop
 from .monsters import MonsterFactory, MonsterPack, PackKind, PackSpawner
 from .progression import (
+    Allocate,
     CharacterSheet,
     LevelFactor,
     ProficiencySet,
+    SkillBar,
     SkillTrees,
     XpCalculator,
 )
 from .rng import Rng
 from .world_gen import AreaGenerator, AreaLayout
 
-# v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables.
-SAVE_VERSION = 2
+# v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables. v3: + action bar.
+SAVE_VERSION = 3
 DEFAULT_NAME = "Wanderer"
 
 
@@ -55,6 +57,7 @@ class GameSession:
         self.proficiencies = ProficiencySet(data, self.xp, self.bus, player_id)
         self.character = CharacterSheet(data, self.proficiencies)
         self.skills = SkillTrees(data.skills, self.proficiencies)
+        self.skill_bar = SkillBar(self.skills, data.skills.bar_slots)
         self.combat = CombatMath(data.balance.combat, data.balance.guard)
         self.monster_factory = MonsterFactory(data)
         self.spawner = PackSpawner(data, self.monster_factory)
@@ -71,6 +74,13 @@ class GameSession:
         packs = [] if area.kind == "town" else self.spawner.spawn_area(area, floor, rng)
         layout = self.area_gen.generate(area, floor, self.master_seed, sum(1 for p in packs if p.kind != PackKind.BOSS))
         return layout, packs
+
+    def allocate_skill(self, node_id: str) -> Allocate:
+        """Spends a tree point; a newly learned active goes to the first free slot of the bar."""
+        r = self.skills.allocate(node_id)
+        if r is Allocate.OK:
+            self.skill_bar.auto_bind(node_id)
+        return r
 
     def collect(self, drop) -> bool:
         """Puts a drop where it belongs. False when it does not fit (backpack full)."""
@@ -108,6 +118,7 @@ class GameSession:
                 "gold": self.gold,
                 "proficiencyXp": {p.id: p.xp for p in self.proficiencies},
                 "skillPoints": dict(self.skills.points),
+                "skillBar": self.skill_bar.to_list(),
                 "gear": self.gear.to_dict(),
                 "inventory": self.inventory.to_list(),
                 "consumables": dict(self.consumables),
@@ -131,6 +142,10 @@ class GameSession:
             if pid in s.proficiencies:
                 s.proficiencies.set_xp(pid, xp)
         s.skills.restore(raw.get("skillPoints", {}))
+        if "skillBar" in raw:
+            s.skill_bar.restore(raw["skillBar"])
+        else:  # v1/v2 saves: learned actives fill the bar in tree order
+            s.skill_bar.sync()
         if "gear" in raw:  # v1 saves keep the starting gear
             s.gear = Loadout.from_dict(data, raw["gear"])
         s.inventory.load_list(data, raw.get("inventory", []))

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import string
 from collections.abc import Callable
 from dataclasses import dataclass, field, fields, is_dataclass
 from importlib import resources
@@ -206,6 +207,7 @@ class BalanceData:
 @dataclass
 class MonsterRankDef:
     id: str = ""
+    name: str = ""
     level_bonus: int = 0
     hp_mult: float = 1
     xp_mult: float = 1
@@ -367,7 +369,15 @@ class SkillNodeDef:
     energy_cost: float = 0
     cooldown: float = 0
     channeled: bool = False
-    effects: dict[str, float] = field(default_factory=dict)
+    short_name: str = ""
+    description: str = ""
+    effects: dict[str, float] = field(default_factory=dict)  # per point
+    base: dict[str, float] = field(default_factory=dict)  # fixed once learned
+
+    @property
+    def stat_ids(self) -> list[str]:
+        """Stats of this node in display order: fixed ones first, then the ones that grow per point."""
+        return list(dict.fromkeys([*self.base, *self.effects]))
 
 
 @dataclass
@@ -381,8 +391,27 @@ class SynergyDef:
 @dataclass
 class SkillsData:
     diminishing_after: int = 8
+    bar_slots: int = 6
     nodes: list[SkillNodeDef] = field(default_factory=list)
     synergies: list[SynergyDef] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------- stats (tooltip catalog)
+
+STAT_FORMATS = ("pct", "flat", "seconds", "degrees", "tiles", "count", "flag")
+
+
+@dataclass
+class StatDef:
+    id: str = ""
+    label: str = ""
+    format: str = "flat"
+    signed: bool = True
+
+
+@dataclass
+class StatsData:
+    stats: list[StatDef] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------- items
@@ -496,6 +525,7 @@ class GameData:
     proficiencies: ProficienciesData
     skills: SkillsData
     items: ItemsData
+    stats: StatsData
     monster_levels: list[MonsterLevelRow] = field(default_factory=list)
     xp_total_by_level: list[int] = field(default_factory=list)
 
@@ -509,6 +539,7 @@ class GameData:
         "proficiencies": ("proficiencies.json", ProficienciesData),
         "skills": ("skills.json", SkillsData),
         "items": ("items.json", ItemsData),
+        "stats": ("stats.json", StatsData),
     }
 
     # ---- loading
@@ -589,6 +620,9 @@ class GameData:
     def area(self, area_id: str) -> AreaDef:
         return _find(self.all_areas, area_id, "area")
 
+    def proficiency(self, prof_id: str) -> ProficiencyDef:
+        return _find(self.proficiencies.proficiencies, prof_id, "proficiency")
+
     def node(self, node_id: str) -> SkillNodeDef:
         return _find(self.skills.nodes, node_id, "node")
 
@@ -597,6 +631,34 @@ class GameData:
 
     def affix(self, affix_id: str) -> AffixDef:
         return _find(self.items.affixes, affix_id, "affix")
+
+    def stat(self, stat_id: str) -> StatDef:
+        return _find(self.stats.stats, stat_id, "stat")
+
+
+def _validate_stats(d: GameData) -> list[str]:
+    """Every stat a tooltip may show has a label and a format, and every description placeholder exists."""
+    errors: list[str] = []
+    stat_ids = {s.id for s in d.stats.stats}
+    if len(stat_ids) != len(d.stats.stats):
+        errors.append("stats: duplicate stat ids")
+    errors += [f"stats: '{s.id}' has unknown format '{s.format}'" for s in d.stats.stats if s.format not in STAT_FORMATS]
+    used = {(f"node '{n.id}'", k) for n in d.skills.nodes for k in n.stat_ids}
+    used |= {(f"synergy into '{s.target}'", s.stat) for s in d.skills.synergies}
+    used |= {(f"affix '{a.id}'", a.stat) for a in d.items.affixes}
+    errors += [f"stats: {where} uses '{stat}', missing from stats.json" for where, stat in sorted(used) if stat not in stat_ids]
+    for n in d.skills.nodes:
+        if not n.description:
+            errors.append(f"skills: node '{n.id}' has no description")
+            continue
+        known = set(n.stat_ids) | {s.stat for s in d.skills.synergies if s.target == n.id}
+        try:
+            fields_ = {f for _, f, _, _ in string.Formatter().parse(n.description) if f}
+        except ValueError as ex:
+            errors.append(f"skills: node '{n.id}' description is malformed ({ex})")
+            continue
+        errors += [f"skills: node '{n.id}' description uses unknown stat '{{{f}}}'" for f in sorted(fields_ - known)]
+    return errors
 
 
 def validate(d: GameData) -> list[str]:
@@ -609,6 +671,7 @@ def validate(d: GameData) -> list[str]:
     for r in ("normal", "champion", "berserker", "unique", "minion", "boss"):
         if all(x.id != r for x in d.ranks.ranks):
             errors.append(f"monster_ranks: missing '{r}'")
+    errors += [f"monster_ranks: '{x.id}' has no name" for x in d.ranks.ranks if not x.name]
 
     families = {f.id for f in d.monsters.families}
     for t in d.monsters.types:
@@ -646,6 +709,9 @@ def validate(d: GameData) -> list[str]:
     for s in d.skills.synergies:
         if s.target not in node_ids or s.from_ not in node_ids:
             errors.append(f"skills: synergy {s.from_} → {s.target} references a missing node")
+    if d.skills.bar_slots < 1:
+        errors.append("skills: barSlots must be at least 1")
+    errors += _validate_stats(d)
 
     for a in d.items.affixes:
         if not a.tiers:

@@ -1,11 +1,14 @@
 {
- "_comment": "Trees per proficiency. Bulwark: free 360° guard for (3 + durationSeconds×points) s. layer = proficiency level that unlocks the node. perPoint = value gained per point; after 'diminishingAfter' points the gain is halved. synergies: bonus THIS node gets per point invested in 'from'. cooldown = cooldown in seconds (actives). Hit/block recovery: Steadfast (fasterHitRecovery) and Defensive Stance (fasterBlockRecovery).",
+ "_comment": "Trees per proficiency. layer = proficiency level that unlocks the node. effects = value gained PER POINT; after 'diminishingAfter' points the gain is halved. base = fixed value the node has once learned, not multiplied by points (Wide Slash arc, Shield Bash stun, Bulwark 3 s + 0.2 s per point). synergies: bonus THIS node gets per point invested in 'from'. cooldown = cooldown in seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); the keys for each slot are in ui/keys.json.",
  "diminishingAfter": 8,
+ "barSlots": 6,
  "nodes": [
   {
    "id": "precise_strike",
    "tree": "blades",
    "name": "Precise Strike",
+   "shortName": "Precise",
+   "description": "A focused strike against one enemy that deals {damagePct} more damage and gains {accuracyPct} accuracy.",
    "layer": 1,
    "kind": "active",
    "maxPoints": 15,
@@ -20,6 +23,7 @@
    "id": "sharp_blade",
    "tree": "blades",
    "name": "Sharp Blade",
+   "description": "Your sword cuts deeper: {swordDamagePct} more damage with swords. Also boosts Shield Bash.",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -31,20 +35,25 @@
    "id": "wide_slash",
    "tree": "blades",
    "name": "Wide Slash",
+   "shortName": "Slash",
+   "description": "Sweeps every enemy in a {arcDegrees} arc in front of you, aimed at the mouse, dealing {damagePct} more damage.",
    "layer": 6,
    "kind": "active",
    "maxPoints": 15,
    "energyCost": 5,
    "effects": {
-    "damagePct": 0.1,
-    "arcDegrees": 120
+    "damagePct": 0.1
    },
-   "cooldown": 2.0
+   "cooldown": 2.0,
+   "base": {
+    "arcDegrees": 120
+   }
   },
   {
    "id": "bleed",
    "tree": "blades",
    "name": "Bleed",
+   "description": "Hits have a {bleedChance} chance to make the enemy bleed, taking {bleedDamagePct} of your weapon damage each second.",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -57,25 +66,32 @@
    "id": "charge",
    "tree": "blades",
    "name": "Charge",
+   "shortName": "Charge",
+   "description": "Rush up to {rangeTiles} toward the target and strike it, dealing {damagePct} more damage.",
    "layer": 12,
    "kind": "active",
    "maxPoints": 15,
    "energyCost": 6,
    "effects": {
-    "damagePct": 0.2,
-    "rangeTiles": 6
+    "damagePct": 0.2
    },
-   "cooldown": 6.0
+   "cooldown": 6.0,
+   "base": {
+    "rangeTiles": 6
+   }
   },
   {
    "id": "combat_rhythm",
    "tree": "blades",
    "name": "Combat Rhythm",
+   "description": "Each hit in a row grants {attackSpeedPerStackPct} attack speed, stacking up to {maxStacks} times.",
    "layer": 12,
    "kind": "passive",
    "maxPoints": 10,
    "effects": {
-    "attackSpeedPerStackPct": 0.02,
+    "attackSpeedPerStackPct": 0.02
+   },
+   "base": {
     "maxStacks": 5
    }
   },
@@ -83,6 +99,8 @@
    "id": "whirlwind",
    "tree": "blades",
    "name": "Whirlwind",
+   "shortName": "Whirl",
+   "description": "Spin while you hold the key, hitting every enemy around you with {damagePct} more damage. Drains Energy every second.",
    "layer": 18,
    "kind": "active",
    "maxPoints": 15,
@@ -97,11 +115,14 @@
    "id": "killing_blow",
    "tree": "blades",
    "name": "Killing Blow",
+   "description": "{critChanceLowLife} more critical chance against enemies below {lowLifeThreshold} life.",
    "layer": 18,
    "kind": "passive",
    "maxPoints": 10,
    "effects": {
-    "critChanceLowLife": 0.03,
+    "critChanceLowLife": 0.03
+   },
+   "base": {
     "lowLifeThreshold": 0.3
    }
   },
@@ -109,6 +130,7 @@
    "id": "defensive_stance",
    "tree": "shield",
    "name": "Defensive Stance",
+   "description": "Blocking costs less: {guardEfficiency} guard efficiency (less Energy per block) and {fasterBlockRecovery} faster block recovery.",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -121,20 +143,25 @@
    "id": "shield_bash",
    "tree": "shield",
    "name": "Shield Bash",
+   "shortName": "Bash",
+   "description": "Slam one enemy with your shield for {damagePct} more damage and stun it for {stunSeconds}. Unique monsters and bosses shake the stun off faster.",
    "layer": 1,
    "kind": "active",
    "maxPoints": 15,
    "energyCost": 4,
    "effects": {
-    "damagePct": 0.1,
-    "stunSeconds": 0.6
+    "damagePct": 0.1
    },
-   "cooldown": 4.0
+   "cooldown": 4.0,
+   "base": {
+    "stunSeconds": 0.6
+   }
   },
   {
    "id": "parry",
    "tree": "shield",
    "name": "Parry",
+   "description": "Widens the perfect window at the start of the guard by {perfectWindowSeconds}. A perfect block counterattacks for {counterDamagePct} more damage.",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -147,6 +174,7 @@
    "id": "heavy_shield",
    "tree": "shield",
    "name": "Heavy Shield",
+   "description": "{shieldArmorPct} more shield armor and a guard arc {guardArcDegrees} wider.",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -159,21 +187,27 @@
    "id": "bulwark",
    "tree": "shield",
    "name": "Bulwark",
+   "shortName": "Bulwark",
+   "description": "For {durationSeconds} your raised guard covers all around you (360°) and blocks without spending Energy. Hold the guard key to make use of it.",
    "layer": 12,
    "kind": "active",
    "maxPoints": 15,
    "energyCost": 10,
    "effects": {
-    "durationSeconds": 0.2,
-    "fullCircleGuard": 1,
-    "freeBlocks": 1
+    "durationSeconds": 0.2
    },
-   "cooldown": 20.0
+   "cooldown": 20.0,
+   "base": {
+    "fullCircleGuard": 1,
+    "freeBlocks": 1,
+    "durationSeconds": 3
+   }
   },
   {
    "id": "riposte",
    "tree": "shield",
    "name": "Riposte",
+   "description": "After a block, your next attack deals {damageAfterBlockPct} more damage.",
    "layer": 12,
    "kind": "passive",
    "maxPoints": 10,
@@ -185,20 +219,25 @@
    "id": "shield_throw",
    "tree": "shield",
    "name": "Shield Throw",
+   "shortName": "Throw",
+   "description": "Throw your shield at an enemy; it bounces {bounces} times between enemies, each hit dealing {damagePct} more damage.",
    "layer": 18,
    "kind": "active",
    "maxPoints": 15,
    "energyCost": 8,
    "effects": {
-    "damagePct": 0.15,
-    "bounces": 2
+    "damagePct": 0.15
    },
-   "cooldown": 5.0
+   "cooldown": 5.0,
+   "base": {
+    "bounces": 2
+   }
   },
   {
    "id": "bastion",
    "tree": "shield",
    "name": "Bastion",
+   "description": "{allResistWithShield} to all resistances while a shield is equipped.",
    "layer": 18,
    "kind": "passive",
    "maxPoints": 10,
@@ -210,6 +249,7 @@
    "id": "iron_skin",
    "tree": "armor",
    "name": "Iron Skin",
+   "description": "{armorPct} more total armor.",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -221,6 +261,7 @@
    "id": "recovery",
    "tree": "armor",
    "name": "Recovery",
+   "description": "Regenerates {lifeRegenPerSecond} life per second, even in combat.",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -232,6 +273,7 @@
    "id": "steadfast",
    "tree": "armor",
    "name": "Steadfast",
+   "description": "Stuns and knockbacks on you are {ccReduction} shorter, and you recover from heavy hits {fasterHitRecovery} faster.",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -244,11 +286,14 @@
    "id": "second_wind",
    "tree": "armor",
    "name": "Second Wind",
+   "description": "When your life drops below {threshold}, you instantly heal {healPctOfMax} of your max life. Works once every {cooldownSeconds}.",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
    "effects": {
-    "healPctOfMax": 0.05,
+    "healPctOfMax": 0.05
+   },
+   "base": {
     "threshold": 0.25,
     "cooldownSeconds": 60
    }
@@ -257,21 +302,26 @@
    "id": "war_cry",
    "tree": "armor",
    "name": "War Cry",
+   "shortName": "War Cry",
+   "description": "Enemies within {radiusTiles} deal {enemyDamageReduction} less damage for {durationSeconds}.",
    "layer": 12,
    "kind": "active",
    "maxPoints": 15,
    "energyCost": 8,
    "effects": {
-    "enemyDamageReduction": 0.03,
+    "enemyDamageReduction": 0.03
+   },
+   "cooldown": 15.0,
+   "base": {
     "durationSeconds": 6,
     "radiusTiles": 5
-   },
-   "cooldown": 15.0
+   }
   },
   {
    "id": "elemental_resistance",
    "tree": "armor",
    "name": "Elemental Resistance",
+   "description": "Adds {elementalResist} to fire, cold and lightning resistance.",
    "layer": 12,
    "kind": "passive",
    "maxPoints": 10,
@@ -283,11 +333,14 @@
    "id": "unshakable",
    "tree": "armor",
    "name": "Unshakable",
+   "description": "{deferredDamagePct} of the damage you take is delayed and spread over {deferSeconds}.",
    "layer": 18,
    "kind": "passive",
    "maxPoints": 10,
    "effects": {
-    "deferredDamagePct": 0.03,
+    "deferredDamagePct": 0.03
+   },
+   "base": {
     "deferSeconds": 3
    }
   },
@@ -295,6 +348,7 @@
    "id": "colossus",
    "tree": "armor",
    "name": "Colossus",
+   "description": "{maxLifePct} more max life and {damagePerMissingLife10Pct} more damage for every 10% of life you are missing.",
    "layer": 18,
    "kind": "passive",
    "maxPoints": 10,

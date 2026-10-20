@@ -358,15 +358,115 @@ class SkillTrees:
         n = self._d.diminishing_after
         return points if points <= n else n + (points - n) * 0.5
 
-    def effect(self, node_id: str, stat: str) -> float:
-        """Effect value with diminishing returns and synergies."""
+    def level_of(self, tree: str) -> int:
+        return self._profs[tree].level
+
+    def synergies_into(self, node_id: str):
+        return [s for s in self._d.synergies if s.target == node_id]
+
+    def stats_of(self, node_id: str) -> list[str]:
+        """Every stat the node has: fixed, per point and received from synergies, in display order."""
         n = self._nodes[node_id]
-        value = n.effects.get(stat, 0.0) * self.effective_points(self.points_in(node_id))
-        for s in self._d.synergies:
-            if s.target == node_id and s.stat == stat:
+        return list(dict.fromkeys([*n.stat_ids, *(s.stat for s in self.synergies_into(node_id))]))
+
+    def effect_at(self, node_id: str, stat: str, points: int) -> float:
+        """Value of a stat if the node had ``points`` points (tooltips show the next level with this).
+
+        Once learned: fixed ``base`` + per-point ``effects`` with diminishing returns. Synergies always
+        count, with the points currently in the source node.
+        """
+        n = self._nodes[node_id]
+        value = n.base.get(stat, 0.0) + n.effects.get(stat, 0.0) * self.effective_points(points) if points > 0 else 0.0
+        for s in self.synergies_into(node_id):
+            if s.stat == stat:
                 value += s.per_point * self.points_in(s.from_)
         return value
 
+    def effect(self, node_id: str, stat: str) -> float:
+        """Current value of a stat, with diminishing returns and synergies."""
+        return self.effect_at(node_id, stat, self.points_in(node_id))
+
     def stat_total(self, stat: str) -> float:
-        """Sum of one effect over every node with points (for generic bonuses such as fasterHitRecovery)."""
-        return sum(self.effect(nid, stat) for nid in self.points if stat in self._nodes[nid].effects)
+        """Sum of one stat over every node with points (for generic bonuses such as fasterHitRecovery)."""
+        return sum(self.effect(nid, stat) for nid in self.points if stat in self._nodes[nid].stat_ids)
+
+    def learned_actives(self) -> list[str]:
+        """Active nodes with points, in tree order: what can go on the action bar."""
+        return [n.id for n in self._d.nodes if n.kind == "active" and self.points_in(n.id) > 0]
+
+
+class Bind(Enum):
+    OK = "ok"
+    NOT_ACTIVE = "only active skills go on the bar"
+    NOT_LEARNED = "learn the skill first"
+    BAD_SLOT = "no such slot"
+
+
+class SkillBar:
+    """Active skills bound to the action bar slots (GDD 6.1). The client maps each slot to a key.
+
+    Each skill sits in at most one slot: binding it elsewhere moves it, and the skill that was in
+    the target slot goes to the old place (a swap). It belongs to the character and is saved with it.
+    """
+
+    def __init__(self, trees: SkillTrees, size: int):
+        self._trees = trees
+        self.slots: list[str | None] = [None] * size
+
+    def __len__(self) -> int:
+        return len(self.slots)
+
+    def skill_at(self, slot: int) -> str | None:
+        return self.slots[slot] if 0 <= slot < len(self.slots) else None
+
+    def slot_of(self, node_id: str) -> int | None:
+        return self.slots.index(node_id) if node_id in self.slots else None
+
+    def can_bind(self, slot: int, node_id: str) -> Bind:
+        if not 0 <= slot < len(self.slots):
+            return Bind.BAD_SLOT
+        try:
+            node = self._trees.node(node_id)
+        except KeyError:
+            return Bind.NOT_ACTIVE
+        if node.kind != "active":
+            return Bind.NOT_ACTIVE
+        if self._trees.points_in(node_id) <= 0:
+            return Bind.NOT_LEARNED
+        return Bind.OK
+
+    def bind(self, slot: int, node_id: str) -> Bind:
+        r = self.can_bind(slot, node_id)
+        if r is Bind.OK:
+            old = self.slot_of(node_id)
+            if old is not None:
+                self.slots[old] = self.slots[slot]
+            self.slots[slot] = node_id
+        return r
+
+    def clear(self, slot: int) -> None:
+        if 0 <= slot < len(self.slots):
+            self.slots[slot] = None
+
+    def auto_bind(self, node_id: str) -> int | None:
+        """A newly learned active goes to the first free slot, if there is one and it is not on the bar yet."""
+        if self.slot_of(node_id) is not None or None not in self.slots:
+            return None
+        slot = self.slots.index(None)
+        return slot if self.bind(slot, node_id) is Bind.OK else None
+
+    def sync(self) -> None:
+        """Drops skills that are no longer learned (respec) and fills free slots with learned actives."""
+        self.slots = [x if x is not None and self.can_bind(i, x) is Bind.OK else None for i, x in enumerate(self.slots)]
+        for node_id in self._trees.learned_actives():
+            self.auto_bind(node_id)
+
+    def to_list(self) -> list[str | None]:
+        return list(self.slots)
+
+    def restore(self, slots: list[str | None]) -> None:
+        """Puts back a saved bar exactly (empty slots stay empty), skipping what no longer fits."""
+        self.slots = [None] * len(self.slots)
+        for i, node_id in enumerate(slots[: len(self.slots)]):
+            if node_id is not None:
+                self.bind(i, node_id)

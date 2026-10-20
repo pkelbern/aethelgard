@@ -43,6 +43,28 @@ FLOAT = {
 
 RARITY = {0: (220, 220, 220), 1: (110, 140, 255), 2: (255, 224, 102), 3: (200, 160, 80)}
 
+# Monster name color by rank (D2 convention): white for the common ones, blue for champions, gold for uniques.
+RANK_NAME = {
+    "normal": RARITY[0],
+    "minion": RARITY[0],
+    "champion": RARITY[1],
+    "berserker": RARITY[1],
+    "unique": (240, 190, 50),
+    "boss": (236, 120, 236),
+}
+
+
+def rank_name_color(rank_id: str) -> tuple[int, int, int]:
+    return RANK_NAME.get(rank_id, RANK_NAME["normal"])
+
+
+# Tooltips
+NEXT = (140, 200, 255)
+GOOD = (120, 210, 140)
+WARN = (232, 132, 92)
+HINT = (190, 180, 150)
+TOOLTIP_BG = (16, 17, 22, 238)
+
 THEMES = {
     "town": {
         "solid_walls": True,

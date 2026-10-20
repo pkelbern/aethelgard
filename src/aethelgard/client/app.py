@@ -10,26 +10,26 @@ from pathlib import Path
 import pygame
 
 from ..core.data import GameData
+from ..core.describe import Line, describe_skill
 from ..core.events import ExitReached, FloatingText, LootPicked, PlayerDied, ProficiencyLeveledUp
 from ..core.items import GoldDrop, ItemDrop, PotionDrop, ScrollDrop
+from ..core.progression import Bind
 from ..core.saves import SaveStore
 from ..core.session import GameSession
 from ..core.simulation import run_act
-from ..core.world import AttackTarget, MonsterActor, MoveTo, SetGuard, UseSkill, World
+from ..core.world import AttackTarget, MonsterActor, MoveTo, SetGuard, UseSkill, World, is_implemented
 from ..core.world_gen import ExitKind
 from . import palette as C
-from .hud import SKILL_BAR, Hud
+from .hud import Hud
 from .iso import Camera, MapRenderer
+from .keys import KeyMap
+from .tooltip import draw_tooltip
 from .ui import GameUI
 from .vision import Vision
 
 FPS = 60
 DT = 1 / FPS
-POINT_KEYS = {
-    pygame.K_1: "sharp_blade", pygame.K_2: "precise_strike", pygame.K_3: "defensive_stance",
-    pygame.K_4: "shield_bash", pygame.K_5: "iron_skin", pygame.K_6: "recovery", pygame.K_7: "parry",
-}
-SKILL_KEYS = {getattr(pygame, f"K_{k.lower()}"): skill for k, skill in SKILL_BAR}
+MONSTER_RADIUS = {"boss": 22, "unique": 15, "champion": 13, "berserker": 13}  # body size on screen, by rank (default 10)
 CONSOLE_HELP = (
     "save · load · bag · xp <prof> <amount> · level <prof> <n> · point <node> · area <id> [floor] · "
     "god · kill · heal · reveal · sim · seed"
@@ -62,8 +62,10 @@ class Game:
         self.data = GameData.load()
         self.seed = seed if seed is not None else time.time_ns() & 0xFFFFFFFF
         self.store = SaveStore(save_dir)
+        self.keys = KeyMap.load(self.data.skills.bar_slots)
         self.cam = Camera(*size)
-        self.hud = Hud(self.fonts)
+        self.hud = Hud(self.fonts, self.keys)
+        self.hovered: MonsterActor | None = None
         self.vision = Vision()
         self.big_map = False
         self.floaters: list[Floater] = []
@@ -169,16 +171,73 @@ class Game:
         return self.cam.to_grid(mx, my)
 
     def monster_under_mouse(self) -> MonsterActor | None:
+        """Visible monster whose body is under the cursor (a little margin around it), the closest one first."""
         mx, my = pygame.mouse.get_pos()
-        best, best_d = None, 30.0
+        best, best_d = None, math.inf
         for m in self.world.monsters.values():
             if not self.vision.sees(m.x, m.y):
                 continue
+            r = MONSTER_RADIUS.get(m.monster.rank.id, 10)
             sx, sy = self.cam.to_screen(m.x, m.y)
-            d = math.hypot(sx - mx, sy - 14 - my)
-            if d < best_d:
+            d = math.hypot(sx - mx, sy - r - my)
+            if d <= r + 12 and d < best_d:
                 best, best_d = m, d
         return best
+
+    def slot_under_mouse(self) -> int | None:
+        return self.hud.slot_at(pygame.mouse.get_pos(), len(self.session.skill_bar), self.screen.get_size())
+
+    def _update_hover(self) -> None:
+        over_hud = self.ui.over_ui or self.slot_under_mouse() is not None
+        self.hovered = None if over_hud else self.monster_under_mouse()
+
+    # ------------------------------------------------------------ action bar
+
+    def bind_slot(self, slot: int, node_id: str | None) -> None:
+        """Puts a skill on a bar key (None clears the key). Messages say why when it cannot."""
+        bar, label = self.session.skill_bar, self.keys.slot_label(slot)
+        if node_id is None:
+            bar.clear(slot)
+            self.hud.add(f"Key {label} cleared.", C.MUTED)
+        else:
+            name = self.data.node(node_id).name
+            r = bar.bind(slot, node_id)
+            self.hud.add(f"{name} on key {label}." if r is Bind.OK else f"{name}: {r.value}", C.TEXT if r is Bind.OK else C.MUTED)
+        self.ui.refresh_tree_if_open()
+
+    def use_slot(self, slot: int) -> None:
+        skill = self.session.skill_bar.skill_at(slot)
+        if skill is None:
+            self.hud.add(f"Key {self.keys.slot_label(slot)} is empty: click the slot to choose a skill.", C.MUTED)
+            return
+        target = self.hovered or self.nearest_monster()
+        gx, gy = self.mouse_grid()
+        msg = self.world.apply(UseSkill(self.session.player_id, skill, target.id if target else None, gx, gy))
+        if msg:
+            self.hud.add(msg, C.MUTED)
+
+    def skill_tooltip(self) -> list[Line] | None:
+        """Lines for the skill under the mouse: a node in the tree window or a slot of the bar."""
+        pos = pygame.mouse.get_pos()
+        bar, keys = self.session.skill_bar, self.keys
+        node_id = self.ui.hovered_node(pos)
+        if node_id is not None:
+            return self._skill_lines(node_id, f"Hover and press {keys.bar_labels} to put it on that key.")
+        slot = None if self.ui.over_ui else self.slot_under_mouse()
+        if slot is None:
+            return None
+        node_id = bar.skill_at(slot)
+        if node_id is None:
+            return [Line(f"Key {keys.slot_label(slot)}: empty", "title"), Line("Click to choose a skill for this key.", "hint")]
+        return self._skill_lines(node_id, "Click: choose another skill  ·  Right-click: clear this key")
+
+    def _skill_lines(self, node_id: str, hint: str) -> list[Line]:
+        lines = describe_skill(self.data, self.session.skills, node_id, is_implemented(node_id))
+        if self.data.node(node_id).kind == "active":
+            slot = self.session.skill_bar.slot_of(node_id)
+            lines.append(Line(f"On the bar: key {self.keys.slot_label(slot)}" if slot is not None else "Not on the bar.", "hint"))
+            lines.append(Line(hint, "hint"))
+        return lines
 
     def nearest_monster(self, max_tiles: float = 3.0) -> MonsterActor | None:
         p = self.player
@@ -196,47 +255,54 @@ class Game:
                 continue
             if self.ui.process(ev) or self.ui.typing:
                 continue  # the interface (windows, text field) consumed the event
-            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-                target = self.monster_under_mouse()
-                if target is not None and not self.player.guarding:
-                    self.world.apply(AttackTarget(pid, target.id))
-                else:
-                    self.world.apply(MoveTo(pid, *self.mouse_grid()))
-            elif ev.type != pygame.KEYDOWN:
-                continue
-            elif ev.key in SKILL_KEYS:
-                skill = SKILL_KEYS[ev.key]
-                target = self.monster_under_mouse() or self.nearest_monster()
-                gx, gy = self.mouse_grid()
-                msg = self.world.apply(UseSkill(pid, skill, target.id if target else None, gx, gy))
-                if msg:
-                    self.hud.add(msg, C.MUTED)
-            elif ev.key in POINT_KEYS:
-                node = POINT_KEYS[ev.key]
-                r = self.session.skills.allocate(node)
-                name = self.data.node(node).name
-                self.hud.add(f"+1 {name} ({self.session.skills.points_in(node)})" if r.name == "OK" else f"{name}: {r.value}", C.TEXT)
-                if self.ui.tree:
-                    self.ui.refresh_tree()
-            elif ev.key == pygame.K_F5:
-                self.save_game()
-            elif ev.key == pygame.K_t:
-                self.ui.toggle_tree()
-            elif ev.key == pygame.K_TAB:
-                self.big_map = not self.big_map
-            elif ev.key == pygame.K_ESCAPE:
-                if self.ui.any_open:
-                    if self.ui.tree:
-                        self.ui.toggle_tree()
-                    if self.ui.console:
-                        self.ui.toggle_console()
-                else:
-                    self.running = False
+            if ev.type == pygame.MOUSEBUTTONDOWN:
+                self._on_click(ev.button)
+            elif ev.type == pygame.KEYDOWN:
+                self._on_key(ev.key)
 
-        # guard: hold Space, shield pointed at the mouse
-        held = not self.ui.typing and pygame.key.get_pressed()[pygame.K_SPACE]
+        # guard: hold the guard key, shield pointed at the mouse
+        held = not self.ui.typing and pygame.key.get_pressed()[self.keys.key("guard")]
         gx, gy = self.mouse_grid()
         self.world.apply(SetGuard(pid, bool(held), gx - self.player.x, gy - self.player.y))
+
+    def _on_click(self, button: int) -> None:
+        slot = self.slot_under_mouse()
+        if slot is not None:  # the bar: left picks a skill for the key, right clears it
+            if button == 1:
+                self.ui.open_picker(slot)
+            elif button == 3:
+                self.bind_slot(slot, None)
+            return
+        if button != 1:
+            return
+        pid = self.session.player_id
+        target = self.hovered
+        if target is not None and not self.player.guarding:
+            self.world.apply(AttackTarget(pid, target.id))
+        else:
+            self.world.apply(MoveTo(pid, *self.mouse_grid()))
+
+    def _on_key(self, key: int) -> None:
+        slot = self.keys.slot_for(key)
+        if slot is not None:
+            node_id = self.ui.hovered_node(pygame.mouse.get_pos())
+            if node_id is not None:  # D2 style: hover a skill in the trees and press the key to bind it
+                self.bind_slot(slot, node_id)
+            else:
+                self.use_slot(slot)
+            return
+        action = self.keys.action_for(key)
+        if action == "save":
+            self.save_game()
+        elif action == "skillTrees":
+            self.ui.toggle_tree()
+        elif action == "map":
+            self.big_map = not self.big_map
+        elif action == "cancel":
+            if self.ui.any_open:
+                self.ui.close_all()
+            else:
+                self.running = False
 
     # ------------------------------------------------------------ console
 
@@ -263,7 +329,9 @@ class Game:
             self.player.reset_vitals()
             return f"{p.name}: level {p.level}"
         if name == "point":
-            return s.skills.allocate(args[0]).value
+            r = s.allocate_skill(args[0]).value
+            self.ui.refresh_tree_if_open()
+            return r
         if name == "area":
             self.load_area(args[0], int(args[1]) - 1 if len(args) > 1 else 0)
             return "ok"
@@ -308,8 +376,11 @@ class Game:
             screen.blit(img, (sx - img.get_width() // 2, sy - 56 - (0.9 - f.life) * 45))
 
         self.vision.draw_automap(screen, self.world.layout, self.player.x, self.player.y, big=self.big_map)
-        self.hud.draw(screen, self.world, self.player)
+        self.hud.draw(screen, self.world, self.player, self.hovered)
         self.ui.draw(screen)
+        tip = self.skill_tooltip()
+        if tip:
+            draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
         pygame.display.flip()
 
     def _draw_player(self, p) -> None:
@@ -344,12 +415,15 @@ class Game:
     def _draw_monster(self, m: MonsterActor) -> None:
         sx, sy = self.cam.to_screen(m.x, m.y)
         rank = m.monster.rank.id
-        r = {"boss": 22, "unique": 15, "champion": 13, "berserker": 13}.get(rank, 10)
+        r = MONSTER_RADIUS.get(rank, 10)
         color = C.RANK.get(rank, C.RANK["normal"])
+        name_color = C.rank_name_color(rank)
         if m.state in ("hit_recovery", "stunned"):
             color = tuple(min(255, c + 70) for c in color)
         screen = self.screen
         pygame.draw.ellipse(screen, (0, 0, 0), (sx - r, sy - r // 3, 2 * r, 2 * r // 3))
+        if m is self.hovered:  # outline at the feet, in the color of its name
+            pygame.draw.ellipse(screen, name_color, (sx - r - 4, sy - r // 3 - 2, 2 * r + 8, 2 * r // 3 + 4), 2)
         pygame.draw.circle(screen, color, (sx, sy - r), r)
         if m.state == "attacking":  # swing warning: a ring that closes until the impact
             k = min(1.0, m.attack_elapsed / (m.attack_duration * 0.5))
@@ -358,11 +432,8 @@ class Game:
         pygame.draw.rect(screen, (0, 0, 0), (sx - 16, sy - 2 * r - 10, 32, 4))
         pygame.draw.rect(screen, C.LIFE, (sx - 16, sy - 2 * r - 10, 32 * frac, 4))
         first_of_pack = not m.pack_ids or m.pack_ids[0] == m.id or m.pack_ids[0] not in self.world.monsters
-        if rank in ("unique", "boss") or (rank in ("champion", "berserker") and first_of_pack):
-            label = m.monster.name
-            if m.monster.modifiers:
-                label += "  ·  " + ", ".join(x.name for x in m.monster.modifiers)
-            img = self.fonts["tiny"].render(label, True, color)
+        if m is self.hovered or rank in ("unique", "boss") or (rank in ("champion", "berserker") and first_of_pack):
+            img = self.fonts["tiny"].render(m.monster.name, True, name_color)  # details go to the target frame
             screen.blit(img, (sx - img.get_width() // 2, sy - 2 * r - 26))
 
     # ------------------------------------------------------------ loop
@@ -370,6 +441,7 @@ class Game:
     def tick(self) -> None:
         self.handle_events()
         self.world.step(DT)  # the world keeps running while windows are open
+        self._update_hover()
         self.vision.update(self.player.x, self.player.y)
         self.ui.update(DT)
         for f in self.floaters:

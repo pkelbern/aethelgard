@@ -1,4 +1,4 @@
-"""HUD: life, Energy, proficiencies, skill bar with countdowns, and the message log."""
+"""HUD: life, Energy, proficiencies, action bar with countdowns, target frame and the message log."""
 
 from __future__ import annotations
 
@@ -7,31 +7,45 @@ from collections import deque
 
 import pygame
 
-from ..core.world import IMPLEMENTED_SKILLS, PlayerActor, World
+from ..core.world import IMPLEMENTED_SKILLS, MonsterActor, PlayerActor, World
 from . import palette as C
+from .keys import KeyMap
+from .tooltip import draw_panel
 
-SKILL_BAR = [("Q", "precise_strike"), ("W", "shield_bash"), ("E", "wide_slash"), ("R", "bulwark")]
-SHORT = {"precise_strike": "Precise", "shield_bash": "Bash", "wide_slash": "Slash", "bulwark": "Bulwark"}
 STATE_LABEL = {
     "hit_recovery": "Recovering from hit",
     "block_recovery": "Recovering from block",
     "stunned": "Stunned",
     "attacking": "Attacking",
 }
+SLOT_SIZE, SLOT_GAP = 56, 8
+TARGET_W = 340
 
 
 class Hud:
-    def __init__(self, fonts: dict[str, pygame.font.Font]):
+    def __init__(self, fonts: dict[str, pygame.font.Font], keys: KeyMap):
         self.f = fonts
+        self.keys = keys
         self.log: deque[tuple[str, tuple[int, int, int]]] = deque(maxlen=7)
         self.area_title = ""
 
     def add(self, text: str, color=C.TEXT) -> None:
         self.log.append((text, color))
 
+    # ------------------------------------------------------------ layout (shared by drawing and the mouse)
+
+    def slot_rects(self, slots: int, size: tuple[int, int]) -> list[pygame.Rect]:
+        W, H = size
+        total = slots * SLOT_SIZE + (slots - 1) * SLOT_GAP
+        x0, y0 = W // 2 - total // 2, H - SLOT_SIZE - 20
+        return [pygame.Rect(x0 + i * (SLOT_SIZE + SLOT_GAP), y0, SLOT_SIZE, SLOT_SIZE) for i in range(slots)]
+
+    def slot_at(self, pos: tuple[int, int], slots: int, size: tuple[int, int]) -> int | None:
+        return next((i for i, r in enumerate(self.slot_rects(slots, size)) if r.collidepoint(pos)), None)
+
     # ------------------------------------------------------------ drawing
 
-    def draw(self, screen: pygame.Surface, world: World, p: PlayerActor) -> None:
+    def draw(self, screen: pygame.Surface, world: World, p: PlayerActor, target: MonsterActor | None = None) -> None:
         s = p.session
         W, H = screen.get_size()
         self._text(screen, self.area_title, (16, 12), self.f["title"], C.TEXT)
@@ -60,42 +74,75 @@ class Hud:
             g = f"Guard cooldown {p.cooldowns.remaining('guard_raise'):.1f}s"
             self._text(screen, g, (W // 2 - self.f["small"].size(g)[0] // 2, H - 128), self.f["small"], C.MUTED)
 
-        self._skill_bar(screen, p, W, H)
+        self._skill_bar(screen, p)
+        if target is not None:
+            self._target_frame(screen, target)
 
         ly = H - 24 - 18 * len(self.log)
         for text, color in self.log:
             self._text(screen, text, (16, ly), self.f["small"], color)
             ly += 18
-        help_ = "Click: move/attack · Space: guard · Q W E R: skills · T: trees · Tab: map · F5: save · F1: console"
+        k = self.keys
+        help_ = (f"Click: move/attack · {k.action_label('guard')}: guard · {k.bar_labels}: skills · {k.action_label('skillTrees')}: trees · "
+                 f"{k.action_label('map')}: map · {k.action_label('save')}: save · {k.action_label('console')}: console")
         self._text(screen, help_, (W - self.f["tiny"].size(help_)[0] - 16, H - 20), self.f["tiny"], C.MUTED)
 
-    def _skill_bar(self, screen, p: PlayerActor, W: int, H: int) -> None:
+    def _skill_bar(self, screen, p: PlayerActor) -> None:
         s = p.session
-        size, gap = 56, 8
-        total = len(SKILL_BAR) * size + (len(SKILL_BAR) - 1) * gap
-        x0, y0 = W // 2 - total // 2, H - size - 20
-        for i, (key, skill) in enumerate(SKILL_BAR):
-            node = s.data.node(skill)
-            r = pygame.Rect(x0 + i * (size + gap), y0, size, size)
-            has = s.skills.points_in(skill) > 0
+        bar = s.skill_bar
+        mouse = pygame.mouse.get_pos()
+        for i, r in enumerate(self.slot_rects(len(bar), screen.get_size())):
+            skill = bar.skill_at(i)
+            has = skill is not None and s.skills.points_in(skill) > 0
+            hover = r.collidepoint(mouse)
             pygame.draw.rect(screen, C.PANEL, r, border_radius=4)
-            pygame.draw.rect(screen, C.GOLD if has else C.PANEL_EDGE, r, 2, border_radius=4)
-            name = SHORT.get(skill, node.name) if has else "—"
-            self._text(screen, name, (r.x + 5, r.y + 6), self.f["tiny"], C.TEXT if has else C.MUTED)
-            self._text(screen, key, (r.right - 14, r.bottom - 18), self.f["small"], C.MUTED)
-            if has and skill not in IMPLEMENTED_SKILLS:
+            edge = C.TEXT if hover else (C.GOLD if has else C.PANEL_EDGE)
+            pygame.draw.rect(screen, edge, r, 2, border_radius=4)
+            self._text(screen, self.keys.slot_label(i), (r.right - 14, r.bottom - 18), self.f["small"], C.MUTED)
+            if skill is None:
+                self._text(screen, "empty", (r.x + 5, r.y + 6), self.f["tiny"], C.PANEL_EDGE)
+                continue
+            node = s.data.node(skill)
+            self._text(screen, node.short_name or node.name, (r.x + 5, r.y + 6), self.f["tiny"], C.TEXT if has else C.MUTED)
+            if not has:
+                continue
+            if skill not in IMPLEMENTED_SKILLS:
                 self._text(screen, "soon", (r.x + 5, r.y + 22), self.f["tiny"], C.MUTED)
             # countdown: dark sector that empties + seconds left
-            frac = max(p.cooldowns.fraction(skill), p.cooldowns.fraction("global") if has else 0)
-            if has and frac > 0:
+            frac = max(p.cooldowns.fraction(skill), p.cooldowns.fraction("global"))
+            if frac > 0:
                 self._sweep(screen, r, frac)
                 left = p.cooldowns.remaining(skill)
                 if left > 0:
                     t = f"{left:.1f}" if left < 10 else f"{left:.0f}"
                     img = self.f["body"].render(t, True, C.TEXT)
                     screen.blit(img, img.get_rect(center=r.center))
-            if has and p.energy < node.energy_cost:
+            if p.energy < node.energy_cost:
                 pygame.draw.rect(screen, (40, 60, 140), r, 3, border_radius=4)
+
+    def _target_frame(self, screen, m: MonsterActor) -> None:
+        """Monster under the mouse (GDD 12.1): name in its rank color, life bar, level, rank and modifiers."""
+        mi = m.monster
+        color = C.rank_name_color(mi.rank.id)
+        W = screen.get_width()
+        details = f"Level {mi.level}" + (f"  ·  {mi.rank.name}" if mi.rank.id != "normal" else "")
+        if mi.type.name not in mi.name:  # uniques and bosses have their own names: say what they are
+            details += f"  ·  {mi.type.name}"
+        mods = ", ".join(x.name for x in mi.modifiers)
+        h = 74 + (18 if mods else 0)
+        rect = pygame.Rect(W // 2 - TARGET_W // 2, 10, TARGET_W, h)
+        draw_panel(screen, rect, edge=color)
+        name = self.f["body"].render(mi.name, True, color)
+        screen.blit(name, name.get_rect(midtop=(rect.centerx, rect.y + 8)))
+        bar = pygame.Rect(rect.x + 16, rect.y + 32, TARGET_W - 32, 10)
+        pygame.draw.rect(screen, (0, 0, 0), bar)
+        pygame.draw.rect(screen, C.LIFE, (bar.x, bar.y, bar.w * max(0.0, mi.hp / mi.max_hp), bar.h))
+        pygame.draw.rect(screen, C.PANEL_EDGE, bar, 1)
+        info = self.f["tiny"].render(details, True, C.MUTED)
+        screen.blit(info, info.get_rect(midtop=(rect.centerx, rect.y + 50)))
+        if mods:
+            mimg = self.f["tiny"].render(mods, True, color)
+            screen.blit(mimg, mimg.get_rect(midtop=(rect.centerx, rect.y + 68)))
 
     @staticmethod
     def _sweep(screen, r: pygame.Rect, frac: float) -> None:
