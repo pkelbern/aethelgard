@@ -74,14 +74,18 @@ class SpriteLibrary:
             self._sheets[sheet_id] = SpriteSheet(meta, image)
         return self._sheets[sheet_id]
 
-    def layers(self, look_id: str, gear_ids: list[str] = ()) -> dict[str, str] | None:
-        """Slot → sheet for a look, with equipped gear on top (in the order given). None = no look."""
+    def layers(self, look_id: str, equipped: list[tuple[str, str]] = ()) -> dict[str, str] | None:
+        """Layer → sheet for a look, with the equipped items on top: ``equipped`` = (equipment slot, base id) pairs.
+        ``slotLayers`` says which layers an item may draw from each slot. None = no look (placeholder)."""
         look = self.looks.get(look_id)
         if look is None:
             return None
         out = dict(look["layers"])
-        for base_id in gear_ids:
-            out.update(self.gear.get(base_id, {}))
+        allowed = self.cfg.get("slotLayers", {})
+        for slot, base_id in equipped:
+            layers = self.gear.get(base_id, {})
+            keep = allowed.get(slot)
+            out.update({k: v for k, v in layers.items() if keep is None or k in keep})
         return out
 
     def ordered(self, layers: dict[str, str], direction: int) -> list[str]:

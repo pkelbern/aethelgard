@@ -573,7 +573,7 @@ class Game:
     # ---- looks (data/ui/sprites.json); None = placeholder shapes
 
     def player_layers(self, p) -> dict[str, str] | None:
-        return self.sprites.lib.layers("player", [item.base.id for item in p.session.gear.slots.values()])
+        return self.sprites.lib.layers("player", [(slot, item.base.id) for slot, item in p.session.gear.slots.items()])
 
     def monster_layers(self, m: MonsterActor) -> dict[str, str] | None:
         return self.sprites.lib.layers(m.monster.type.id)

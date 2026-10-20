@@ -147,6 +147,7 @@ def test_looks_and_gear_match_the_game_data(cfg, data):
             anims = json.loads((ASSETS / f"{sheet}.json").read_text(encoding="utf-8"))["anims"]
             assert attack in anims, (look_id, sheet, attack)
     assert set(cfg["layerOrder"]) == set(DIRECTION_NAMES)
+    assert set(cfg["slotLayers"]) <= set(data.items.equipment), "slotLayers keys are equipment slots (items.json)"
     assert all(b.base_type in types for b in data.monsters.bosses), "bosses are drawn with their base type's look"
 
 
@@ -169,8 +170,11 @@ def test_draws_the_player_and_a_corpse():
             face_x, face_y = 1.0, 0.0
             state, attack_elapsed, attack_duration = "attacking", 0.3, 0.55
 
-        layers = lib.layers("player", ["short_sword", "buckler"])
+        layers = lib.layers("player", [("mainhand", "short_sword"), ("offhand", "buckler"), ("body", "chain_mail")])
         assert layers["main"] == "flare/male/shortsword" and layers["off"] == "flare/male/buckler"
+        assert layers["chest"] == "flare/male/chain_cuirass", "armor replaces the bare chest"
+        dual = lib.layers("player", [("mainhand", "long_sword"), ("offhand", "short_sword")])
+        assert dual["main"] == "flare/male/longsword" and "off" not in dual, "an off-hand sword never takes the main hand's place"
         assert lib.layers("wolf") is None, "no look: the client keeps the placeholder"
         box = spr.draw_actor(screen, cam, ("p", 0), Actor(), layers)
         assert box.h > 25 and box.collidepoint(100, 95), "drawn standing on its feet at the center"

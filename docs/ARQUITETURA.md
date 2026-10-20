@@ -79,7 +79,7 @@ client/animation.py   matemática sem pygame: direction8, frame_at, choose_pose,
   distância percorrida (`strideTiles`, sem pé deslizando a qualquer velocidade), parado → stance.
 - **Camadas (paper doll):** um look é um conjunto de camadas (`head`, `chest`, `legs`, `feet`, `hands`, `main`, `off`),
   uma folha cada, desenhadas na ordem de `layerOrder` da direção. O jogador soma o equipamento (`gear`, por id da
-  base do item). Saqueadores reusam as mesmas camadas com outro equipamento.
+  base do item; `slotLayers` limita o que cada slot desenha: espada na mão secundária ainda não aparece). Saqueadores reusam as mesmas camadas com outro equipamento.
 - **Sem look → placeholder:** tipos sem entrada em `looks` (hoje as Feras) continuam como círculos.
 - **Cadáveres:** o `World` remove o monstro logo depois de publicar `MonsterKilled`; o cliente guarda o corpo
   (animação die + `corpseSeconds`, some aos poucos). É só visual: no multiplayer cada cliente faz o mesmo com o evento.
