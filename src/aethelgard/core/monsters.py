@@ -125,6 +125,7 @@ class PackKind(Enum):
     CHAMPION = "champion"
     UNIQUE = "unique"
     BOSS = "boss"
+    LED = "led"  # a normal pack headed by a leader type (shaman, necromancer)
 
 
 @dataclass
@@ -134,7 +135,7 @@ class MonsterPack:
 
     @property
     def leader(self) -> MonsterInstance | None:
-        return self.members[0] if self.kind in (PackKind.UNIQUE, PackKind.BOSS) and self.members else None
+        return self.members[0] if self.kind in (PackKind.UNIQUE, PackKind.BOSS, PackKind.LED) and self.members else None
 
 
 def unique_name(data: GameData, rng: Rng) -> str:
@@ -151,15 +152,24 @@ class PackSpawner:
     def spawn_area(self, area: AreaDef, floor: int, rng: Rng) -> list[MonsterPack]:
         s = self._d.balance.spawn
         level = area.level_for_floor(floor)
-        types = [t for t in self._d.monsters.types if t.family in area.families]
+        in_area = [t for t in self._d.monsters.types if t.family in area.families]
+        types = [t for t in in_area if t.leader is None] or in_area  # leaders never lead packs of their own kind
+        ids = {t.id for t in types}
+        leaders = [t for t in in_area if t.leader and any(f in ids for f in t.leader.followers)]
+        led: dict[str, int] = {}
         packs: list[MonsterPack] = []
         if not types:
             return packs
 
         for _ in range(area.normal_packs):
+            size = rng.randint(s.normal_pack_size_min, s.normal_pack_size_max)
+            lead = self._pick_leader(leaders, led, rng)
+            if lead is not None and size >= 2:
+                packs.append(self._led(lead, [t for t in types if t.id in lead.leader.followers], size, level, rng))
+                continue
             mtype = rng.choice(types)
             pack = MonsterPack(PackKind.NORMAL)
-            for _ in range(rng.randint(s.normal_pack_size_min, s.normal_pack_size_max)):
+            for _ in range(size):
                 pack.members.append(self._f.create(mtype, level, "normal", rng))
             packs.append(pack)
 
@@ -172,6 +182,21 @@ class PackSpawner:
             boss = next(b for b in self._d.monsters.bosses if b.id == area.boss)
             packs.append(MonsterPack(PackKind.BOSS, [self._f.create_boss(boss, rng)]))
         return packs
+
+    def _pick_leader(self, leaders, led: dict[str, int], rng: Rng):
+        for t in leaders:
+            if led.get(t.id, 0) < t.leader.max_per_area and rng.chance(t.leader.pack_chance):
+                led[t.id] = led.get(t.id, 0) + 1
+                return t
+        return None
+
+    def _led(self, lead_type, followers, size: int, level: int, rng: Rng) -> MonsterPack:
+        """Same size as a normal pack: the leader plus size − 1 followers, who stay close to it."""
+        lead = self._f.create(lead_type, level, "normal", rng)
+        pack = MonsterPack(PackKind.LED, [lead])
+        for _ in range(size - 1):
+            pack.members.append(self._f.create(rng.choice(followers), level, "normal", rng, leader_id=lead.instance_id))
+        return pack
 
     def _champions(self, types, level, rng) -> MonsterPack:
         s = self._d.balance.spawn

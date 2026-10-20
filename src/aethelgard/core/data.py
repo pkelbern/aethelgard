@@ -106,6 +106,7 @@ class MonsterLevelRow:
 class XpParams:
     defense_xp_per_hit: float = 0.10
     defense_xp_cap_per_monster: float = 0.75
+    armor_xp_full_at_mitigation: float = 0.25
     trivial_monster_delta: int = -10
 
 
@@ -122,6 +123,7 @@ class AttributeParams:
 @dataclass
 class CharacterParams:
     secondary_proficiency_weight: float = 0.25
+    level_up_heal_pct: float = 0.25
     base_life: float = 50
     life_per_vit: float = 4
     life_per_level: float = 3
@@ -138,6 +140,7 @@ class CombatParams:
     armor_per_attacker_level: float = 50
     resist_cap: float = 0.75
     crit_multiplier: float = 1.5
+    knockback_seconds: float = 0.15
     cc_reduction_unique_and_boss: float = 0.5
 
 
@@ -153,6 +156,14 @@ class SpawnParams:
     normal_pack_size_min: int = 3
     normal_pack_size_max: int = 5
     minion_leash_tiles: int = 6
+
+
+@dataclass
+class LootParams:
+    auto_pickup_gold: bool = True
+    pickup_range_tiles: float = 1.0
+    gold_pickup_range_tiles: float = 0.6
+    scatter_tiles: float = 1.2
 
 
 @dataclass
@@ -207,6 +218,7 @@ class BalanceData:
     guard: GuardParams = field(default_factory=GuardParams)
     timing: TimingParams = field(default_factory=TimingParams)
     collision: CollisionParams = field(default_factory=CollisionParams)
+    loot: LootParams = field(default_factory=LootParams)
 
 
 # ---------------------------------------------------------------- monsters
@@ -257,6 +269,28 @@ class FamilyDef:
 
 
 @dataclass
+class ProjectileDef:
+    speed: float = 8.0  # tiles/s
+    radius: float = 0.15
+    magic: bool = False
+    look: str = "arrow"
+
+
+@dataclass
+class AuraDef:
+    radius_tiles: float = 6
+    stats: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class LeaderDef:
+    pack_chance: float = 0.25
+    max_per_area: int = 3
+    followers: list[str] = field(default_factory=list)
+    aura: AuraDef | None = None
+
+
+@dataclass
 class MonsterTypeDef:
     id: str = ""
     name: str = ""
@@ -271,6 +305,8 @@ class MonsterTypeDef:
     ai: str = "melee"
     radius: float = 0.3  # body, in tiles (times the rank sizeMult)
     collides: bool = True  # False: passes through bodies (must be explicit in monsters.json)
+    projectile: ProjectileDef | None = None  # ranged attacker
+    leader: LeaderDef | None = None  # spawns only at the head of a pack and buffs the others
 
 
 @dataclass
@@ -658,6 +694,7 @@ def _validate_stats(d: GameData) -> list[str]:
     used = {(f"node '{n.id}'", k) for n in d.skills.nodes for k in n.stat_ids}
     used |= {(f"synergy into '{s.target}'", s.stat) for s in d.skills.synergies}
     used |= {(f"affix '{a.id}'", a.stat) for a in d.items.affixes}
+    used |= {(f"aura of '{t.id}'", k) for t in d.monsters.types if t.leader and t.leader.aura for k in t.leader.aura.stats}
     errors += [f"stats: {where} uses '{stat}', missing from stats.json" for where, stat in sorted(used) if stat not in stat_ids]
     for n in d.skills.nodes:
         if not n.description:
@@ -698,6 +735,12 @@ def validate(d: GameData) -> list[str]:
             errors.append(f"monsters: '{t.id}' dmgMin > dmgMax")
     boss_ids = {b.id for b in d.monsters.bosses}
     type_ids = {t.id for t in d.monsters.types}
+    for t in d.monsters.types:
+        if t.leader:
+            errors += [f"monsters: leader '{t.id}' has unknown follower '{f}'" for f in t.leader.followers if f not in type_ids]
+            errors += [f"monsters: leader '{t.id}' cannot follow itself" for f in t.leader.followers if f == t.id]
+            if not t.leader.followers:
+                errors.append(f"monsters: leader '{t.id}' has no followers")
     for b in d.monsters.bosses:
         if b.base_type not in type_ids:
             errors.append(f"monsters: boss '{b.id}' has a missing base type")

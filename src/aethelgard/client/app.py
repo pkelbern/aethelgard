@@ -12,17 +12,18 @@ import pygame
 from ..core.data import GameData
 from ..core.describe import Line, describe_skill
 from ..core.events import ExitReached, FloatingText, LootPicked, PlayerDied, ProficiencyLeveledUp
-from ..core.items import GoldDrop, ItemDrop, PotionDrop, ScrollDrop
+from ..core.items import GoldDrop, ItemDrop, drop_name
 from ..core.progression import Bind
 from ..core.saves import SaveStore
 from ..core.session import GameSession
 from ..core.simulation import run_act
-from ..core.world import AttackTarget, MonsterActor, MoveTo, Respawn, SetGuard, UseSkill, World, is_implemented
+from ..core.world import AttackTarget, MonsterActor, MoveTo, PickUp, Respawn, SetGuard, UseSkill, World, is_implemented
 from ..core.world_gen import ExitKind
 from . import palette as C
 from .hud import Hud
 from .iso import Camera, MapRenderer
 from .keys import KeyMap
+from .loot_view import GroundView
 from .tooltip import draw_panel, draw_tooltip
 from .ui import GameUI
 from .vision import Vision
@@ -67,6 +68,8 @@ class Game:
         self.cam = Camera(*size)
         self.hud = Hud(self.fonts, self.keys)
         self.hovered: MonsterActor | None = None
+        self.hovered_drop: int | None = None
+        self.ground_view = GroundView(self.fonts["tiny"])
         self.hold: dict | None = None  # left button held in the world: {"target": monster id or None, "timer": s}
         self.death_text: str | None = None  # set while the character lies dead, waiting for a click
         self.vision = Vision()
@@ -127,16 +130,18 @@ class Game:
         self.hud.add(f"{name} reached level {e.new_level}! Tree point available.", C.GOLD)
 
     def _on_loot(self, e: LootPicked) -> None:
+        if e.player_id != self.session.player_id:
+            return
         d = e.drop
+        text = drop_name(d)
         if isinstance(d, ItemDrop):
-            text = f"{d.item.name}  ({d.item.base.name}, iLvl {d.item.item_level})"
-            self.hud.add(text if e.stored else f"Backpack full, left behind: {text}", C.RARITY[int(d.item.rarity)] if e.stored else C.MUTED)
-        elif isinstance(d, PotionDrop):
-            self.hud.add(f"{d.kind.capitalize()} Potion", C.MUTED)
-        elif isinstance(d, ScrollDrop):
-            self.hud.add(f"{d.kind.capitalize()} Scroll", C.MUTED)
+            text += f"  ({d.item.base.name}, iLvl {d.item.item_level})"
+        if not e.stored:
+            self.hud.add(f"Backpack full: {text} stays on the ground.", C.MUTED)
         elif isinstance(d, GoldDrop):
-            self.hud.add(f"+{d.amount} gold", C.GOLD)
+            self.hud.add(f"+{text}", C.GOLD)
+        else:
+            self.hud.add(text, C.RARITY[int(d.item.rarity)] if isinstance(d, ItemDrop) else C.MUTED)
 
     def _on_exit(self, e: ExitReached) -> None:
         kind = ExitKind(e.kind)
@@ -207,9 +212,22 @@ class Game:
     def slot_under_mouse(self) -> int | None:
         return self.hud.slot_at(pygame.mouse.get_pos(), len(self.session.skill_bar), self.screen.get_size())
 
+    def visible_drops(self):
+        e = self.vision.explored
+        return [g for g in self.world.ground.values() if e is not None and e[round(g.y), round(g.x)]]
+
     def _update_hover(self) -> None:
+        """What a click would act on. With Alt held, a drop label wins over a monster (labels sit on top)."""
         over_hud = self.dead or self.ui.over_ui or self.slot_under_mouse() is not None
-        self.hovered = None if over_hud else self.monster_under_mouse()
+        if over_hud:
+            self.hovered = self.hovered_drop = None
+            return
+        drop = self.ground_view.at(pygame.mouse.get_pos(), self.cam, self.visible_drops())
+        monster = self.monster_under_mouse()
+        if drop is not None and (monster is None or self.keys.held("showItems")):
+            self.hovered, self.hovered_drop = None, drop
+        else:
+            self.hovered, self.hovered_drop = monster, None if monster else drop
 
     # ------------------------------------------------------------ action bar
 
@@ -286,7 +304,7 @@ class Game:
         self._repeat_held_click()
 
         # guard: hold the guard key, shield pointed at the mouse
-        held = not self.ui.typing and pygame.key.get_pressed()[self.keys.key("guard")]
+        held = not self.ui.typing and self.keys.held("guard")
         gx, gy = self.mouse_grid()
         self.world.apply(SetGuard(pid, bool(held), gx - self.player.x, gy - self.player.y))
 
@@ -303,6 +321,10 @@ class Game:
                 self.bind_slot(slot, None)
             return
         if button != 1:
+            return
+        if self.hovered_drop is not None:  # walk to it and pick it up; holding does not repeat this
+            self.world.apply(PickUp(self.session.player_id, self.hovered_drop))
+            self.hold = None
             return
         target = self.hovered if not self.player.guarding else None
         self.hold = {"target": target.id if target else None, "timer": HOLD_REPEAT_SECONDS}
@@ -418,6 +440,8 @@ class Game:
         screen.fill(C.BG)
         self.map.draw(screen, cam, self.vision.explored)
         self.map.draw_markers(screen, cam, self.fonts["tiny"], self.area_names)
+        drops = self.visible_drops()
+        self.ground_view.draw_shapes(screen, cam, drops)
 
         # monsters outside the field of view are not drawn
         actors = [(m.x + m.y, "m", m) for m in self.world.monsters.values() if self.vision.sees(m.x, m.y)]
@@ -427,6 +451,10 @@ class Game:
                 self._draw_monster(a)
             else:
                 self._draw_player(a)
+
+        for proj in self.world.projectiles.values():
+            self._draw_projectile(proj)
+        self.ground_view.draw_labels(screen, cam, drops, self.keys.held("showItems"), self.hovered_drop, pygame.mouse.get_pos())
 
         for f in self.floaters:
             sx, sy = cam.to_screen(f.gx, f.gy)
@@ -463,6 +491,27 @@ class Game:
         screen.blit(title, title.get_rect(midtop=(rect.centerx, rect.y + 16)))
         for k, img in enumerate(imgs):
             screen.blit(img, img.get_rect(midtop=(rect.centerx, rect.y + 56 + 26 * k)))
+
+    def _draw_projectile(self, proj) -> None:
+        """Flies at chest height; the line shows where it is going (it never turns)."""
+        if not self.vision.sees(proj.x, proj.y):
+            return
+        lift = 24
+        sx, sy = self.cam.to_screen(proj.x, proj.y)
+        tx, ty = self.cam.to_screen(proj.x - proj.dir_x * 0.8, proj.y - proj.dir_y * 0.8)
+        head, tail = (sx, sy - lift), (tx, ty - lift)
+        screen = self.screen
+        if proj.look == "arrow":
+            pygame.draw.line(screen, (0, 0, 0), tail, head, 5)
+            pygame.draw.line(screen, (226, 206, 160), tail, head, 3)
+            pygame.draw.circle(screen, (250, 250, 250), head, 3)
+        elif proj.look == "shield":
+            pygame.draw.circle(screen, C.SHIELD, head, 8)
+            pygame.draw.circle(screen, (0, 0, 0), head, 8, 1)
+        else:  # magic bolt: glow with a short trail
+            pygame.draw.line(screen, (120, 90, 200), tail, head, 4)
+            pygame.draw.circle(screen, (190, 150, 255), head, 6)
+            pygame.draw.circle(screen, (250, 240, 255), head, 3)
 
     def _draw_player(self, p) -> None:
         sx, sy = self.cam.to_screen(p.x, p.y)
@@ -509,6 +558,9 @@ class Game:
         if m.state in ("hit_recovery", "stunned"):
             color = tuple(min(255, c + 70) for c in color)
         screen = self.screen
+        if m.aura is not None:  # leader: a faint ring shows how far its aura reaches
+            ar = m.aura.radius_tiles
+            pygame.draw.ellipse(screen, (110, 90, 40), (sx - ar * 32, sy - ar * 16, ar * 64, ar * 32), 1)
         pygame.draw.ellipse(screen, (0, 0, 0), (sx - r, sy - r // 3, 2 * r, 2 * r // 3))
         if m is self.hovered:  # outline at the feet, in the color of its name
             pygame.draw.ellipse(screen, name_color, (sx - r - 4, sy - r // 3 - 2, 2 * r + 8, 2 * r // 3 + 4), 2)

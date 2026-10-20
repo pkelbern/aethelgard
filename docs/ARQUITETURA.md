@@ -51,6 +51,13 @@ core/                   regras, sem pygame
 - `CombatMath.resolve_physical`: acerto → guarda (para `stopped` = golpe × parcela, no máximo `blockReductionCap`) → armadura sobre `raw − stopped` → dano final. Bloqueio nunca zera o dano.
 - `World._step_towards`: um passo; se bate em parede desliza pelos eixos, se bate em corpo desliza pela borda dele. `blocked_by_body` sempre deixa se afastar de uma sobreposição. Corpo morto não bloqueia.
 
+## Projéteis, loot no chão e líderes
+
+- `core/projectiles.py`: `Projectile` (voa em linha reta, nunca muda de direção sozinho) e `line_of_sight` (Bresenham do tcod). `World._fly` move em subpassos de 0,1 tile; o tiro de monstro guarda os números de quem atirou.
+- `World._hit_player` é o único caminho de dano no jogador (golpe e projétil): guarda, armadura, XP, recuperação, morte.
+- `World.ground` guarda `GroundItem`s; `PickUp` anda até o item e chama `GameSession.collect`. `items.drop_name` é o nome usado no log e nos rótulos.
+- Líder = tipo com `leader` em monsters.json. `World._apply_auras` recalcula `MonsterActor.buffs` a cada passo; `MonsterActor.stat/attack/defense` já somam os bônus.
+
 ## Laço do jogo
 
 O cliente roda a 60 quadros por segundo com passo fixo:

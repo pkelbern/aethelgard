@@ -165,7 +165,7 @@ def test_packs_per_area(data):
     uniques = total = 0
     for seed in range(200):
         packs = sp.spawn_area(area, 0, Rng(seed))
-        assert sum(p.kind == PackKind.NORMAL for p in packs) == area.normal_packs
+        assert sum(p.kind in (PackKind.NORMAL, PackKind.LED) for p in packs) == area.normal_packs
         special = [p for p in packs if p.kind in (PackKind.UNIQUE, PackKind.CHAMPION)]
         assert 1 <= len(special) <= 2
         total += len(special)

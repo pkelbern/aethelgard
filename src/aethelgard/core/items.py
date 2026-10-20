@@ -82,6 +82,27 @@ class ItemDrop:
 Drop = GoldDrop | PotionDrop | ScrollDrop | ItemDrop
 
 
+def drop_name(drop: Drop) -> str:
+    """What the player reads: in the log when picking it up, and on the floor label (Alt)."""
+    if isinstance(drop, GoldDrop):
+        return f"{drop.amount} Gold"
+    if isinstance(drop, PotionDrop):
+        return f"{drop.kind.capitalize()} Potion"
+    if isinstance(drop, ScrollDrop):
+        return f"{drop.kind.capitalize()} Scroll"
+    return drop.item.name
+
+
+@dataclass
+class GroundItem:
+    """A drop lying in the area until someone picks it up (it is gone when the area is left: worlds regenerate)."""
+
+    id: int
+    drop: Drop
+    x: float
+    y: float
+
+
 class LootGenerator:
     def __init__(self, data: GameData):
         self._d = data

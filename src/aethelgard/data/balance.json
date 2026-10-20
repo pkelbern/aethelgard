@@ -3,6 +3,8 @@
   "xp": {
     "defenseXpPerHit": 0.1,
     "defenseXpCapPerMonster": 0.75,
+    "_armorComment": "Armor XP per hit = monster XP x defenseXpPerHit x min(1, share mitigated / armorXpFullAtMitigation). Low-level armor mitigates ~10%; at 0.25 that already gives ~40% of the full XP per hit, in line with the Act 1 simulation (armor share 15%).",
+    "armorXpFullAtMitigation": 0.25,
     "trivialMonsterDelta": -10
   },
   "levelFactor": {
@@ -25,6 +27,7 @@
   },
   "character": {
     "secondaryProficiencyWeight": 0.25,
+    "levelUpHealPct": 0.25,
     "baseLife": 50,
     "lifePerVit": 4,
     "lifePerLevel": 3,
@@ -39,6 +42,7 @@
     "armorPerAttackerLevel": 50,
     "resistCap": 0.75,
     "critMultiplier": 1.5,
+    "knockbackSeconds": 0.15,
     "ccReductionUniqueAndBoss": 0.5
   },
   "spawn": {
@@ -52,6 +56,13 @@
     "normalPackSizeMin": 3,
     "normalPackSizeMax": 5,
     "minionLeashTiles": 6
+  },
+  "loot": {
+    "_comment": "Drops fall on the ground around the monster and must be picked up (click, or walk over gold when autoPickupGold). pickupRangeTiles = how close the player must get. Alt shows every label.",
+    "autoPickupGold": true,
+    "pickupRangeTiles": 1.0,
+    "goldPickupRangeTiles": 0.6,
+    "scatterTiles": 1.2
   },
   "death": {
     "_comment": "Death penalty. xpLossPctOfLevel = fraction of the XP already earned INSIDE the current level that is lost (never loses a level). 0 = off in the MVP.",

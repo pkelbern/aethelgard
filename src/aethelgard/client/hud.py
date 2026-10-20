@@ -7,6 +7,7 @@ from collections import deque
 
 import pygame
 
+from ..core.describe import stat_line
 from ..core.world import IMPLEMENTED_SKILLS, MonsterActor, PlayerActor, World
 from . import palette as C
 from .keys import KeyMap
@@ -19,7 +20,7 @@ STATE_LABEL = {
     "attacking": "Attacking",
 }
 SLOT_SIZE, SLOT_GAP = 56, 8
-TARGET_W = 340
+TARGET_W = 420
 
 
 class Hud:
@@ -76,7 +77,7 @@ class Hud:
 
         self._skill_bar(screen, p)
         if target is not None:
-            self._target_frame(screen, target)
+            self._target_frame(screen, target, world.data)
 
         ly = H - 24 - 18 * len(self.log)
         for text, color in self.log:
@@ -120,18 +121,26 @@ class Hud:
             if p.energy < node.energy_cost:
                 pygame.draw.rect(screen, (40, 60, 140), r, 3, border_radius=4)
 
-    def _target_frame(self, screen, m: MonsterActor) -> None:
-        """Monster under the mouse (GDD 12.1): name in its rank color, life bar, level, rank and modifiers."""
+    def _target_frame(self, screen, m: MonsterActor, data) -> None:
+        """Monster under the mouse (GDD 12.1): name in its rank color, life bar, level, rank, modifiers,
+        and plainly what is special about it (leader aura, bonuses it is getting, no body)."""
         mi = m.monster
         color = C.rank_name_color(mi.rank.id)
         W = screen.get_width()
         details = f"Level {mi.level}" + (f"  ·  {mi.rank.name}" if mi.rank.id != "normal" else "")
         if mi.type.name not in mi.name:  # uniques and bosses have their own names: say what they are
             details += f"  ·  {mi.type.name}"
-        mods = ", ".join(x.name for x in mi.modifiers)
+        extra: list[tuple[str, tuple]] = []
+        if mi.modifiers:
+            extra.append((", ".join(x.name for x in mi.modifiers), color))
+        if m.aura is not None:
+            gives = ", ".join(stat_line(data.stat(k), v) for k, v in m.aura.stats.items())
+            extra.append((f"Leader: allies within {m.aura.radius_tiles:g} tiles get {gives}", C.GOLD))
+        if m.buffs:
+            extra.append(("Empowered: " + ", ".join(stat_line(data.stat(k), v) for k, v in m.buffs.items()), C.WARN))
         if not m.collides:  # explicit: this one has no body (monsters.json collides=false)
-            mods = ", ".join(x for x in (mods, "Ethereal: passes through bodies") if x)
-        h = 74 + (18 if mods else 0)
+            extra.append(("Ethereal: passes through bodies", C.NEXT))
+        h = 74 + 18 * len(extra)
         rect = pygame.Rect(W // 2 - TARGET_W // 2, 10, TARGET_W, h)
         draw_panel(screen, rect, edge=color)
         name = self.f["body"].render(mi.name, True, color)
@@ -142,9 +151,9 @@ class Hud:
         pygame.draw.rect(screen, C.PANEL_EDGE, bar, 1)
         info = self.f["tiny"].render(details, True, C.MUTED)
         screen.blit(info, info.get_rect(midtop=(rect.centerx, rect.y + 50)))
-        if mods:
-            mimg = self.f["tiny"].render(mods, True, color)
-            screen.blit(mimg, mimg.get_rect(midtop=(rect.centerx, rect.y + 68)))
+        for k, (text, col) in enumerate(extra):
+            img = self.f["tiny"].render(text, True, col)
+            screen.blit(img, img.get_rect(midtop=(rect.centerx, rect.y + 68 + 18 * k)))
 
     @staticmethod
     def _sweep(screen, r: pygame.Rect, frac: float) -> None:

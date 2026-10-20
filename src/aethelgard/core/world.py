@@ -15,7 +15,7 @@ Timings (GDD 7.7):
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .combat import (
     BlockOutcome,
@@ -39,8 +39,10 @@ from .events import (
     ProficiencyLeveledUp,
     SkillUsed,
 )
+from .items import GoldDrop, GroundItem
 from .monsters import MonsterInstance, PackKind
 from .pathfinding import find_path
+from .projectiles import Projectile, line_of_sight
 from .session import GameSession
 from .timing import (
     Cooldowns,
@@ -55,7 +57,8 @@ from .world_gen import AreaLayout, Exit, ExitKind
 TARGET_SKILLS = {"precise_strike", "shield_bash"}
 AREA_SKILLS = {"wide_slash"}
 SELF_SKILLS = {"bulwark"}
-IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS
+PROJECTILE_SKILLS = {"shield_throw"}
+IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS
 # Passives whose effect the rules already read (combat.py, world.py); the rest are M3-05.
 IMPLEMENTED_PASSIVES = {"sharp_blade", "defensive_stance", "parry", "heavy_shield", "iron_skin", "recovery", "steadfast"}
 
@@ -109,13 +112,21 @@ class Stop:
 
 
 @dataclass(frozen=True)
+class PickUp:
+    """Walk to a drop on the ground and take it."""
+
+    player_id: int
+    ground_id: int
+
+
+@dataclass(frozen=True)
 class Respawn:
     """A dead player gets up with full life. The client then takes them to town (the death penalty is the session's)."""
 
     player_id: int
 
 
-Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn
+Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp
 
 
 # ---------------------------------------------------------------- actors
@@ -137,6 +148,7 @@ class PlayerActor:
     path: list[tuple[int, int]] = field(default_factory=list)
     target_id: int | None = None
     pending_skill: str | None = None
+    pickup_id: int | None = None
     # states: idle | attacking | hit_recovery | block_recovery | stunned | dead
     state: str = "idle"
     state_left: float = 0.0
@@ -197,6 +209,10 @@ class MonsterActor:
     attack_elapsed: float = 0.0
     attack_hit_done: bool = False
     attack_cooldown: float = 0.0
+    knock_vx: float = 0.0  # knockback velocity (tiles/s) while knock_left > 0
+    knock_vy: float = 0.0
+    knock_left: float = 0.0
+    buffs: dict[str, float] = field(default_factory=dict)  # from leader auras, refreshed every step
 
     @property
     def id(self) -> int:
@@ -206,13 +222,36 @@ class MonsterActor:
     def alive(self) -> bool:
         return self.monster.alive
 
+    def stat(self, name: str) -> float:
+        """Modifiers of the monster plus the auras around it right now."""
+        return self.monster.stat(name) + self.buffs.get(name, 0.0)
+
     @property
     def speed(self) -> float:
-        return self.monster.type.move_speed * 2.6 * (1 + self.monster.stat("moveSpeedPct"))
+        return self.monster.type.move_speed * 2.6 * (1 + self.stat("moveSpeedPct"))
 
     @property
     def attack_duration(self) -> float:
-        return 1.4 / (self.monster.type.attack_rate * (1 + self.monster.stat("attackSpeedPct")))
+        return 1.4 / (self.monster.type.attack_rate * (1 + self.stat("attackSpeedPct")))
+
+    @property
+    def ranged(self) -> bool:
+        return self.monster.type.projectile is not None
+
+    @property
+    def defense(self):
+        """Passive defense with the aura bonus (a necromancer makes the dead tougher)."""
+        return replace(monster_defense(self.monster), physical_reduction=self.stat("physicalReduction"))
+
+    @property
+    def aura(self):
+        lead = self.monster.type.leader
+        return lead.aura if lead else None
+
+    @property
+    def attack(self):
+        """Numbers of its swing or shot, with aura damage on top."""
+        return with_bonus(monster_attack(self.monster), self.buffs.get("damagePct", 0.0))
 
     @property
     def reach(self) -> float:
@@ -238,6 +277,10 @@ class World:
         self.timing = self.data.balance.timing
         self.players: dict[int, PlayerActor] = {s.player_id: PlayerActor(s, 0, 0) for s in sessions}
         self.monsters: dict[int, MonsterActor] = {}
+        self.projectiles: dict[int, Projectile] = {}
+        self._next_projectile = 1
+        self.ground: dict[int, GroundItem] = {}
+        self._next_ground = 1
         self.layout: AreaLayout | None = None
         self.area_id = ""
         self.floor = 0
@@ -253,6 +296,8 @@ class World:
         layout, packs = host.enter_area(area_id, floor)
         self.layout, self.area_id, self.floor = layout, area_id, floor
         self.monsters.clear()
+        self.projectiles.clear()
+        self.ground.clear()
 
         start = layout.entry
         if came_from is not None:
@@ -325,6 +370,13 @@ class World:
                 n = math.hypot(cmd.face_x, cmd.face_y)
                 p.face_x, p.face_y = cmd.face_x / n, cmd.face_y / n
             return None
+        if isinstance(cmd, PickUp):
+            if cmd.ground_id in self.ground:
+                p.pickup_id, p.target_id, p.pending_skill = cmd.ground_id, None, None
+                g = self.ground[cmd.ground_id]
+                p.path = find_path(self.layout, cell_of(p.x, p.y), cell_of(g.x, g.y))
+            return None
+        p.pickup_id = None  # any other order cancels walking to a drop
         if isinstance(cmd, Stop):
             p.path.clear()
             p.target_id = None
@@ -366,6 +418,8 @@ class World:
             p.bulwark_left = p.session.skills.effect("bulwark", "durationSeconds")  # 3 s base + per point (skills.json)
             self._float(p.x, p.y, "Bulwark!", "info")
             return None
+        if cmd.skill_id in PROJECTILE_SKILLS:
+            return self._throw_shield(p, cmd)
         if cmd.skill_id in AREA_SKILLS:
             if cmd.x is not None and cmd.y is not None:
                 dx, dy = cmd.x - p.x, cmd.y - p.y
@@ -395,9 +449,11 @@ class World:
         self.time += dt
         for p in self.players.values():
             self._step_player(p, dt)
+        self._apply_auras()
         for m in list(self.monsters.values()):
             if m.alive:
                 self._step_monster(m, dt)
+        self._step_projectiles(dt)
 
     def _step_player(self, p: PlayerActor, dt: float) -> None:
         if p.state == "dead":
@@ -449,6 +505,10 @@ class World:
             p.pending_skill = None
             return
 
+        # walk to a drop and take it
+        if p.pickup_id is not None and self._step_pickup(p, dt):
+            return
+
         # chase/attack the target
         if p.target_id is not None and not p.guarding:
             t = self.monsters.get(p.target_id)
@@ -474,6 +534,11 @@ class World:
                 p.path.pop(0)
             if not p.guarding and p.path:
                 self._face(p, p.path[0][0] - p.x, p.path[0][1] - p.y)
+
+        if self.data.balance.loot.auto_pickup_gold:
+            for g in [g for g in self.ground.values() if isinstance(g.drop, GoldDrop)]:
+                if math.hypot(g.x - p.x, g.y - p.y) <= self.data.balance.loot.gold_pickup_range_tiles:
+                    self._take(p, g)
 
         # exits
         if p.exit_cooldown <= 0 and self.layout:
@@ -519,12 +584,13 @@ class World:
         prof = self.data.node(skill).tree if skill else "blades"
         for t in targets:
             atk = player_attack(s.character, s.skills, s.gear, skill)
-            r = s.combat.resolve_physical(atk, monster_defense(t.monster), s.combat_rng)
+            r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
             if not r.hit:
                 self._float(t.x, t.y, "miss", "miss")
                 continue
             self._damage_monster(p, t, r.final, prof, crit=r.crit)
             if skill == "shield_bash" and t.alive:
+                self._knock_back(t, p.x, p.y, s.skills.effect("shield_bash", "knockbackTiles"))
                 self._stun_monster(t, s.skills.effect("shield_bash", "stunSeconds"))
 
     def _damage_monster(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str, crit: bool = False) -> None:
@@ -540,9 +606,22 @@ class World:
             t.state, t.state_left = "hit_recovery", rec
             t.attack_elapsed, t.attack_hit_done = 0.0, False  # swing interrupted
 
+    def _cc_mult(self, t: MonsterActor) -> float:
+        """Uniques and bosses resist crowd control (stun, knockback)."""
+        return 1 - self.data.balance.combat.cc_reduction_unique_and_boss if t.monster.rank.id in ("unique", "boss") else 1.0
+
+    def _knock_back(self, t: MonsterActor, from_x: float, from_y: float, tiles: float) -> None:
+        """Pushes the monster away from (from_x, from_y) over a short time; walls and bodies stop it (see _step_monster)."""
+        dx, dy = t.x - from_x, t.y - from_y
+        n = math.hypot(dx, dy)
+        secs = self.data.balance.combat.knockback_seconds
+        if n < 1e-6 or tiles <= 0 or secs <= 0:
+            return
+        speed = tiles * self._cc_mult(t) / secs
+        t.knock_vx, t.knock_vy, t.knock_left = dx / n * speed, dy / n * speed, secs
+
     def _stun_monster(self, t: MonsterActor, seconds: float) -> None:
-        if t.monster.rank.id in ("unique", "boss"):
-            seconds *= 1 - self.data.balance.combat.cc_reduction_unique_and_boss
+        seconds *= self._cc_mult(t)
         t.state, t.state_left = "stunned", seconds
         t.attack_elapsed, t.attack_hit_done = 0.0, False
         self._float(t.x, t.y, "stunned", "info")
@@ -556,19 +635,71 @@ class World:
         return n
 
     def _kill(self, t: MonsterActor, killer: PlayerActor) -> None:
-        """Loot goes straight to the killer until items on the ground exist (backlog M6-02)."""
+        """Drops fall around the body (GDD 10.3); the player has to pick them up."""
         m = t.monster
         self.bus.publish(MonsterKilled(m.xp_info, m.rank.id, killer.player_id))
         s = killer.session
         for drop in s.loot.roll_drops(m.rank.id, m.level, 0.0, s.loot_rng):
-            self.bus.publish(LootPicked(killer.player_id, drop, s.collect(drop)))
+            self.drop_at(drop, t.x, t.y, s.world_rng)
         del self.monsters[t.id]
+
+    def drop_at(self, drop, x: float, y: float, rng) -> GroundItem:
+        """Puts a drop on a floor spot near (x, y)."""
+        spread = self.data.balance.loot.scatter_tiles
+        gx, gy = x, y
+        for _ in range(8):
+            cx, cy = x + rng.uniform(-spread, spread), y + rng.uniform(-spread, spread)
+            if self.layout.is_floor(cell_of(cx, cy)):
+                gx, gy = cx, cy
+                break
+        g = GroundItem(self._next_ground, drop, gx, gy)
+        self._next_ground += 1
+        self.ground[g.id] = g
+        return g
+
+    def _take(self, p: PlayerActor, g: GroundItem) -> bool:
+        stored = p.session.collect(g.drop)
+        if stored:
+            del self.ground[g.id]
+        self.bus.publish(LootPicked(p.player_id, g.drop, stored))
+        return stored
+
+    def _step_pickup(self, p: PlayerActor, dt: float) -> bool:
+        """True while this step was spent on reaching or taking the drop."""
+        g = self.ground.get(p.pickup_id)
+        if g is None:
+            p.pickup_id = None
+            return False
+        if math.hypot(g.x - p.x, g.y - p.y) <= self.data.balance.loot.pickup_range_tiles:
+            p.pickup_id = None
+            p.path.clear()
+            self._take(p, g)
+            return True
+        if not p.path:
+            p.path = find_path(self.layout, cell_of(p.x, p.y), cell_of(g.x, g.y))
+            if not p.path:  # already in the cell: walk the last bit straight
+                self._step_towards(p, (g.x, g.y), PLAYER_SPEED, dt)
+                return True
+        return False
 
     # ------------------------------------------------------------ monsters
 
     def _nearest_player(self, m: MonsterActor) -> PlayerActor | None:
         alive = [p for p in self.players.values() if p.state != "dead"]
         return min(alive, key=lambda p: math.hypot(p.x - m.x, p.y - m.y)) if alive else None
+
+    def _apply_auras(self) -> None:
+        """Every living leader gives its aura stats to the other monsters in its radius (stacks across leaders)."""
+        for m in self.monsters.values():
+            m.buffs = {}
+        for lead in self.monsters.values():
+            aura = lead.aura
+            if aura is None or not lead.alive:
+                continue
+            for o in self.monsters.values():
+                if o is not lead and o.alive and math.hypot(o.x - lead.x, o.y - lead.y) <= aura.radius_tiles:
+                    for k, v in aura.stats.items():
+                        o.buffs[k] = o.buffs.get(k, 0.0) + v
 
     def _alert(self, m: MonsterActor) -> None:
         if m.alert:
@@ -581,6 +712,11 @@ class World:
 
     def _step_monster(self, m: MonsterActor, dt: float) -> None:
         m.attack_cooldown -= dt
+        if m.knock_left > 1e-9:
+            step = min(dt, m.knock_left)
+            m.knock_left -= step
+            if not self._try_move(m, m.x + m.knock_vx * step, m.y + m.knock_vy * step):
+                m.knock_left = 0.0  # hit a wall or a body
         if m.state in ("hit_recovery", "stunned"):
             m.state_left -= dt
             if m.state_left <= 0:
@@ -597,7 +733,9 @@ class World:
             m.attack_elapsed += dt
             if not m.attack_hit_done and m.attack_elapsed >= m.attack_duration * 0.5:
                 m.attack_hit_done = True
-                if math.hypot(target.x - m.x, target.y - m.y) <= m.reach + 0.6:
+                if m.ranged:
+                    self._shoot(m, target)
+                elif math.hypot(target.x - m.x, target.y - m.y) <= m.reach + 0.6:
                     self._monster_hit(m, target)
             if m.attack_elapsed >= m.attack_duration:
                 m.state = "idle"
@@ -605,7 +743,8 @@ class World:
             return
 
         if m.alert:
-            if dist > m.reach:
+            sees = not m.ranged or line_of_sight(self.layout, (m.x, m.y), (target.x, target.y))
+            if dist > m.reach or not sees:  # archers and casters get closer until they have a clear shot
                 self._step_towards(m, (target.x, target.y), m.speed, dt)
                 self._separate(m, dt)
             elif m.attack_cooldown <= 0:
@@ -633,12 +772,17 @@ class World:
             self._try_move(m, m.x + push_x * k, m.y + push_y * k)
 
     def _monster_hit(self, m: MonsterActor, p: PlayerActor) -> None:
+        self._hit_player(p, m.attack, m.monster.xp_info, m.x, m.y, magic=False, melee=m)
+
+    def _hit_player(self, p: PlayerActor, attack, info, from_x: float, from_y: float, magic: bool, melee: MonsterActor | None) -> None:
+        """A swing or a shot reaches the player. (from_x, from_y) is where it comes from, for the guard arc.
+        Magic gets past the guard unless Bulwark is up; only melee hits can be counterattacked."""
         s = p.session
         prof = player_guard(s.skills, s.gear, self.data.balance.guard)
         bulwark = p.bulwark_left > 0
         guard = GuardState(
-            raised=p.guarding and prof.can_guard,
-            in_arc=bulwark or s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, prof.arc_degrees),
+            raised=p.guarding and prof.can_guard and (bulwark or not magic),
+            in_arc=bulwark or s.combat.in_arc(p.face_x, p.face_y, from_x - p.x, from_y - p.y, prof.arc_degrees),
             perfect=p.guarding and p.guard_time <= prof.perfect_window,
             efficiency=prof.efficiency,
             energy=p.energy,
@@ -646,7 +790,7 @@ class World:
             reduction=prof.block_reduction,
         )
         defense = player_defense(s.character, s.skills, s.gear)
-        r = s.combat.resolve_physical(monster_attack(m.monster), defense, s.combat_rng, guard)
+        r = s.combat.resolve_physical(attack, defense, s.combat_rng, guard)
         if not r.hit:
             self._float(p.x, p.y, "dodged", "miss")
             return
@@ -654,11 +798,11 @@ class World:
 
         if r.blocked:  # the guard stops most of the hit, never all of it (GDD 7.4)
             perfect = r.block == BlockOutcome.PERFECT
-            self.bus.publish(HitBlocked(m.monster.xp_info, perfect, p.player_id))
+            self.bus.publish(HitBlocked(info, perfect, p.player_id))
             word = "parried!" if perfect else "blocked"
             self._float(p.x, p.y, f"{word} -{r.final:.0f}", "perfect" if perfect else "block")
-            if perfect:
-                self._counter(p, m)
+            if perfect and melee is not None:
+                self._counter(p, melee)
             else:
                 fbr = s.skills.stat_total("fasterBlockRecovery")
                 p.state, p.state_left = "block_recovery", player_block_recovery(self.timing, fbr)
@@ -669,7 +813,7 @@ class World:
             p.path.clear()
             self._float(p.x, p.y, "guard broken", "hurt")
         if r.mitigated > 0:  # armor works on what got past the guard
-            self.bus.publish(DamageMitigated(m.monster.xp_info, r.reached_armor, r.mitigated, p.player_id))
+            self.bus.publish(DamageMitigated(info, r.reached_armor, r.mitigated, p.player_id))
         if not r.blocked:
             self._float(p.x, p.y, f"-{r.final:.0f}", "hurt")
         if not p.god_mode:
@@ -687,13 +831,98 @@ class World:
                 p.state, p.state_left = "hit_recovery", rec  # interrupts attack and movement
                 p.attack_hit_done = True
 
+    # ------------------------------------------------------------ projectiles
+
+    def _launch(self, **kw) -> Projectile:
+        proj = Projectile(id=self._next_projectile, dir_x=1.0, dir_y=0.0, **kw)
+        self._next_projectile += 1
+        self.projectiles[proj.id] = proj
+        return proj
+
+    def _shoot(self, m: MonsterActor, target: PlayerActor) -> None:
+        """Fires toward where the target is NOW; the shot never turns afterwards."""
+        d = m.monster.type.projectile
+        proj = self._launch(x=m.x, y=m.y, speed=d.speed, radius=d.radius, max_range=m.reach + 2, look=d.look,
+                            owner="monster", owner_id=m.id, magic=d.magic, attack=m.attack, info=m.monster.xp_info)
+        proj.aim(target.x, target.y)
+
+    def _throw_shield(self, p: PlayerActor, cmd: UseSkill) -> str | None:
+        s = p.session
+        if not s.gear.has_shield:
+            return "Shield Throw: needs a shield"
+        if p.busy or p.state == "attacking" or not p.cooldowns.ready("global"):
+            return None
+        t = self.monsters.get(cmd.target_id) if cmd.target_id is not None else None
+        tx, ty = (t.x, t.y) if t else (cmd.x, cmd.y)
+        if tx is None or ty is None:
+            return "no target"
+        e = s.skills.effect
+        self._commit_skill(p, "shield_throw")
+        proj = self._launch(x=p.x, y=p.y, speed=e("shield_throw", "projectileSpeed"), radius=0.25, max_range=e("shield_throw", "rangeTiles"),
+                            look="shield", owner="player", owner_id=p.player_id, skill="shield_throw",
+                            bounces_left=math.floor(e("shield_throw", "bounces") + 1e-9), bounce_range=e("shield_throw", "bounceRangeTiles"))
+        proj.aim(tx, ty)
+        self._face(p, proj.dir_x, proj.dir_y)
+        p.path.clear()
+        p.target_id = None
+        return None
+
+    def _step_projectiles(self, dt: float) -> None:
+        for proj in list(self.projectiles.values()):
+            if not self._fly(proj, dt):
+                del self.projectiles[proj.id]
+
+    def _fly(self, proj: Projectile, dt: float) -> bool:
+        """Moves one projectile. False when it is gone (hit, wall, out of range)."""
+        for x, y in proj.substeps(dt):
+            proj.traveled += math.hypot(x - proj.x, y - proj.y)
+            proj.x, proj.y = x, y
+            if not self.layout.is_floor(cell_of(x, y)):
+                return False
+            if proj.owner == "monster":
+                for p in self.players.values():
+                    if p.state != "dead" and math.hypot(p.x - x, p.y - y) < p.radius + proj.radius:
+                        self._hit_player(p, proj.attack, proj.info, x - proj.dir_x, y - proj.dir_y, proj.magic, melee=None)
+                        return False
+            else:
+                hit = next((m for m in self.monsters.values() if m.alive and m.id not in proj.hit_ids
+                            and math.hypot(m.x - x, m.y - y) < m.radius + proj.radius), None)
+                if hit is not None:
+                    return self._player_projectile_hit(proj, hit)
+        return not proj.spent
+
+    def _player_projectile_hit(self, proj: Projectile, t: MonsterActor) -> bool:
+        p = self.players.get(proj.owner_id)
+        if p is None:
+            return False
+        s = p.session
+        proj.hit_ids.add(t.id)
+        r = s.combat.resolve_physical(player_attack(s.character, s.skills, s.gear, proj.skill), t.defense, s.combat_rng)
+        if r.hit:
+            self._damage_monster(p, t, r.final, self.data.node(proj.skill).tree, crit=r.crit)
+        else:
+            self._float(t.x, t.y, "missed", "miss")
+        if proj.bounces_left <= 0:
+            return False
+        nxt = min((m for m in self.monsters.values() if m.alive and m.id not in proj.hit_ids
+                   and math.hypot(m.x - proj.x, m.y - proj.y) <= proj.bounce_range
+                   and line_of_sight(self.layout, (proj.x, proj.y), (m.x, m.y))),
+                  key=lambda m: math.hypot(m.x - proj.x, m.y - proj.y), default=None)
+        if nxt is None:
+            return False
+        proj.bounces_left -= 1
+        proj.traveled = 0.0
+        proj.max_range = proj.bounce_range + 1
+        proj.aim(nxt.x, nxt.y)  # a new straight line toward where the next enemy is now
+        return True
+
     def _counter(self, p: PlayerActor, m: MonsterActor) -> None:
         s = p.session
         bonus = s.skills.effect("parry", "counterDamagePct")
         if bonus <= 0 or not m.alive:
             return
         atk = with_bonus(player_attack(s.character, s.skills, s.gear), bonus, always_hit=True)
-        r = s.combat.resolve_physical(atk, monster_defense(m.monster), s.combat_rng)
+        r = s.combat.resolve_physical(atk, m.defense, s.combat_rng)
         self._damage_monster(p, m, r.final, "shield", r.crit)
 
     # ------------------------------------------------------------ helpers
@@ -701,7 +930,7 @@ class World:
     def _on_level_up(self, e: ProficiencyLeveledUp) -> None:
         p = self.players.get(e.player_id)
         if p and p.state != "dead":
-            p.life = min(p.max_life, p.life + p.max_life * 0.25)
+            p.life = min(p.max_life, p.life + p.max_life * self.data.balance.character.level_up_heal_pct)
             name = p.session.proficiencies[e.proficiency_id].name
             self._float(p.x, p.y, f"{name} {e.new_level}!", "levelup")
 

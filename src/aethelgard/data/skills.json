@@ -145,7 +145,7 @@
    "tree": "shield",
    "name": "Shield Bash",
    "shortName": "Bash",
-   "description": "Slam one enemy with your shield for {damagePct} more damage and stun it for {stunSeconds}. Unique monsters and bosses shake the stun off faster.",
+   "description": "Slam one enemy with your shield for {damagePct} more damage, knocking it back {knockbackTiles} and stunning it for {stunSeconds}. Unique monsters and bosses are pushed and stunned for half as long.",
    "layer": 1,
    "kind": "active",
    "maxPoints": 15,
@@ -155,7 +155,8 @@
    },
    "cooldown": 4.0,
    "base": {
-    "stunSeconds": 0.6
+    "stunSeconds": 0.6,
+    "knockbackTiles": 1.5
    }
   },
   {
@@ -221,7 +222,7 @@
    "tree": "shield",
    "name": "Shield Throw",
    "shortName": "Throw",
-   "description": "Throw your shield at an enemy; it bounces {bounces} times between enemies, each hit dealing {damagePct} more damage.",
+   "description": "Throw your shield in a straight line toward the mouse, up to {rangeTiles}. On a hit it flies on to the nearest enemy within {bounceRangeTiles}, bouncing {bounces} times; each hit deals {damagePct} more damage. Needs a shield.",
    "layer": 18,
    "kind": "active",
    "maxPoints": 15,
@@ -231,7 +232,10 @@
    },
    "cooldown": 5.0,
    "base": {
-    "bounces": 2
+    "bounces": 2,
+    "projectileSpeed": 12,
+    "rangeTiles": 8,
+    "bounceRangeTiles": 5
    }
   },
   {
@@ -267,7 +271,7 @@
    "kind": "passive",
    "maxPoints": 10,
    "effects": {
-    "lifeRegenPerSecond": 0.5
+    "lifeRegenPerSecond": 0.2
    }
   },
   {

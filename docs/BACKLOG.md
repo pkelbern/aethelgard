@@ -8,12 +8,12 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | Marco | Feito | Validar | Total | Dias restantes |
 |---|---|---|---|---|
 | M0 – Base | 4 | 0 | 8 | 2.5 |
-| M1 – Combate | 6 | 3 | 13 | 7 |
+| M1 – Combate | 6 | 4 | 13 | 5.5 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
 | M3 – Árvores | 2 | 1 | 7 | 8 |
-| M4 – Monstros | 2 | 1 | 7 | 9.5 |
+| M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 0 | 8 | 8.5 |
-| M6 – Loot | 2 | 0 | 8 | 11 |
+| M6 – Loot | 2 | 1 | 8 | 9 |
 | M7 – Vertical slice | 0 | 0 | 8 | 31.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
@@ -56,8 +56,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Flash no alvo, recuo curto e som de impacto. Critério: o golpe 'tem peso'.
 - [ ] **M1-06** Poções de vida e energia com recarga _(código, ~1 d)_  
   Q/W hoje são habilidades; mover poções para 1–2 ou cinto.
-- [ ] **M1-07** Projéteis de monstros à distância _(código, ~1.5 d)_  
-  Esqueleto Arqueiro e Xamã atiram de verdade (hoje atacam à distância instantâneo).
+- [ ] **M1-07** Projéteis de monstros à distância _(código, ~1.5 d)_ — **escrito, validar**  
+  Arqueiro (flecha física), Xamã e Necromante (rajada mágica) atiram projéteis visíveis em linha reta para onde o jogador estava, sem desviar; paredes param; só atiram com linha de visão. Guarda bloqueia físicos; mágicos só com Bulwark (decide a questão 3 do GDD 19.2). core/projectiles.py.
 - [x] **M1-08** Guarda ativa com escudo (segurar Espaço) _(código, ~1.5 d)_  
   Arco frontal, custo de Energia por bloqueio, janela perfeita com contra-ataque (Aparar), guarda quebrada atordoa. Testado no mundo em tempo real.
 - [x] **M1-09** Recarga curta entre guardas _(balanceamento, ~0.5 d)_  
@@ -99,7 +99,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M3-03** Barra de habilidades com contagem regressiva _(UI, ~1 d)_ — **escrito, validar**  
   Feito: barra de 6 atalhos (GDD 6.1) nas teclas 1–6 (data/ui/keys.json), setor de recarga e segundos. O jogador escolhe a habilidade de cada tecla: passar o mouse na árvore e apertar a tecla, ou clicar no atalho (seletor); clique direito limpa. Habilidade nova vai para o primeiro atalho livre. Salva com o personagem (save v3). Tooltip ao passar o mouse no atalho. Falta: arrastar e soltar; clique direito para usar habilidade (GDD 12.3).
 - [ ] **M3-04** Implementar as ativas que faltam _(código, ~3 d)_  
-  Feitas: Precise Strike, Shield Bash (atordoa), Wide Slash (arco), Bulwark (guarda 360°). Faltam: Charge, Whirlwind, Shield Throw, War Cry.
+  Feitas: Precise Strike, Shield Bash (atordoa e empurra 1,5 tile), Wide Slash (arco), Bulwark (guarda 360°), Shield Throw (projétil reto que ricocheteia em linha reta para o inimigo mais próximo) — as duas últimas mudanças **escrito, validar**. Faltam: Charge, Whirlwind, War Cry.
 - [ ] **M3-05** Implementar os passivos do MVP _(código, ~3 d)_  
   Ligar efeitos de skills.json a PlayerCombat e às regras (sangramento, ritmo, segundo fôlego…).
 - [ ] **M3-06** Pergaminho do Esquecimento (respec) _(código, ~0.5 d)_  
@@ -123,6 +123,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   2–3 ataques telegrafados e uma fase abaixo de 50% de vida.
 - [ ] **M4-06** Desativar monstros longe do jogador _(desempenho, ~0.5 d)_  
   Pausar _Process fora de um raio. Critério: custo de CPU estável em áreas cheias.
+- [ ] **M4-08** Líderes: Xamã e Necromante _(código, ~1 d)_ — **escrito, validar**  
+  Nunca aparecem sozinhos nem em grupos champion/único: lideram um grupo normal (mesmo tamanho, então o XP do Ato 1 não muda), até 3 por área/andar. Aura enquanto vivos: Xamã +15% dano e +10% velocidade de ataque; Necromante −10% dano físico recebido, num raio de 6 tiles. O quadro do alvo explica (Leader / Empowered).
 - [ ] **M4-07** Nome do monstro ao passar o mouse (GDD 12.1) _(UI, ~0.5 d)_ — **escrito, validar**  
   Nome na cor do rank (branco, azul champion, dourado único, lilás chefe), contorno nos pés e quadro no topo com vida, nível, rank e modificadores. Vale para todos os monstros, não só únicos e champions.
 
@@ -153,8 +155,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 
 - [x] **M6-01** Gerador de loot no núcleo _(código, ~1 d)_  
   Quantidade, raridade, base, afixos por iLvl, nomes; testes.
-- [ ] **M6-02** Itens no chão e coleta _(código, ~2 d)_  
-  Drops visíveis com cor de raridade; Alt mostra nomes; clique coleta.
+- [ ] **M6-02** Itens no chão e coleta _(código, ~2 d)_ — **escrito, validar**  
+  Drops caem em volta do corpo com cor de raridade; clique anda até o item e coleta (comando PickUp); ouro coletado ao passar por cima (balance.loot.autoPickupGold); Alt mostra todos os nomes sem sobreposição; mochila cheia deixa o item no chão. Some ao sair da área.
 - [ ] **M6-03** Inventário em grade 10×6 e equipamento _(UI, ~4 d)_  
   Itens ocupam várias células; equipar altera PlayerCombat (afixos inclusos).
 - [ ] **M6-04** Tooltip com comparação ao equipado _(UI, ~1.5 d)_  

@@ -80,7 +80,8 @@ class XpCalculator:
     def armor(self, m: MonsterXpInfo, raw: float, mitigated: float, prof_level: int) -> float:
         if raw <= 0 or mitigated <= 0 or self.is_trivial(m.level, prof_level):
             return 0.0
-        return m.xp_base * self._p.defense_xp_per_hit * min(1.0, mitigated / raw) * self.factor(m.level, prof_level)
+        share = min(1.0, mitigated / raw / max(1e-9, self._p.armor_xp_full_at_mitigation))
+        return m.xp_base * self._p.defense_xp_per_hit * share * self.factor(m.level, prof_level)
 
     def defense_cap(self, m: MonsterXpInfo) -> float:
         return m.xp_base * self._p.defense_xp_cap_per_monster

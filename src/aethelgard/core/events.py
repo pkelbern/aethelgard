@@ -115,7 +115,7 @@ class SkillUsed:
 
 @dataclass(frozen=True)
 class LootPicked:
-    """A drop went to a player. ``stored`` is False when the backpack was full and the drop was lost."""
+    """A player tried to pick up a drop. ``stored`` is False when the backpack was full: it stays on the ground."""
 
     player_id: int
     drop: Any  # items.Drop (kept as Any so events.py does not import items.py)

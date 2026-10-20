@@ -11,7 +11,7 @@ from importlib import resources
 
 import pygame
 
-ACTIONS = ("guard", "skillTrees", "map", "console", "save", "cancel")
+ACTIONS = ("guard", "skillTrees", "map", "console", "save", "cancel", "showItems")
 
 
 class KeyMap:
@@ -20,12 +20,15 @@ class KeyMap:
         if len(names) != bar_slots:
             raise ValueError(f"keys.json: skillBar has {len(names)} keys, the bar has {bar_slots} slots (skills.json barSlots)")
         self.slot_keys: list[int] = [pygame.key.key_code(n) for n in names]
-        self.action_keys: dict[str, int] = {a: pygame.key.key_code(raw[a]) for a in ACTIONS}
-        every = self.slot_keys + list(self.action_keys.values())
+        # an action takes one key name or a list of them ("showItems": ["left alt", "right alt"])
+        self.action_keys: dict[str, list[int]] = {
+            a: [pygame.key.key_code(n) for n in (raw[a] if isinstance(raw[a], list) else [raw[a]])] for a in ACTIONS
+        }
+        every = self.slot_keys + [k for ks in self.action_keys.values() for k in ks]
         if len(set(every)) != len(every):
             raise ValueError("keys.json: the same key is used twice")
         self._slot_of = {k: i for i, k in enumerate(self.slot_keys)}
-        self._action_of = {k: a for a, k in self.action_keys.items()}
+        self._action_of = {k: a for a, ks in self.action_keys.items() for k in ks}
 
     @classmethod
     def load(cls, bar_slots: int) -> KeyMap:
@@ -39,12 +42,17 @@ class KeyMap:
         return self._action_of.get(key)
 
     def key(self, action: str) -> int:
-        return self.action_keys[action]
+        return self.action_keys[action][0]
+
+    def held(self, action: str) -> bool:
+        """Any of the action's keys is down right now (guard, show items)."""
+        pressed = pygame.key.get_pressed()
+        return any(pressed[k] for k in self.action_keys[action])
 
     @staticmethod
     def label(key: int) -> str:
         """Short text for a key on screen: "1", "Space", "F5"."""
-        name = pygame.key.name(key)
+        name = pygame.key.name(key).removeprefix("left ").removeprefix("right ")
         function_key = name[:1] == "f" and name[1:].isdigit()
         return name.upper() if len(name) == 1 or function_key else name.title()
 
@@ -52,7 +60,7 @@ class KeyMap:
         return self.label(self.slot_keys[slot])
 
     def action_label(self, action: str) -> str:
-        return self.label(self.action_keys[action])
+        return self.label(self.action_keys[action][0])
 
     @property
     def bar_labels(self) -> str:

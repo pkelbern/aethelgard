@@ -24,10 +24,12 @@ def test_default_keys_cover_every_bar_slot(data):
     assert k.bar_labels == "1–6"
     assert k.slot_for(pygame.K_3) == 2 and k.slot_for(pygame.K_t) is None
     assert k.action_for(pygame.K_SPACE) == "guard" and k.action_label("map") == "Tab" and k.action_label("save") == "F5"
+    assert k.action_for(pygame.K_LALT) == k.action_for(pygame.K_RALT) == "showItems" and k.action_label("showItems") == "Alt"
 
 
 def test_bad_key_maps_are_refused():
-    raw = {"skillBar": ["q", "w"], "guard": "space", "skillTrees": "t", "map": "tab", "console": "f1", "save": "f5", "cancel": "escape"}
+    raw = {"skillBar": ["q", "w"], "guard": "space", "skillTrees": "t", "map": "tab", "console": "f1", "save": "f5", "cancel": "escape",
+           "showItems": ["left alt", "right alt"]}
     with pytest.raises(ValueError, match="slots"):
         KeyMap(raw, 6)
     with pytest.raises(ValueError, match="twice"):
