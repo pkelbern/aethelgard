@@ -45,6 +45,10 @@
     { "id": "damagePerMissingLife10Pct",  "label": "damage per 10% life missing",          "format": "pct" },
     { "id": "physicalReduction",          "label": "less physical damage taken",           "format": "pct" },
     { "id": "moveSpeedPct",               "label": "movement speed",                       "format": "pct" },
+    { "id": "offHandDamagePct",           "label": "off-hand weapon damage",               "format": "pct" },
+    { "id": "dualAttackSpeedPct",         "label": "attack speed with two weapons",        "format": "pct" },
+    { "id": "deflectChance",              "label": "chance to deflect a melee hit",        "format": "pct" },
+    { "id": "lifeLeechPct",               "label": "of damage dealt as life",              "format": "pct" },
     { "id": "stunChance",                 "label": "chance to stun",                       "format": "pct" },
 
     { "id": "weaponDamage",               "label": "average weapon damage",                "format": "flat" },

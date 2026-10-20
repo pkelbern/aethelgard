@@ -19,8 +19,8 @@ from ..core.progression import Allocate
 if TYPE_CHECKING:
     from .app import Game
 
-TREE_ORDER = ["blades", "shield", "armor"]
-TREE_SIZE = (960, 540)
+COL_W = 300  # one column per proficiency tree (proficiencies.json order)
+TREE_H = 540
 PICKER_W = 300
 
 
@@ -133,6 +133,14 @@ class GameUI:
         else:
             self.refresh_tree()
 
+    @property
+    def tree_order(self) -> list[str]:
+        return [p.id for p in self.g.data.proficiencies.proficiencies]
+
+    @property
+    def tree_size(self) -> tuple[int, int]:
+        return (len(self.tree_order) * COL_W + 30, TREE_H)
+
     def refresh_tree_if_open(self) -> None:
         """After points or keys change elsewhere (console, action bar), so the window never shows stale data."""
         if self._open(self.tree):
@@ -146,13 +154,13 @@ class GameUI:
             win.get_container().clear()
         else:
             W, H = self.manager.window_resolution
-            pos = ((W - TREE_SIZE[0]) // 2, (H - TREE_SIZE[1]) // 2)
+            pos = ((W - self.tree_size[0]) // 2, (H - self.tree_size[1]) // 2)
             title = f"Skill trees  ({keys.action_label('skillTrees')} closes · hover an active skill and press {keys.bar_labels} to put it on the bar)"
-            win = UIWindow(pygame.Rect(pos, TREE_SIZE), self.manager, window_display_title=title, object_id="#tree_window")
+            win = UIWindow(pygame.Rect(pos, self.tree_size), self.manager, window_display_title=title, object_id="#tree_window")
         self._node_buttons.clear()
         self._node_rows.clear()
-        col_w = 310
-        for i, tree in enumerate(TREE_ORDER):
+        col_w = COL_W
+        for i, tree in enumerate(self.tree_order):
             prof = s.proficiencies[tree]
             x = 10 + i * col_w
             UILabel(pygame.Rect(x, 6, col_w - 10, 26), f"{prof.name} {prof.level}  ·  {s.skills.available(tree)} point(s)",

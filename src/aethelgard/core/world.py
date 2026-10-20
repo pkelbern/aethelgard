@@ -59,13 +59,17 @@ from .town import Vendor, item_price, sell_price
 from .world_gen import AreaLayout, Exit, ExitKind
 
 # Skills with behavior implemented in the prototype; the rest are in the backlog (M3-04).
-TARGET_SKILLS = {"precise_strike", "shield_bash"}
-AREA_SKILLS = {"wide_slash"}
+TARGET_SKILLS = {"precise_strike", "shield_bash", "double_strike", "frenzy"}
+AREA_SKILLS = {"wide_slash", "whirling_blades"}
+TWO_HAND_HITS = {"double_strike", "frenzy", "whirling_blades"}  # one hit with each weapon in the same swing
 SELF_SKILLS = {"bulwark"}
 PROJECTILE_SKILLS = {"shield_throw"}
 IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS
 # Passives whose effect the rules already read (combat.py, world.py); the rest are M3-05.
-IMPLEMENTED_PASSIVES = {"sharp_blade", "defensive_stance", "parry", "heavy_shield", "iron_skin", "recovery", "steadfast"}
+IMPLEMENTED_PASSIVES = {
+    "sharp_blade", "defensive_stance", "parry", "heavy_shield", "iron_skin", "recovery", "steadfast",
+    "off_hand_training", "ambidexterity", "blade_guard", "bloodlust",
+}
 
 
 def is_implemented(node_id: str) -> bool:
@@ -270,6 +274,8 @@ class PlayerActor:
     guarding: bool = False
     guard_time: float = 0.0
     bulwark_left: float = 0.0
+    frenzy_stacks: int = 0  # Frenzy: attack speed per stack while frenzy_left > 0
+    frenzy_left: float = 0.0
     cooldowns: Cooldowns = field(default_factory=Cooldowns)
     exit_cooldown: float = EXIT_COOLDOWN
     god_mode: bool = False  # debugging
@@ -546,6 +552,8 @@ class World:
             return f"{node.name}: no points"
         if node.tree == "shield" and node.kind == "active" and not s.gear.has_shield:
             return f"{node.name}: needs a shield"
+        if node.tree == "dual_wield" and node.kind == "active" and not s.gear.dual_wielding:
+            return f"{node.name}: needs two weapons"
         if skill_id not in IMPLEMENTED_SKILLS:
             return f"{node.name}: not implemented yet"
         if not p.cooldowns.ready(skill_id):
@@ -609,6 +617,9 @@ class World:
         p.cooldowns.tick(dt)
         p.exit_cooldown -= dt
         p.bulwark_left = max(0.0, p.bulwark_left - dt)
+        p.frenzy_left = max(0.0, p.frenzy_left - dt)
+        if p.frenzy_left <= 0:
+            p.frenzy_stacks = 0
         regen = 0.005 if p.guarding else 0.02
         p.energy = min(p.max_energy, p.energy + p.max_energy * regen * dt)
         p.life = min(p.max_life, p.life + s.skills.effect("recovery", "lifeRegenPerSecond") * dt)
@@ -878,8 +889,16 @@ class World:
             if start_cooldown:
                 p.cooldowns.start("guard_raise", self.data.balance.guard.guard_raise_cooldown_seconds)
 
+    def attack_speed(self, p: PlayerActor) -> float:
+        """Attack speed bonus: generic, plus Ambidexterity with two weapons, plus Frenzy stacks."""
+        t = p.session.skills
+        ias = t.stat_total("attackSpeedPct")
+        if p.session.gear.dual_wielding:
+            ias += t.effect("ambidexterity", "dualAttackSpeedPct")
+        return ias + p.frenzy_stacks * t.effect("frenzy", "attackSpeedPerStackPct")
+
     def _begin_attack(self, p: PlayerActor, target_id: int | None, skill: str | None) -> None:
-        ias = p.session.skills.stat_total("attackSpeedPct")
+        ias = self.attack_speed(p)
         p.state = "attacking"
         p.attack_elapsed = 0.0
         p.attack_duration = self.timing.attack_seconds / (1 + ias)
@@ -897,7 +916,7 @@ class World:
         skill = p.attack_skill
         targets: list[MonsterActor] = []
         if skill in AREA_SKILLS:
-            arc = s.skills.effect("wide_slash", "arcDegrees")  # fixed arc (base); points raise the damage
+            arc = s.skills.effect(skill, "arcDegrees")  # fixed arc (base); points raise the damage
             for m in self.monsters.values():
                 if m.alive and math.hypot(m.x - p.x, m.y - p.y) <= MELEE_RANGE + 0.4:
                     if s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc):
@@ -906,14 +925,23 @@ class World:
             t = self.monsters.get(p.attack_target) if p.attack_target is not None else None
             if t and t.alive and math.hypot(t.x - p.x, t.y - p.y) <= MELEE_RANGE + 0.6:
                 targets.append(t)
-        prof = self.data.node(skill).tree if skill else "blades"
+        # XP: a skill feeds its own tree; a plain swing feeds Blades, or Dual Wield when it is the off hand
+        prof = self.data.node(skill).tree if skill else ("dual_wield" if p.attack_hand == "off" else "blades")
+        hands = ("main", "off") if skill in TWO_HAND_HITS else (p.attack_hand,)
         for t in targets:
-            atk = player_attack(s.character, s.skills, s.gear, skill, p.attack_hand)
-            r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
-            if not r.hit:
-                self._float(t.x, t.y, "miss", "miss")
-                continue
-            self._damage_monster(p, t, r.final, prof, crit=r.crit)
+            for hand in hands:
+                if not t.alive:
+                    break
+                atk = player_attack(s.character, s.skills, s.gear, skill, hand)
+                r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
+                if not r.hit:
+                    self._float(t.x, t.y, "miss", "miss")
+                    continue
+                self._damage_monster(p, t, r.final, prof, crit=r.crit)
+                if skill == "frenzy":
+                    top = round(s.skills.effect("frenzy", "maxStacks"))
+                    p.frenzy_stacks = min(top, p.frenzy_stacks + 1)
+                    p.frenzy_left = s.skills.effect("frenzy", "durationSeconds")
             if skill == "shield_bash" and t.alive:
                 self._knock_back(t, p.x, p.y, s.skills.effect("shield_bash", "knockbackTiles"))
                 self._stun_monster(t, s.skills.effect("shield_bash", "stunSeconds"))
@@ -921,6 +949,8 @@ class World:
     def _damage_monster(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str, crit: bool = False) -> None:
         eff = t.monster.take_damage(amount)
         self.bus.publish(DamageDealt(prof, t.monster.xp_info, eff, p.player_id))
+        if eff > 0 and p.session.gear.dual_wielding:  # Bloodlust
+            p.life = min(p.max_life, p.life + eff * p.session.skills.effect("bloodlust", "lifeLeechPct"))
         self._float(t.x, t.y, f"{amount:.0f}{'!' if crit else ''}", "crit" if crit else "damage")
         self._alert(t)
         if not t.alive:
@@ -1105,6 +1135,10 @@ class World:
         """A swing or a shot reaches the player. (from_x, from_y) is where it comes from, for the guard arc.
         Magic gets past the guard unless Bulwark is up; only melee hits can be counterattacked."""
         s = p.session
+        deflect = s.skills.effect("blade_guard", "deflectChance")
+        if melee is not None and s.gear.dual_wielding and deflect > 0 and s.combat_rng.chance(deflect):
+            self._float(p.x, p.y, "deflected", "block")  # Blade Guard: the blades turn the blow aside
+            return
         prof = player_guard(s.skills, s.gear, self.data.balance.guard)
         bulwark = p.bulwark_left > 0
         guard = GuardState(

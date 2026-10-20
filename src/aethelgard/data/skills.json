@@ -361,6 +361,126 @@
     "maxLifePct": 0.04,
     "damagePerMissingLife10Pct": 0.01
    }
+  },
+  {
+   "id": "double_strike",
+   "tree": "dual_wield",
+   "name": "Double Strike",
+   "shortName": "Double",
+   "layer": 1,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 3,
+   "cooldown": 0.0,
+   "description": "Strike one enemy with both weapons in the same swing: one hit with each hand, {damagePct} more damage each. Needs two weapons.",
+   "effects": {
+    "damagePct": 0.12,
+    "accuracyPct": 0.05
+   }
+  },
+  {
+   "id": "off_hand_training",
+   "tree": "dual_wield",
+   "name": "Off-Hand Training",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Your weaker hand learns: the off-hand weapon deals {offHandDamagePct} more of its damage (it starts at 70%).",
+   "effects": {
+    "offHandDamagePct": 0.03
+   }
+  },
+  {
+   "id": "frenzy",
+   "tree": "dual_wield",
+   "name": "Frenzy",
+   "shortName": "Frenzy",
+   "layer": 6,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 4,
+   "cooldown": 0.0,
+   "description": "Hit with both weapons for {damagePct} more damage. Every hit grants {attackSpeedPerStackPct} attack speed for {durationSeconds}, stacking up to {maxStacks} times. Needs two weapons.",
+   "effects": {
+    "damagePct": 0.08,
+    "attackSpeedPerStackPct": 0.02
+   },
+   "base": {
+    "durationSeconds": 4,
+    "maxStacks": 5
+   }
+  },
+  {
+   "id": "ambidexterity",
+   "tree": "dual_wield",
+   "name": "Ambidexterity",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{dualAttackSpeedPct} attack speed while holding two weapons.",
+   "effects": {
+    "dualAttackSpeedPct": 0.03
+   }
+  },
+  {
+   "id": "whirling_blades",
+   "tree": "dual_wield",
+   "name": "Whirling Blades",
+   "shortName": "Whirl",
+   "layer": 12,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 7,
+   "cooldown": 3.0,
+   "description": "Spin once, hitting every enemy around you ({arcDegrees}) with both weapons for {damagePct} more damage. Needs two weapons.",
+   "effects": {
+    "damagePct": 0.1
+   },
+   "base": {
+    "arcDegrees": 360
+   }
+  },
+  {
+   "id": "blade_guard",
+   "tree": "dual_wield",
+   "name": "Blade Guard",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "With two weapons you cannot raise a guard, but you can turn blows aside: {deflectChance} chance to deflect a melee hit completely.",
+   "effects": {
+    "deflectChance": 0.02
+   }
+  },
+  {
+   "id": "blade_dance",
+   "tree": "dual_wield",
+   "name": "Blade Dance",
+   "shortName": "Dance",
+   "layer": 18,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 10,
+   "cooldown": 8.0,
+   "description": "Dash through up to {rangeTiles}, striking every enemy on the way with both weapons for {damagePct} more damage. Needs two weapons.",
+   "effects": {
+    "damagePct": 0.15
+   },
+   "base": {
+    "rangeTiles": 5
+   }
+  },
+  {
+   "id": "bloodlust",
+   "tree": "dual_wield",
+   "name": "Bloodlust",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "While holding two weapons, {lifeLeechPct} of the damage you deal comes back as life.",
+   "effects": {
+    "lifeLeechPct": 0.01
+   }
   }
  ],
  "synergies": [
@@ -405,6 +525,24 @@
    "from": "recovery",
    "stat": "healPctOfMax",
    "perPoint": 0.02
+  },
+  {
+   "target": "double_strike",
+   "from": "sharp_blade",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "frenzy",
+   "from": "double_strike",
+   "stat": "damagePct",
+   "perPoint": 0.03
+  },
+  {
+   "target": "whirling_blades",
+   "from": "wide_slash",
+   "stat": "damagePct",
+   "perPoint": 0.04
   }
  ]
 }

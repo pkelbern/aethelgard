@@ -1,5 +1,5 @@
 {
-  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1.",
+  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Dual Wield gets XP from off-hand swings and from its own skills (main-hand swings feed Blades).",
   "proficiencies": [
     {
       "id": "blades",
@@ -40,6 +40,20 @@
         "int": 0
       },
       "weaponTags": []
+    },
+    {
+      "id": "dual_wield",
+      "name": "Dual Wield",
+      "xpSource": "offense",
+      "attributes": {
+        "str": 1,
+        "dex": 2,
+        "vit": 0,
+        "int": 0
+      },
+      "weaponTags": [
+        "sword"
+      ]
     }
   ],
   "titles": [
@@ -81,6 +95,33 @@
         "armor"
       ],
       "title": "Bastion"
+    },
+    {
+      "ids": [
+        "dual_wield"
+      ],
+      "title": "Twinblade"
+    },
+    {
+      "ids": [
+        "blades",
+        "dual_wield"
+      ],
+      "title": "Blademaster"
+    },
+    {
+      "ids": [
+        "shield",
+        "dual_wield"
+      ],
+      "title": "Skirmisher"
+    },
+    {
+      "ids": [
+        "armor",
+        "dual_wield"
+      ],
+      "title": "Marauder"
     }
   ],
   "titleSecondaryThreshold": 0.5,

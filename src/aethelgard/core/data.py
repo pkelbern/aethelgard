@@ -188,6 +188,11 @@ class GuardParams:
 
 
 @dataclass
+class DualWieldParams:
+    off_hand_damage_mult: float = 0.7
+
+
+@dataclass
 class CollisionParams:
     player_radius: float = 0.3
 
@@ -218,6 +223,7 @@ class BalanceData:
     guard: GuardParams = field(default_factory=GuardParams)
     timing: TimingParams = field(default_factory=TimingParams)
     collision: CollisionParams = field(default_factory=CollisionParams)
+    dual_wield: DualWieldParams = field(default_factory=DualWieldParams)
     loot: LootParams = field(default_factory=LootParams)
 
 

@@ -57,6 +57,10 @@
     "normalPackSizeMax": 5,
     "minionLeashTiles": 6
   },
+  "dualWield": {
+    "_comment": "Two one-hand weapons (GDD 7, D2 style): swings alternate main → off; each hand uses its own weapon. The off hand deals offHandDamageMult of its damage (Off-Hand Training adds to it, never above 1). No guard and no Shield actives without a shield.",
+    "offHandDamageMult": 0.7
+  },
   "loot": {
     "_comment": "Drops fall on the ground around the monster and must be picked up (click, or walk over gold when autoPickupGold). pickupRangeTiles = how close the player must get. Alt shows every label.",
     "autoPickupGold": true,

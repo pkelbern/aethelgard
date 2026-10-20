@@ -232,6 +232,10 @@ class CharacterSheet:
         self.item_bonus = Attributes()
 
     @property
+    def data(self) -> GameData:
+        return self._d
+
+    @property
     def attributes(self) -> Attributes:
         s = d = v = i = 0
         for p in self._profs:

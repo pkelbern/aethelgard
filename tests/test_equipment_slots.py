@@ -51,7 +51,8 @@ def test_a_sword_dragged_to_the_off_hand_means_two_weapons(data):
     a_main = player_attack(s.character, s.skills, s.gear, None, "main")
     a_off = player_attack(s.character, s.skills, s.gear, None, "off")
     assert (a_main.dmg_min, a_main.dmg_max) == (sword.dmg_min, sword.dmg_max)
-    assert (a_off.dmg_min, a_off.dmg_max) == (dagger.dmg_min, dagger.dmg_max)
+    m = data.balance.dual_wield.off_hand_damage_mult
+    assert (a_off.dmg_min, a_off.dmg_max) == pytest.approx((dagger.dmg_min * m, dagger.dmg_max * m)), "the weaker hand"
 
 
 def test_two_weapons_alternate_swings_and_cannot_guard_or_bash(data):
