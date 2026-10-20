@@ -114,6 +114,12 @@ class SkillUsed:
 
 
 @dataclass(frozen=True)
+class ConsumableUsed:
+    player_id: int
+    consumable_id: str
+
+
+@dataclass(frozen=True)
 class LootPicked:
     """A player tried to pick up a drop. ``stored`` is False when the backpack was full: it stays on the ground."""
 

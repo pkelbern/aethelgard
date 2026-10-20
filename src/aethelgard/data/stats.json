@@ -47,6 +47,8 @@
     { "id": "moveSpeedPct",               "label": "movement speed",                       "format": "pct" },
     { "id": "stunChance",                 "label": "chance to stun",                       "format": "pct" },
 
+    { "id": "weaponDamage",               "label": "average weapon damage",                "format": "flat" },
+    { "id": "armor",                      "label": "armor",                                "format": "flat" },
     { "id": "accuracy",                   "label": "accuracy",                             "format": "flat" },
     { "id": "attackSpeedPct",             "label": "attack speed",                         "format": "pct" },
     { "id": "bladesSkills",               "label": "to Blades skills",                     "format": "flat" },

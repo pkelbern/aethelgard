@@ -48,8 +48,10 @@ def draw_panel(screen: pygame.Surface, rect: pygame.Rect, edge=C.PANEL_EDGE) -> 
     pygame.draw.rect(screen, edge, rect, 1, border_radius=3)
 
 
-def draw_tooltip(screen: pygame.Surface, fonts: dict, lines: list[Line], anchor: tuple[int, int], width: int = WIDTH, edge=C.PANEL_EDGE) -> pygame.Rect:
-    """Box with the lines next to ``anchor`` (usually the mouse), flipped and clamped to stay on screen."""
+def draw_tooltip(screen: pygame.Surface, fonts: dict, lines: list[Line], anchor: tuple[int, int], width: int = WIDTH, edge=C.PANEL_EDGE,
+                 right_edge: int | None = None, top: int | None = None) -> pygame.Rect:
+    """Box with the lines next to ``anchor`` (usually the mouse), flipped and clamped to stay on screen.
+    With ``right_edge`` the box ends there instead (a second tooltip placed beside the first)."""
     inner = width - 2 * PAD
     rows: list[tuple[pygame.Surface, int]] = []
     height = PAD
@@ -64,7 +66,11 @@ def draw_tooltip(screen: pygame.Surface, fonts: dict, lines: list[Line], anchor:
     height += PAD - 1
     W, H = screen.get_size()
     x, y = anchor[0] + 18, anchor[1] - height - 8
-    if x + width > W - 4:
+    if right_edge is not None:
+        x = right_edge - width - 6
+    if top is not None:
+        y = top
+    elif x + width > W - 4:
         x = anchor[0] - width - 18
     rect = pygame.Rect(max(4, x), max(4, min(y, H - height - 4)), width, height)
     draw_panel(screen, rect, edge)

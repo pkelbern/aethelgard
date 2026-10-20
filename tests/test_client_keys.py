@@ -29,7 +29,8 @@ def test_default_keys_cover_every_bar_slot(data):
 
 def test_bad_key_maps_are_refused():
     raw = {"skillBar": ["q", "w"], "guard": "space", "skillTrees": "t", "inventory": "i", "map": "tab", "console": "f1", "save": "f5", "cancel": "escape",
-           "showItems": ["left alt", "right alt"]}
+           "showItems": ["left alt", "right alt"], "compare": ["left shift", "right shift"],
+           "lifePotion": "z", "energyPotion": "x", "portalScroll": "c"}
     with pytest.raises(ValueError, match="slots"):
         KeyMap(raw, 6)
     with pytest.raises(ValueError, match="twice"):

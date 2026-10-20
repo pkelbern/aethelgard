@@ -25,6 +25,8 @@ class ExitKind(Enum):
     ENTRANCE = "entrance"
     STAIRS_DOWN = "stairs_down"
     STAIRS_UP = "stairs_up"
+    PORTAL_TO_TOWN = "portal_to_town"  # walking into your town portal out in the world
+    PORTAL_BACK = "portal_back"  # walking into it in town: back to where it was opened
 
 
 Cell = tuple[int, int]

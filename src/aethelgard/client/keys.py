@@ -11,7 +11,8 @@ from importlib import resources
 
 import pygame
 
-ACTIONS = ("guard", "skillTrees", "inventory", "map", "console", "save", "cancel", "showItems")
+ACTIONS = ("guard", "skillTrees", "inventory", "map", "console", "save", "cancel", "showItems", "compare", "lifePotion", "energyPotion", "portalScroll")
+CONSUMABLE_KEYS = {"lifePotion": "life_potion", "energyPotion": "energy_potion", "portalScroll": "portal_scroll"}
 
 
 class KeyMap:

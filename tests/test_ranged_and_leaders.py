@@ -231,3 +231,15 @@ def test_monster_stats_from_buffs_use_the_actor(data):
     assert m.speed == pytest.approx(m.monster.type.move_speed * 2.6 * 1.5)
     m.monster.type = replace(m.monster.type, projectile=ProjectileDef())
     assert m.ranged and math.isfinite(m.reach)
+
+
+def test_a_projectile_at_the_end_of_its_range_is_removed_not_left_hanging(data):
+    """Regression: traveled stopped at 8.999999999999998 of 9; the rest was too small to move it, so the
+    arrow stayed in the air forever and hit whoever walked over it."""
+    s, w, p, m = archer_arena(data)
+    proj = w._launch(x=25.316406071651343, y=48.52090911029274, speed=9, radius=0.12, max_range=9, look="arrow",
+                     owner="monster", owner_id=1, attack=m.attack, info=m.monster.xp_info)
+    proj.dir_x, proj.dir_y = 0.939068000696471, -0.34373142141493696
+    proj.traveled = 8.999999999999998
+    w._step_projectiles(DT)
+    assert not w.projectiles

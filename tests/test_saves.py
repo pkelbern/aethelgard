@@ -195,3 +195,16 @@ def test_item_tooltip_lists_numbers_affixes_and_requirements(data):
     assert len([x for x in lines if x.style == "next"]) == len(item.affixes)
     shield = describe_item(data, Item.plain(data.base("tower_shield")))
     assert "+15% of a blocked hit stopped" in [x.text for x in shield]
+
+
+def test_comparison_shows_gains_and_losses_against_the_worn_item(data):
+    from aethelgard.core.describe import compare_items
+
+    kite, tower = Item.plain(data.base("kite_shield")), Item.plain(data.base("tower_shield"))
+    texts = {x.text: x.style for x in compare_items(data, tower, kite)}
+    assert texts["Instead of Kite Shield"] == "header"
+    assert texts["+8 armor"] == "good" and texts["+5% of a blocked hit stopped"] == "good"
+    worse = {x.text: x.style for x in compare_items(data, kite, tower)}
+    assert worse["-8 armor"] == "warn"
+    assert compare_items(data, kite, None)[0].text == "Nothing worn in this slot"
+    assert [x.text for x in compare_items(data, kite, kite)][-1] == "Same numbers"

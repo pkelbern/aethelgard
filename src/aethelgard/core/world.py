@@ -28,6 +28,7 @@ from .combat import (
     with_bonus,
 )
 from .events import (
+    ConsumableUsed,
     DamageDealt,
     DamageMitigated,
     ExitReached,
@@ -120,6 +121,14 @@ class PickUp:
 
 
 @dataclass(frozen=True)
+class UseConsumable:
+    """Drink a potion or read a scroll from the character's consumables (``items.json`` consumables)."""
+
+    player_id: int
+    consumable_id: str
+
+
+@dataclass(frozen=True)
 class EquipItem:
     """Wear the backpack item at ``index`` (swaps with what is in its slot)."""
 
@@ -140,7 +149,28 @@ class Respawn:
     player_id: int
 
 
-Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem
+Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
+
+
+@dataclass
+class TownPortal:
+    """Where a player's portal was opened. It stays until the next scroll replaces it (GDD 10.4)."""
+
+    area_id: str
+    floor: int
+    x: float
+    y: float
+
+
+@dataclass
+class AreaState:
+    """An area as the players left it: it is restored, not regenerated, for the rest of the game."""
+
+    layout: AreaLayout
+    monsters: dict
+    ground: dict
+
+PORTAL_TOUCH = 0.7  # tiles: how close to a portal you must walk to go through it
 
 
 # ---------------------------------------------------------------- actors
@@ -163,6 +193,7 @@ class PlayerActor:
     target_id: int | None = None
     pending_skill: str | None = None
     pickup_id: int | None = None
+    restores: list[list] = field(default_factory=list)  # [stat, per second, seconds left] from potions
     # states: idle | attacking | hit_recovery | block_recovery | stunned | dead
     state: str = "idle"
     state_left: float = 0.0
@@ -295,6 +326,8 @@ class World:
         self._next_projectile = 1
         self.ground: dict[int, GroundItem] = {}
         self._next_ground = 1
+        self.portals: dict[int, TownPortal] = {}
+        self._areas: dict[tuple[str, int], AreaState] = {}
         self.layout: AreaLayout | None = None
         self.area_id = ""
         self.floor = 0
@@ -305,13 +338,22 @@ class World:
 
     # ------------------------------------------------------------ areas
 
-    def enter_area(self, area_id: str, floor: int = 0, came_from: str | None = None, arrive_at: ExitKind | None = None) -> None:
+    def enter_area(self, area_id: str, floor: int = 0, came_from: str | None = None, arrive_at: ExitKind | None = None,
+                   at: tuple[float, float] | None = None) -> None:
+        """Goes to an area. The first visit generates it; later visits bring it back as it was left
+        (dead monsters stay dead, drops stay on the floor), so a town portal round trip makes sense."""
+        if self.layout is not None and self.area_id:
+            self._areas[(self.area_id, self.floor)] = AreaState(self.layout, self.monsters, self.ground)
         host = next(iter(self.sessions.values()))
-        layout, packs = host.enter_area(area_id, floor)
+        saved = self._areas.get((area_id, floor))
+        if saved is not None:
+            layout, packs = saved.layout, []
+            self.monsters, self.ground = saved.monsters, saved.ground
+        else:
+            layout, packs = host.enter_area(area_id, floor)
+            self.monsters, self.ground = {}, {}
         self.layout, self.area_id, self.floor = layout, area_id, floor
-        self.monsters.clear()
         self.projectiles.clear()
-        self.ground.clear()
 
         start = layout.entry
         if came_from is not None:
@@ -324,8 +366,10 @@ class World:
                 start = ex.pos
         if any(e.pos == start for e in layout.exits):
             start = self._inward(start)
+        sx, sy = (float(at[0]), float(at[1])) if at is not None else (float(start[0]), float(start[1]))
         for p in self.players.values():
-            p.x, p.y = float(start[0]), float(start[1])
+            p.x, p.y = sx, sy
+            p.restores.clear()
             p.path.clear()
             p.target_id = None
             p.exit_cooldown = EXIT_COOLDOWN
@@ -384,6 +428,8 @@ class World:
                 n = math.hypot(cmd.face_x, cmd.face_y)
                 p.face_x, p.face_y = cmd.face_x / n, cmd.face_y / n
             return None
+        if isinstance(cmd, UseConsumable):
+            return self._use_consumable(p, cmd.consumable_id)
         if isinstance(cmd, EquipItem | UnequipItem):  # gear changes the fight, so it goes through the world
             r, msg = p.session.equip_from_backpack(cmd.index) if isinstance(cmd, EquipItem) else p.session.unequip(cmd.slot)
             if r is Equip.OK and not p.session.gear.has_shield:
@@ -485,6 +531,14 @@ class World:
         regen = 0.005 if p.guarding else 0.02
         p.energy = min(p.max_energy, p.energy + p.max_energy * regen * dt)
         p.life = min(p.max_life, p.life + s.skills.effect("recovery", "lifeRegenPerSecond") * dt)
+        for r in p.restores:  # potions: a share of the maximum over a few seconds
+            step = min(dt, r[2])
+            if r[0] == "life":
+                p.life = min(p.max_life, p.life + r[1] * step)
+            else:
+                p.energy = min(p.max_energy, p.energy + r[1] * step)
+            r[2] -= step
+        p.restores = [r for r in p.restores if r[2] > 1e-9]
 
         # states that lock the character
         if p.state in ("hit_recovery", "block_recovery", "stunned"):
@@ -560,6 +614,17 @@ class World:
                 if math.hypot(g.x - p.x, g.y - p.y) <= self.data.balance.loot.gold_pickup_range_tiles:
                     self._take(p, g)
 
+        # town portal, in the world or in town
+        portal = self.portals.get(p.player_id)
+        if portal is not None and p.exit_cooldown <= 0:
+            spot = self.portal_spot(p.player_id)
+            if spot is not None and math.hypot(spot[0] - p.x, spot[1] - p.y) <= PORTAL_TOUCH:
+                p.exit_cooldown = EXIT_COOLDOWN
+                back = self.area_id == self.data.town_id
+                kind = ExitKind.PORTAL_BACK if back else ExitKind.PORTAL_TO_TOWN
+                self.bus.publish(ExitReached(p.player_id, kind.value, portal.area_id if back else self.data.town_id))
+                return
+
         # exits
         if p.exit_cooldown <= 0 and self.layout:
             c = cell_of(p.x, p.y)
@@ -568,6 +633,70 @@ class World:
                     p.exit_cooldown = EXIT_COOLDOWN
                     self.bus.publish(ExitReached(p.player_id, e.kind.value, e.target_area))
                     break
+
+    # ------------------------------------------------------------ potions and scrolls
+
+    def _use_consumable(self, p: PlayerActor, cid: str) -> str | None:
+        s = p.session
+        c = self.data.items.consumables.get(cid)
+        if c is None:
+            return f"unknown consumable '{cid}'"
+        if s.consumables[cid] <= 0:
+            return f"No {c.name} left"
+        if not p.cooldowns.ready(cid):
+            return None
+        if c.portal:
+            if self.area_id == self.data.town_id:
+                return "You are already in town"
+            self.portals[p.player_id] = TownPortal(self.area_id, self.floor, p.x, p.y)
+            p.exit_cooldown = EXIT_COOLDOWN  # do not step through it the moment it opens
+            self._float(p.x, p.y, "Town Portal", "info")
+        elif c.restore:
+            top = p.max_life if c.restore == "life" else p.max_energy
+            secs = max(c.seconds, 1e-6)
+            p.restores.append([c.restore, top * c.pct_of_max / secs, secs])
+            self._float(p.x, p.y, c.name, "info")
+        s.consumables[cid] -= 1
+        p.cooldowns.start(cid, c.cooldown_seconds)
+        self.bus.publish(ConsumableUsed(p.player_id, cid))
+        return None
+
+    def take_portal(self, player_id: int) -> None:
+        """Goes through the player's portal: from the world to town, or from town back to where it was opened."""
+        portal = self.portals.get(player_id)
+        if portal is None:
+            return
+        if self.area_id == self.data.town_id:
+            self.enter_area(portal.area_id, portal.floor)
+        else:
+            self.enter_area(self.data.town_id)
+        spot = self.beside_portal(player_id)
+        p = self.players[player_id]
+        if spot is not None:
+            p.x, p.y = spot
+
+    def portal_spot(self, player_id: int) -> tuple[float, float] | None:
+        """Where the player's portal stands in the current area: where it was opened, or next to the town waypoint."""
+        portal = self.portals.get(player_id)
+        if portal is None or self.layout is None:
+            return None
+        if self.area_id == portal.area_id and self.floor == portal.floor:
+            return (portal.x, portal.y)
+        if self.area_id == self.data.town_id:
+            base = self.layout.waypoint or self.layout.entry
+            c = self._inward((base[0] + 2, base[1] + 1))
+            return (float(c[0]), float(c[1]))
+        return None
+
+    def beside_portal(self, player_id: int) -> tuple[float, float] | None:
+        """A free spot a little away from the portal, where a player arrives after going through it."""
+        spot = self.portal_spot(player_id)
+        if spot is None:
+            return None
+        for dx, dy in ((1.5, 0), (0, 1.5), (-1.5, 0), (0, -1.5), (1, 1), (-1, -1)):
+            if self.layout.is_floor(cell_of(spot[0] + dx, spot[1] + dy)):
+                return (spot[0] + dx, spot[1] + dy)
+        return spot
 
     def _lower_guard(self, p: PlayerActor, start_cooldown: bool) -> None:
         if p.guarding:

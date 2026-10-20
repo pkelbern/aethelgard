@@ -17,13 +17,13 @@ from ..core.progression import Bind
 from ..core.saves import SaveStore
 from ..core.session import GameSession
 from ..core.simulation import run_act
-from ..core.world import AttackTarget, MonsterActor, MoveTo, PickUp, Respawn, SetGuard, UseSkill, World, is_implemented
+from ..core.world import AttackTarget, MonsterActor, MoveTo, PickUp, Respawn, SetGuard, UseConsumable, UseSkill, World, is_implemented
 from ..core.world_gen import ExitKind
 from . import palette as C
 from .hud import Hud
 from .inventory_view import InventoryView
 from .iso import Camera, MapRenderer
-from .keys import KeyMap
+from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
 from .tooltip import draw_panel, draw_tooltip
 from .ui import GameUI
@@ -148,7 +148,10 @@ class Game:
     def _on_exit(self, e: ExitReached) -> None:
         kind = ExitKind(e.kind)
         w = self.world
-        if kind == ExitKind.STAIRS_DOWN:
+        if kind in (ExitKind.PORTAL_TO_TOWN, ExitKind.PORTAL_BACK):
+            w.take_portal(e.player_id)
+            self._area_changed()
+        elif kind == ExitKind.STAIRS_DOWN:
             self.load_area(w.area_id, w.floor + 1, arrive_at=ExitKind.STAIRS_UP)
         elif kind == ExitKind.STAIRS_UP:
             self.load_area(w.area_id, w.floor - 1, arrive_at=ExitKind.STAIRS_DOWN)
@@ -178,6 +181,11 @@ class Game:
 
     def load_area(self, area_id: str, floor: int = 0, came_from: str | None = None, arrive_at: ExitKind | None = None) -> None:
         self.world.enter_area(area_id, floor, came_from, arrive_at)
+        self._area_changed()
+
+    def _area_changed(self) -> None:
+        """Map, fog of war and title for whatever area the world is in now."""
+        area_id, floor = self.world.area_id, self.world.floor
         area = self.data.area(area_id)
         self.map = MapRenderer(self.world.layout, area.kind)
         self.vision.enter((area_id, floor), self.world.layout, reveal_all=area.kind == "town")
@@ -379,7 +387,11 @@ class Game:
                 self.use_slot(slot)
             return
         action = self.keys.action_for(key)
-        if action == "save":
+        if action in CONSUMABLE_KEYS:
+            msg = self.world.apply(UseConsumable(self.session.player_id, CONSUMABLE_KEYS[action]))
+            if msg:
+                self.hud.add(msg, C.MUTED)
+        elif action == "save":
             self.save_game()
         elif action == "skillTrees":
             self.ui.toggle_tree()
@@ -451,6 +463,7 @@ class Game:
         self.map.draw_markers(screen, cam, self.fonts["tiny"], self.area_names)
         drops = self.visible_drops()
         self.ground_view.draw_shapes(screen, cam, drops)
+        self._draw_portal()
 
         # monsters outside the field of view are not drawn
         actors = [(m.x + m.y, "m", m) for m in self.world.monsters.values() if self.vision.sees(m.x, m.y)]
@@ -501,6 +514,21 @@ class Game:
         screen.blit(title, title.get_rect(midtop=(rect.centerx, rect.y + 16)))
         for k, img in enumerate(imgs):
             screen.blit(img, img.get_rect(midtop=(rect.centerx, rect.y + 56 + 26 * k)))
+
+    def _draw_portal(self) -> None:
+        """The player's town portal, where it stands in this area (in the world, or beside the town waypoint)."""
+        spot = self.world.portal_spot(self.session.player_id)
+        if spot is None:
+            return
+        sx, sy = self.cam.to_screen(*spot)
+        screen = self.screen
+        pygame.draw.ellipse(screen, (20, 40, 90), (sx - 14, sy - 50, 28, 52))
+        pygame.draw.ellipse(screen, (90, 150, 255), (sx - 14, sy - 50, 28, 52), 3)
+        pygame.draw.ellipse(screen, (170, 210, 255), (sx - 6, sy - 38, 12, 30))
+        portal = self.world.portals[self.session.player_id]
+        label = "Town Portal" if self.world.area_id != self.data.town_id else f"Portal to {self.area_names.get(portal.area_id, portal.area_id)}"
+        img = self.fonts["tiny"].render(label, True, (150, 190, 255))
+        screen.blit(img, (sx - img.get_width() // 2, sy - 66))
 
     def _draw_projectile(self, proj) -> None:
         """Flies at chest height; the line shows where it is going (it never turns)."""

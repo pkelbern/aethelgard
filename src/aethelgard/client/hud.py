@@ -10,7 +10,7 @@ import pygame
 from ..core.describe import stat_line
 from ..core.world import IMPLEMENTED_SKILLS, MonsterActor, PlayerActor, World
 from . import palette as C
-from .keys import KeyMap
+from .keys import CONSUMABLE_KEYS, KeyMap
 from .tooltip import draw_panel
 
 STATE_LABEL = {
@@ -76,6 +76,7 @@ class Hud:
             self._text(screen, g, (W // 2 - self.f["small"].size(g)[0] // 2, H - 128), self.f["small"], C.MUTED)
 
         self._skill_bar(screen, p)
+        self._consumables(screen, p)
         if target is not None:
             self._target_frame(screen, target, world.data)
 
@@ -85,8 +86,30 @@ class Hud:
             ly += 18
         k = self.keys
         parts = [("guard", "guard"), ("skillTrees", "trees"), ("inventory", "inventory"), ("showItems", "items"), ("map", "map"), ("save", "save")]
-        help_ = f"Click: move/attack · {k.bar_labels}: skills · " + " · ".join(f"{k.action_label(a)}: {label}" for a, label in parts)
+        potions = f"{k.action_label('lifePotion')}/{k.action_label('energyPotion')}: potions · {k.action_label('portalScroll')}: portal"
+        help_ = f"Click: move/attack · {k.bar_labels}: skills · {potions} · " + " · ".join(f"{k.action_label(a)}: {label}" for a, label in parts)
         self._text(screen, help_, (W - self.f["tiny"].size(help_)[0] - 16, H - 20), self.f["tiny"], C.MUTED)
+
+    def _consumables(self, screen, p: PlayerActor) -> None:
+        """Potions and scrolls left of the action bar: key, short name and how many are left."""
+        s = p.session
+        first = self.slot_rects(len(s.skill_bar), screen.get_size())[0]
+        x = first.x - 12
+        for action, cid in reversed(list(CONSUMABLE_KEYS.items())):
+            c = s.data.items.consumables[cid]
+            n = s.consumables[cid]
+            short = c.name.split()[0]
+            r = pygame.Rect(0, first.y + 12, 70, 32)
+            r.right = x
+            pygame.draw.rect(screen, C.PANEL, r, border_radius=4)
+            pygame.draw.rect(screen, C.PANEL_EDGE if n else (40, 40, 44), r, 1, border_radius=4)
+            color = {"life_potion": C.LIFE, "energy_potion": C.ENERGY}.get(cid, (150, 190, 255)) if n else C.MUTED
+            self._text(screen, f"{short} ×{n}", (r.x + 6, r.y + 3), self.f["tiny"], color)
+            self._text(screen, self.keys.action_label(action), (r.x + 6, r.y + 17), self.f["tiny"], C.MUTED)
+            frac = p.cooldowns.fraction(cid)
+            if frac > 0:
+                self._sweep(screen, r, frac)
+            x = r.x - 6
 
     def _skill_bar(self, screen, p: PlayerActor) -> None:
         s = p.session

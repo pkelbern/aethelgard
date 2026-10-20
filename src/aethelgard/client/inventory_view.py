@@ -1,9 +1,9 @@
 """Inventory screen (I): equipment on the left, backpack grid on the right (GDD 12.2).
 
-Equip by dragging a backpack item onto its slot, or with a double-click / Ctrl+click; the same
-on a worn item takes it off. Every change is an ``EquipItem``/``UnequipItem`` command to the world,
-so the rules (requirements, swaps, a full backpack) live in the core. The tooltip text comes from
-``describe.describe_item``.
+Equip by dragging a backpack item onto its slot, or with a double-click / Ctrl+click; the same on a
+worn item takes it off. Holding Shift over a backpack item compares it with the worn one. Every
+change is an ``EquipItem``/``UnequipItem`` command to the world, so the rules (requirements, swaps,
+a full backpack) live in the core. The tooltip text comes from ``describe``.
 
 For now each item takes one cell; items spanning several cells (``size`` in items.json) are M6-03.
 """
@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import pygame
 
-from ..core.describe import describe_item
+from ..core.describe import Line, compare_items, describe_item
 from ..core.world import EquipItem, UnequipItem
 from . import palette as C
 from .tooltip import draw_panel, draw_tooltip, wrap
@@ -192,8 +192,20 @@ class InventoryView:
             return
         h = self.hit(mouse)
         item = self._item(h) if h else None
-        if item is not None:
-            draw_tooltip(screen, f, describe_item(self.g.data, item, s.missing_requirements(item)), mouse, edge=C.RARITY[int(item.rarity)])
+        if item is None:
+            return
+        d = self.g.data
+        lines = describe_item(d, item, s.missing_requirements(item))
+        worn = s.gear.get(item.slot)
+        comparing = h[0] == "bag" and self.g.keys.held("compare")
+        if comparing:
+            lines += compare_items(d, item, worn)
+        elif h[0] == "bag":
+            lines.append(Line(f"Hold {self.g.keys.action_label('compare')} to compare", "hint"))
+        box = draw_tooltip(screen, f, lines, mouse, edge=C.RARITY[int(item.rarity)])
+        if comparing and worn is not None:  # the worn one beside it, for a side-by-side read
+            worn_lines = [Line("Equipped", "hint"), *describe_item(d, worn, s.missing_requirements(worn))]
+            draw_tooltip(screen, f, worn_lines, (box.x, box.y), edge=C.RARITY[int(worn.rarity)], right_edge=box.x, top=box.y)
 
     def _item(self, h):
         s = self.g.session

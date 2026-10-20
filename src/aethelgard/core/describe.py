@@ -68,7 +68,8 @@ def describe_item(data: GameData, item, missing: dict[str, int] | None = None) -
     if b.armor > 0:
         lines.append(Line(f"Armor: {_num(b.armor)}", "stat"))
     if "shield" in b.tags:
-        lines.append(Line(stat_line(data.stat("blockReduction"), b.block_reduction), "stat"))
+        if b.block_reduction > 0:
+            lines.append(Line(stat_line(data.stat("blockReduction"), b.block_reduction), "stat"))
         if b.guard_efficiency > 0:
             lines.append(Line(stat_line(data.stat("guardEfficiency"), b.guard_efficiency), "stat"))
     lines += [Line(stat_line(data.stat(a.affix.stat), a.value), "next") for a in item.affixes]
@@ -77,6 +78,38 @@ def describe_item(data: GameData, item, missing: dict[str, int] | None = None) -
     for k, v in b.req.items():
         if v > 0:
             lines.append(Line(f"Requires {v} {data.stat(k).label}", "warn" if k in missing else "muted"))
+    return lines
+
+
+def item_numbers(item) -> dict[str, float]:
+    """Every number of an item by stat id: base damage/armor/guard numbers plus its affixes (summed)."""
+    b = item.base
+    out: dict[str, float] = {}
+    if b.dmg_max > 0:
+        out["weaponDamage"] = (b.dmg_min + b.dmg_max) / 2
+    if b.armor > 0:
+        out["armor"] = b.armor
+    if "shield" in b.tags:
+        out["blockReduction"] = b.block_reduction
+        out["guardEfficiency"] = b.guard_efficiency
+    for a in item.affixes:
+        out[a.affix.stat] = out.get(a.affix.stat, 0.0) + a.value
+    return out
+
+
+def compare_items(data: GameData, item, equipped) -> list[Line]:
+    """Shift in the inventory (GDD 12.2, M6-04): what changes if ``item`` replaces ``equipped``.
+    Gains in green, losses in red; stats both share and that do not change are left out."""
+    if equipped is None:
+        return [Line("Nothing worn in this slot", "header")]
+    lines = [Line(f"Instead of {equipped.name}", "header")]
+    new, old = item_numbers(item), item_numbers(equipped)
+    for sid in dict.fromkeys([*new, *old]):
+        delta = new.get(sid, 0.0) - old.get(sid, 0.0)
+        if abs(delta) > EPS:
+            lines.append(Line(stat_line(data.stat(sid), delta), "good" if delta > 0 else "warn"))
+    if len(lines) == 1:
+        lines.append(Line("Same numbers", "muted"))
     return lines
 
 

@@ -5,6 +5,12 @@
   "rows": 6
  },
  "startingGear": ["short_sword", "buckler", "leather_armor"],
+ "consumables": {
+  "_comment": "Used from the HUD keys (ui/keys.json). restore = life | energy, pctOfMax of the maximum given over 'seconds' (several potions stack). cooldownSeconds = time before the same kind can be used again. portal = opens a town portal where you stand; walking into it takes you to town, and the portal in town brings you back (the area stays as you left it).",
+  "life_potion":   { "name": "Life Potion",   "restore": "life",   "pctOfMax": 0.4, "seconds": 2.0, "cooldownSeconds": 0.5 },
+  "energy_potion": { "name": "Energy Potion", "restore": "energy", "pctOfMax": 0.5, "seconds": 1.5, "cooldownSeconds": 0.5 },
+  "portal_scroll": { "name": "Portal Scroll", "portal": true, "cooldownSeconds": 1.0 }
+ },
  "slotNames": {"mainhand": "Weapon", "offhand": "Shield", "body": "Body Armor", "head": "Helm", "hands": "Gloves", "feet": "Boots", "waist": "Belt", "ring": "Ring", "neck": "Amulet"},
  "rareNames": {
   "first": ["Ruin", "Fury", "Shadow", "Death", "Sorrow", "Storm", "Raven", "Moon", "Thorn", "Ember"],

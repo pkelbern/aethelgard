@@ -17,6 +17,7 @@ from .events import MonsterXpInfo
 from .world_gen import AreaLayout
 
 MAX_SUBSTEP = 0.1  # tiles per collision check, so a fast projectile cannot skip through a body or a wall
+RANGE_EPS = 1e-6  # a leftover range this small is spent (float sums like 8.999999999999998 of 9 must not keep it alive)
 
 
 @dataclass
@@ -49,7 +50,7 @@ class Projectile:
 
     @property
     def spent(self) -> bool:
-        return self.traveled >= self.max_range
+        return self.traveled >= self.max_range - RANGE_EPS
 
     def substeps(self, dt: float) -> list[tuple[float, float]]:
         """Positions along this frame's flight, at most MAX_SUBSTEP apart (the last one is the new position)."""

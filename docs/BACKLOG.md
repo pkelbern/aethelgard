@@ -8,12 +8,12 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | Marco | Feito | Validar | Total | Dias restantes |
 |---|---|---|---|---|
 | M0 – Base | 4 | 0 | 8 | 2.5 |
-| M1 – Combate | 6 | 5 | 14 | 5.5 |
+| M1 – Combate | 6 | 6 | 14 | 4.5 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
 | M3 – Árvores | 2 | 1 | 7 | 8 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
-| M5 – Mundo | 4 | 0 | 8 | 8.5 |
-| M6 – Loot | 2 | 2 | 8 | 7 |
+| M5 – Mundo | 4 | 1 | 8 | 7.5 |
+| M6 – Loot | 2 | 3 | 8 | 5.5 |
 | M7 – Vertical slice | 0 | 0 | 8 | 31.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
@@ -54,8 +54,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Feito: o personagem cai, a tela fica cinza com o que foi perdido, e um clique (ou Enter) leva à Vila (comando Respawn no World); perde 10% do ouro; perda de XP dentro do nível existe por parâmetro e está desligada. Pendente: corpo com equipamento para recuperar.
 - [ ] **M1-05** Animação de ataque e impacto (placeholder) _(game feel, ~1.5 d)_  
   Flash no alvo, recuo curto e som de impacto. Critério: o golpe 'tem peso'.
-- [ ] **M1-06** Poções de vida e energia com recarga _(código, ~1 d)_  
-  Q/W hoje são habilidades; mover poções para 1–2 ou cinto.
+- [ ] **M1-06** Poções de vida e energia com recarga _(código, ~1 d)_ — **escrito, validar**  
+  Q/W (GDD 12.3): Vida 40% do máximo em 2 s, Energia 50% em 1,5 s, recarga de 0,5 s, várias se somam (items.json consumables). Contador e recarga no HUD ao lado da barra. Falta: cinto.
 - [ ] **M1-07** Projéteis de monstros à distância _(código, ~1.5 d)_ — **escrito, validar**  
   Arqueiro (flecha física), Xamã e Necromante (rajada mágica) atiram projéteis visíveis em linha reta para onde o jogador estava, sem desviar; paredes param; só atiram com linha de visão. Guarda bloqueia físicos; mágicos só com Bulwark (decide a questão 3 do GDD 19.2). core/projectiles.py.
 - [x] **M1-08** Guarda ativa com escudo (segurar Espaço) _(código, ~1.5 d)_  
@@ -144,8 +144,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Trocar retângulos por salas desenhadas no Tiled, com conectores marcados como objetos.
 - [ ] **M5-05** Waypoints com menu de viagem _(código, ~1.5 d)_  
   Ativar ao tocar; menu lista os ativados. Salvar no personagem.
-- [ ] **M5-06** Portal de cidade (pergaminho) _(código, ~1 d)_  
-  Abre portal, volta à cidade e retorna ao mesmo ponto.
+- [ ] **M5-06** Portal de cidade (pergaminho) _(código, ~1 d)_ — **escrito, validar**  
+  E abre o portal onde você está; entrar leva à vila, onde o portal aparece ao lado do waypoint; entrar de novo volta ao mesmo ponto. O portal fica até o próximo pergaminho. As áreas agora guardam o estado na partida (monstros mortos continuam mortos, itens no chão continuam lá).
 - [x] **M5-07** Névoa de guerra e mapa automático (Tab) _(UI, ~2 d)_  
   Feito: campo de visão do tcod revela o mapa, monstros fora da visão somem, mapa pequeno no canto e grande com Tab.
 - [x] **M5-08** Cidade feita à mão no Tiled _(conteúdo, ~2 d)_  
@@ -161,8 +161,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Drops caem em volta do corpo com cor de raridade; clique anda até o item e coleta (comando PickUp); ouro coletado ao passar por cima (balance.loot.autoPickupGold); Alt mostra todos os nomes sem sobreposição; mochila cheia deixa o item no chão. Some ao sair da área.
 - [ ] **M6-03** Inventário em grade 10×6 e equipamento _(UI, ~4 d)_ — parte **escrito, validar**  
   Feito: tela no I (client/inventory_view.py) com slots de equipamento e grade 10×6; equipar arrastando para o slot, duplo clique ou Ctrl+clique; o mesmo tira; requisitos (borda vermelha, aviso); troca no lugar da mochila; comandos EquipItem/UnequipItem no World; tooltip do item (describe_item). Falta: itens ocupando várias células (size) e os afixos valerem no combate (hoje só a base conta: dano, armadura, escudo).
-- [ ] **M6-04** Tooltip com comparação ao equipado _(UI, ~1.5 d)_  
-  Verde/vermelho por atributo.
+- [ ] **M6-04** Tooltip com comparação ao equipado _(UI, ~1.5 d)_ — **escrito, validar**  
+  Shift sobre um item da mochila: diferenças em verde/vermelho por atributo (describe.compare_items) e o item vestido ao lado.
 - [ ] **M6-05** Tela do baú compartilhado e vendedor _(UI, ~2 d)_  
   Tela do baú (itens e ouro, 100 espaços) usando o SharedStash do núcleo; vendedor com estoque renovado.
 - [ ] **M6-06** 5 itens únicos do MVP _(conteúdo, ~1 d)_  
