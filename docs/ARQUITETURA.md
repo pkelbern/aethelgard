@@ -46,6 +46,11 @@ core/                   regras, sem pygame
 - `SkillBar` (núcleo, salva no personagem) guarda qual habilidade está em cada atalho. `data/ui/keys.json` (cliente) diz qual tecla é cada atalho. O cliente traduz tecla → atalho → habilidade e manda `UseSkill(skill_id)`; o mundo nunca vê teclas.
 - `client/tooltip.py` desenha qualquer lista de `describe.Line`; a barra e a janela de árvores usam o mesmo texto.
 
+## Bloqueio e colisão
+
+- `CombatMath.resolve_physical`: acerto → guarda (para `stopped` = golpe × parcela, no máximo `blockReductionCap`) → armadura sobre `raw − stopped` → dano final. Bloqueio nunca zera o dano.
+- `World._step_towards`: um passo; se bate em parede desliza pelos eixos, se bate em corpo desliza pela borda dele. `blocked_by_body` sempre deixa se afastar de uma sobreposição. Corpo morto não bloqueia.
+
 ## Laço do jogo
 
 O cliente roda a 60 quadros por segundo com passo fixo:

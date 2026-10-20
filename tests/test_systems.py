@@ -67,12 +67,32 @@ def test_final_damage(data):
 
 def test_guard_blocks_from_the_front_and_spends_energy(data):
     c = cm(data)
-    g = GuardState(raised=True, in_arc=True, energy=100)
+    g = GuardState(raised=True, in_arc=True, energy=100, reduction=0.7)
     r = c.resolve_physical(HIT20, BARE, Rng(1), g)
-    assert r.block is BlockOutcome.BLOCKED and r.final == 0
+    assert r.block is BlockOutcome.BLOCKED
+    assert r.stopped == pytest.approx(14) and r.final == pytest.approx(6), "a block lets 30% through"
     assert r.guard_energy_cost == pytest.approx(1 + 20 * 0.25)
     assert c.guard_cost(20, 0.3) == pytest.approx(6 * 0.7)
     assert c.guard_cost(20, 0.95) == pytest.approx(6 * 0.4), "efficiency capped at 60%"
+
+
+def test_block_share_is_capped_and_armor_works_on_what_passes(data):
+    c = cm(data)
+    huge = c.resolve_physical(HIT20, BARE, Rng(1), GuardState(True, True, energy=100, reduction=3.0))
+    assert huge.final == pytest.approx(1.0), "never above 95%"
+    armored = c.resolve_physical(HIT20, DefenderStats(1, 0, 250), Rng(1), GuardState(True, True, energy=100, reduction=0.7))
+    assert armored.reached_armor == pytest.approx(6) and armored.mitigated == pytest.approx(3) and armored.final == pytest.approx(3)
+
+
+def test_block_reduction_grows_with_shield_and_defensive_stance(data):
+    s = GameSession(data, 1)
+    g = data.balance.guard
+    assert player_guard(s.skills, s.gear, g).block_reduction == pytest.approx(0.7), "buckler adds nothing"
+    s.allocate_skill("defensive_stance")
+    assert player_guard(s.skills, s.gear, g).block_reduction == pytest.approx(0.725)
+    s.gear.equip(Item.plain(data.base("tower_shield")))
+    s.skills.points["defensive_stance"] = 10
+    assert player_guard(s.skills, s.gear, g).block_reduction == pytest.approx(0.95), "0.7 + 0.15 + 9 × 0.025 capped"
 
 
 def test_guard_does_not_cover_the_back_nor_when_lowered(data):
@@ -85,6 +105,7 @@ def test_perfect_window_and_broken_guard(data):
     c = cm(data)
     perf = c.resolve_physical(HIT20, BARE, Rng(1), GuardState(True, True, perfect=True))
     assert perf.block is BlockOutcome.PERFECT and perf.guard_energy_cost == 0
+    assert perf.final == pytest.approx(20 * 0.05), "a perfect block stops the cap (95%), never everything"
     broke = c.resolve_physical(HIT20, BARE, Rng(1), GuardState(True, True, energy=2))
     assert broke.block is BlockOutcome.GUARD_BROKEN
     assert broke.final == pytest.approx(20) and broke.guard_energy_cost == 2

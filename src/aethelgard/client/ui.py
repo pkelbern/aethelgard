@@ -139,18 +139,18 @@ class GameUI:
             self.refresh_tree()
 
     def refresh_tree(self) -> None:
-        """Builds the window again in the same place (pygame_gui labels are rebuilt rather than patched)."""
+        """Opens the window, or rebuilds only its contents: the window itself stays where the player left it."""
+        s, keys = self.g.session, self.g.keys
         if self._open(self.tree):
-            pos = self.tree.rect.topleft
-            self.tree.kill()
+            win = self.tree
+            win.get_container().clear()
         else:
             W, H = self.manager.window_resolution
             pos = ((W - TREE_SIZE[0]) // 2, (H - TREE_SIZE[1]) // 2)
+            title = f"Skill trees  ({keys.action_label('skillTrees')} closes · hover an active skill and press {keys.bar_labels} to put it on the bar)"
+            win = UIWindow(pygame.Rect(pos, TREE_SIZE), self.manager, window_display_title=title, object_id="#tree_window")
         self._node_buttons.clear()
         self._node_rows.clear()
-        s, keys = self.g.session, self.g.keys
-        title = f"Skill trees  ({keys.action_label('skillTrees')} closes · hover an active skill and press {keys.bar_labels} to put it on the bar)"
-        win = UIWindow(pygame.Rect(pos, TREE_SIZE), self.manager, window_display_title=title, object_id="#tree_window")
         col_w = 310
         for i, tree in enumerate(TREE_ORDER):
             prof = s.proficiencies[tree]

@@ -60,7 +60,7 @@
     "dropCorpse": true
   },
   "guard": {
-    "_comment": "Active block (hold the guard button). Blocks physical hits inside the front arc; each block costs Energy. Perfect window at the start of the guard: zero cost and counterattack (Parry). After lowering the guard, it can only be raised again after guardRaiseCooldownSeconds (prevents perfect-parry abuse).",
+    "_comment": "Active block (hold the guard button). Blocks physical hits inside the front arc; each block costs Energy. A block never stops everything: it stops blockReduction of the hit (+ shield base + Defensive Stance), at most blockReductionCap, and armor works on what passes. Perfect window at the start of the guard: zero cost, blockReductionCap stopped and counterattack (Parry). After lowering the guard, it can only be raised again after guardRaiseCooldownSeconds (prevents perfect-parry abuse).",
     "arcDegrees": 120,
     "baseEnergyCost": 1.0,
     "energyPerDamage": 0.25,
@@ -68,7 +68,13 @@
     "moveSpeedMult": 0.5,
     "perfectWindowSeconds": 0.15,
     "guardBreakStunSeconds": 1.0,
-    "guardRaiseCooldownSeconds": 0.3
+    "guardRaiseCooldownSeconds": 0.3,
+    "blockReduction": 0.7,
+    "blockReductionCap": 0.95
+  },
+  "collision": {
+    "_comment": "Bodies do not overlap: the player and monsters block each other, and monsters block monsters. Radii in tiles; a monster's radius = its type radius x its rank sizeMult. A monster type with collides=false (monsters.json) passes through bodies, and the target frame says so.",
+    "playerRadius": 0.3
   },
   "timing": {
     "_comment": "Action timings (GDD 7.7). All durations in seconds. 'faster…' shortens the duration: duration = base / (1 + bonus).",

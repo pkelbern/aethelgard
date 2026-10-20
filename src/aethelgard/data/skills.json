@@ -130,12 +130,13 @@
    "id": "defensive_stance",
    "tree": "shield",
    "name": "Defensive Stance",
-   "description": "Blocking costs less: {guardEfficiency} guard efficiency (less Energy per block) and {fasterBlockRecovery} faster block recovery.",
+   "description": "Your guard holds better: each block stops {blockReduction} more of the hit, costs less Energy ({guardEfficiency} guard efficiency) and you recover from it {fasterBlockRecovery} faster. Some damage always gets through a block.",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
    "effects": {
     "guardEfficiency": 0.03,
+    "blockReduction": 0.025,
     "fasterBlockRecovery": 0.04
    }
   },

@@ -8,7 +8,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | Marco | Feito | Validar | Total | Dias restantes |
 |---|---|---|---|---|
 | M0 – Base | 4 | 0 | 8 | 2.5 |
-| M1 – Combate | 6 | 0 | 10 | 5 |
+| M1 – Combate | 6 | 3 | 13 | 7 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
 | M3 – Árvores | 2 | 1 | 7 | 8 |
 | M4 – Monstros | 2 | 1 | 7 | 9.5 |
@@ -51,7 +51,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [x] **M1-03** Monstros atacam o jogador _(código, ~1 d)_  
   Alerta por raio e por grupo; persegue e ataca no alcance.
 - [ ] **M1-04** Morte e retorno à cidade _(código, ~1 d)_  
-  Feito: volta à Vila, perde 10% do ouro (GameSession.ApplyDeath); perda de XP dentro do nível existe por parâmetro e está desligada. Pendente: corpo com equipamento para recuperar.
+  Feito: o personagem cai, a tela fica cinza com o que foi perdido, e um clique (ou Enter) leva à Vila (comando Respawn no World); perde 10% do ouro; perda de XP dentro do nível existe por parâmetro e está desligada. Pendente: corpo com equipamento para recuperar.
 - [ ] **M1-05** Animação de ataque e impacto (placeholder) _(game feel, ~1.5 d)_  
   Flash no alvo, recuo curto e som de impacto. Critério: o golpe 'tem peso'.
 - [ ] **M1-06** Poções de vida e energia com recarga _(código, ~1 d)_  
@@ -62,6 +62,12 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Arco frontal, custo de Energia por bloqueio, janela perfeita com contra-ataque (Aparar), guarda quebrada atordoa. Testado no mundo em tempo real.
 - [x] **M1-09** Recarga curta entre guardas _(balanceamento, ~0.5 d)_  
   0,3 s para erguer a guarda de novo (evita abuso do aparo perfeito).
+- [ ] **M1-11** Bloqueio parcial: o golpe bloqueado ainda fere _(balanceamento, ~0.5 d)_ — **escrito, validar**  
+  O bloqueio para 70% do golpe (balance.guard.blockReduction) + base do escudo (0/5/10/15%) + Postura Defensiva (+2,5%/ponto), no máximo 95% (blockReductionCap); a armadura age sobre o que passa. Aparo perfeito para 95%. Validar no jogo se 70% de base está bom.
+- [ ] **M1-12** Colisão entre corpos _(código, ~1 d)_ — **escrito, validar**  
+  Jogador e monstros não se atravessam; contorno pela borda do corpo; grupos nascem sem sobreposição. Raio por tipo (monsters.json) × sizeMult do rank; monstro sem corpo exige collides=false explícito e o quadro do alvo avisa ("Ethereal").
+- [ ] **M1-13** Segurar o botão do mouse repete o clique _(UI, ~0.5 d)_ — **escrito, validar**  
+  Segurando no chão continua andando para o cursor; segurando num monstro continua atacando-o até ele morrer.
 - [x] **M1-10** Tempos de ação: recargas e recuperações _(código, ~1.5 d)_  
   Recarga por habilidade e global, recuperação de golpe (≥ 1/12 da vida), recuperação de bloqueio, recuperação de monstros. Testes em test_world_timing.py.
 

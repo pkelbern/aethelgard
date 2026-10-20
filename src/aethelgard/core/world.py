@@ -108,7 +108,14 @@ class Stop:
     player_id: int
 
 
-Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop
+@dataclass(frozen=True)
+class Respawn:
+    """A dead player gets up with full life. The client then takes them to town (the death penalty is the session's)."""
+
+    player_id: int
+
+
+Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn
 
 
 # ---------------------------------------------------------------- actors
@@ -162,6 +169,14 @@ class PlayerActor:
     def busy(self) -> bool:
         return self.state in ("hit_recovery", "block_recovery", "stunned", "dead")
 
+    @property
+    def radius(self) -> float:
+        return self.session.data.balance.collision.player_radius
+
+    @property
+    def collides(self) -> bool:
+        return self.state != "dead"  # a body on the floor does not block anyone
+
     def reset_vitals(self) -> None:
         self.life = self.max_life
         self.energy = self.max_energy
@@ -202,6 +217,14 @@ class MonsterActor:
     @property
     def reach(self) -> float:
         return max(1.2, self.monster.type.range)
+
+    @property
+    def radius(self) -> float:
+        return self.monster.type.radius * self.monster.rank.size_mult
+
+    @property
+    def collides(self) -> bool:
+        return self.monster.type.collides and self.alive
 
 
 # ---------------------------------------------------------------- world
@@ -260,13 +283,13 @@ class World:
                 spawn_i += 1
             ids = []
             for m in pack.members:
-                pos = anchor
-                for _ in range(12):
-                    c = (anchor[0] + rng.randint(-2, 2), anchor[1] + rng.randint(-2, 2))
-                    if layout.is_floor(c):
-                        pos = c
+                actor = MonsterActor(m, float(anchor[0]), float(anchor[1]), leader_id=m.leader_id)
+                for _ in range(24):  # a free spot near the anchor: bodies do not start on top of each other
+                    x, y = anchor[0] + rng.uniform(-2.5, 2.5), anchor[1] + rng.uniform(-2.5, 2.5)
+                    if layout.is_floor(cell_of(x, y)) and not self._overlaps_any(actor, x, y):
+                        actor.x, actor.y = x, y
                         break
-                self.monsters[m.instance_id] = MonsterActor(m, float(pos[0]), float(pos[1]), leader_id=m.leader_id)
+                self.monsters[m.instance_id] = actor
                 ids.append(m.instance_id)
             for i in ids:
                 self.monsters[i].pack_ids = ids
@@ -286,6 +309,14 @@ class World:
     def apply(self, cmd: Command) -> str | None:
         """Applies a command. Returns a message when the command is refused."""
         p = self.players.get(cmd.player_id)
+        if p is not None and isinstance(cmd, Respawn):
+            if p.state == "dead":
+                p.reset_vitals()
+                p.path.clear()
+                p.target_id = p.pending_skill = None
+                p.guarding = p.guard_held = False
+                p.bulwark_left = 0.0
+            return None
         if p is None or p.state == "dead":
             return None
         if isinstance(cmd, SetGuard):
@@ -585,20 +616,21 @@ class World:
                 self._step_towards(m, (leader.x, leader.y), m.speed * 0.6, dt)
 
     def _separate(self, m: MonsterActor, dt: float) -> None:
-        """Gently pushes overlapping monsters apart (avoids piles on the same spot)."""
+        """Gently pushes overlapping monsters apart (packs spawn close together)."""
+        if not m.collides:
+            return
         push_x = push_y = 0.0
         for o in self.monsters.values():
-            if o is m or not o.alive:
+            if o is m or not o.collides:
                 continue
             dx, dy = m.x - o.x, m.y - o.y
-            d = math.hypot(dx, dy)
-            if 1e-6 < d < 0.7:
-                push_x += dx / d * (0.7 - d)
-                push_y += dy / d * (0.7 - d)
+            d, touch = math.hypot(dx, dy), m.radius + o.radius
+            if 1e-6 < d < touch:
+                push_x += dx / d * (touch - d)
+                push_y += dy / d * (touch - d)
         if push_x or push_y:
-            nx, ny = m.x + push_x * min(1.0, 6 * dt), m.y + push_y * min(1.0, 6 * dt)
-            if self.layout.is_floor(cell_of(nx, ny)):
-                m.x, m.y = nx, ny
+            k = min(1.0, 6 * dt)
+            self._try_move(m, m.x + push_x * k, m.y + push_y * k)
 
     def _monster_hit(self, m: MonsterActor, p: PlayerActor) -> None:
         s = p.session
@@ -611,6 +643,7 @@ class World:
             efficiency=prof.efficiency,
             energy=p.energy,
             free_block=bulwark,
+            reduction=prof.block_reduction,
         )
         defense = player_defense(s.character, s.skills, s.gear)
         r = s.combat.resolve_physical(monster_attack(m.monster), defense, s.combat_rng, guard)
@@ -619,34 +652,35 @@ class World:
             return
         p.energy = max(0.0, p.energy - r.guard_energy_cost)
 
-        if r.blocked:
+        if r.blocked:  # the guard stops most of the hit, never all of it (GDD 7.4)
             perfect = r.block == BlockOutcome.PERFECT
             self.bus.publish(HitBlocked(m.monster.xp_info, perfect, p.player_id))
-            self._float(p.x, p.y, "parried!" if perfect else "blocked", "perfect" if perfect else "block")
+            word = "parried!" if perfect else "blocked"
+            self._float(p.x, p.y, f"{word} -{r.final:.0f}", "perfect" if perfect else "block")
             if perfect:
                 self._counter(p, m)
             else:
                 fbr = s.skills.stat_total("fasterBlockRecovery")
                 p.state, p.state_left = "block_recovery", player_block_recovery(self.timing, fbr)
                 p.path.clear()
-            return
-
-        if r.block == BlockOutcome.GUARD_BROKEN:
+        elif r.block == BlockOutcome.GUARD_BROKEN:
             self._lower_guard(p, start_cooldown=True)
             p.state, p.state_left = "stunned", self.data.balance.guard.guard_break_stun_seconds
             p.path.clear()
             self._float(p.x, p.y, "guard broken", "hurt")
-        if r.mitigated > 0:
-            self.bus.publish(DamageMitigated(m.monster.xp_info, r.raw, r.mitigated, p.player_id))
+        if r.mitigated > 0:  # armor works on what got past the guard
+            self.bus.publish(DamageMitigated(m.monster.xp_info, r.reached_armor, r.mitigated, p.player_id))
+        if not r.blocked:
+            self._float(p.x, p.y, f"-{r.final:.0f}", "hurt")
         if not p.god_mode:
             p.life -= r.final
-        self._float(p.x, p.y, f"-{r.final:.0f}", "hurt")
         if p.life <= 0:
             p.life = 0
             p.state = "dead"
+            p.path.clear()
             self.bus.publish(PlayerDied(p.player_id))
             return
-        if p.state != "stunned":
+        if not r.blocked and p.state != "stunned":
             fhr = s.skills.stat_total("fasterHitRecovery")
             rec = player_hit_recovery(self.timing, r.final, p.max_life, fhr)
             if rec > 0:
@@ -680,24 +714,68 @@ class World:
         if n > 1e-6:
             p.face_x, p.face_y = dx / n, dy / n
 
+    # ------------------------------------------------------------ movement and collision
+
+    def _bodies(self):
+        yield from self.players.values()
+        yield from self.monsters.values()
+
+    def blocked_by_body(self, a, x: float, y: float):
+        """The body ``a`` would overlap at (x, y), or None. Moving away from an overlap is always allowed,
+        so actors that start on top of each other (spawns) can get apart."""
+        if not a.collides:
+            return None
+        for o in self._bodies():
+            if o is a or not o.collides:
+                continue
+            touch = a.radius + o.radius
+            dx, dy = x - o.x, y - o.y
+            if abs(dx) >= touch or abs(dy) >= touch:
+                continue
+            if dx * dx + dy * dy < touch * touch and math.hypot(dx, dy) < math.hypot(a.x - o.x, a.y - o.y):
+                return o
+        return None
+
+    def _overlaps_any(self, a, x: float, y: float) -> bool:
+        return a.collides and any(
+            o is not a and o.collides and math.hypot(x - o.x, y - o.y) < a.radius + o.radius for o in self._bodies()
+        )
+
+    def _free(self, a, x: float, y: float) -> bool:
+        return self.layout.is_floor(cell_of(x, y)) and self.blocked_by_body(a, x, y) is None
+
+    def _try_move(self, a, x: float, y: float) -> bool:
+        if self._free(a, x, y):
+            a.x, a.y = x, y
+            return True
+        return False
+
     def _step_towards(self, a, target: tuple[float, float], speed: float, dt: float) -> bool:
-        """Walks toward the target, sliding along walls. True on arrival."""
-        L = self.layout
+        """Walks toward the target, sliding along walls and around bodies. True on arrival."""
         tx, ty = target
         dx, dy = tx - a.x, ty - a.y
         dist = math.hypot(dx, dy)
         step = speed * dt
         if dist <= step:
-            if L.is_floor(cell_of(tx, ty)):
-                a.x, a.y = float(tx), float(ty)
-            return True
-        nx, ny = a.x + dx / dist * step, a.y + dy / dist * step
-        if L.is_floor(cell_of(nx, ny)):
-            a.x, a.y = nx, ny
-        elif L.is_floor(cell_of(nx, a.y)):
-            a.x = nx
-        elif L.is_floor(cell_of(a.x, ny)):
-            a.y = ny
+            return self._try_move(a, float(tx), float(ty)) or not self.layout.is_floor(cell_of(tx, ty))
+        ux, uy = dx / dist, dy / dist
+        nx, ny = a.x + ux * step, a.y + uy * step
+        if self._try_move(a, nx, ny):
+            return False
+        body = self.blocked_by_body(a, nx, ny) if self.layout.is_floor(cell_of(nx, ny)) else None
+        if body is None:  # a wall: slide along it, one axis at a time
+            if abs(ux) > 1e-6 and abs(uy) > 1e-6:
+                self._try_move(a, nx, a.y) or self._try_move(a, a.x, ny)
+            return False
+        if math.hypot(tx - body.x, ty - body.y) < a.radius + body.radius:
+            return True  # the spot is taken by a body: count it as reached so the path goes on around it
+        # a body: slide along its edge, on the side closer to where we are going
+        ox, oy = a.x - body.x, a.y - body.y
+        n = math.hypot(ox, oy) or 1.0
+        tx_, ty_ = -oy / n, ox / n
+        if tx_ * ux + ty_ * uy < 0:
+            tx_, ty_ = -tx_, -ty_
+        self._try_move(a, a.x + tx_ * step, a.y + ty_ * step) or self._try_move(a, a.x - tx_ * step, a.y - ty_ * step)
         return False
 
     def exit_at(self, x: float, y: float) -> Exit | None:

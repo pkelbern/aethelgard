@@ -1,12 +1,12 @@
 {
-  "_comment": "Multipliers per monster rank (Normal difficulty, D2 values). dmgBonus/accBonus are additive (0.9 = +90%). name = how the rank is shown on the target frame when the mouse is over the monster.",
+  "_comment": "Multipliers per monster rank (Normal difficulty, D2 values). dmgBonus/accBonus are additive (0.9 = +90%). sizeMult = body size (collision radius and drawing) relative to the type radius. name = how the rank is shown on the target frame when the mouse is over the monster.",
   "ranks": [
-    {"id": "normal", "name": "Normal", "levelBonus": 0, "hpMult": 1, "xpMult": 1, "dmgBonus": 0.0, "accBonus": 0.0, "modifiers": 0, "lootQualityMult": 1, "guaranteedMagic": false},
-    {"id": "champion", "name": "Champion", "levelBonus": 2, "hpMult": 3, "xpMult": 3, "dmgBonus": 0.9, "accBonus": 0.67, "modifiers": 1, "lootQualityMult": 2, "guaranteedMagic": false},
-    {"id": "berserker", "name": "Berserker", "levelBonus": 2, "hpMult": 3, "xpMult": 5, "dmgBonus": 2.7, "accBonus": 2.7, "modifiers": 1, "lootQualityMult": 2, "guaranteedMagic": false},
-    {"id": "unique", "name": "Unique", "levelBonus": 3, "hpMult": 4, "xpMult": 5, "dmgBonus": 0.0, "accBonus": 0.0, "modifiers": 2, "lootQualityMult": 3, "guaranteedMagic": true},
-    {"id": "minion", "name": "Minion", "levelBonus": 3, "hpMult": 2, "xpMult": 5, "dmgBonus": 0.0, "accBonus": 0.0, "modifiers": 0, "lootQualityMult": 1, "guaranteedMagic": false},
-    {"id": "boss", "name": "Boss", "levelBonus": 0, "hpMult": 1, "xpMult": 15, "dmgBonus": 0.0, "accBonus": 0.0, "modifiers": 0, "lootQualityMult": 5, "guaranteedMagic": true}
+    {"id": "normal", "sizeMult": 1, "name": "Normal", "levelBonus": 0, "hpMult": 1, "xpMult": 1, "dmgBonus": 0.0, "accBonus": 0.0, "modifiers": 0, "lootQualityMult": 1, "guaranteedMagic": false},
+    {"id": "champion", "sizeMult": 1.3, "name": "Champion", "levelBonus": 2, "hpMult": 3, "xpMult": 3, "dmgBonus": 0.9, "accBonus": 0.67, "modifiers": 1, "lootQualityMult": 2, "guaranteedMagic": false},
+    {"id": "berserker", "sizeMult": 1.3, "name": "Berserker", "levelBonus": 2, "hpMult": 3, "xpMult": 5, "dmgBonus": 2.7, "accBonus": 2.7, "modifiers": 1, "lootQualityMult": 2, "guaranteedMagic": false},
+    {"id": "unique", "sizeMult": 1.5, "name": "Unique", "levelBonus": 3, "hpMult": 4, "xpMult": 5, "dmgBonus": 0.0, "accBonus": 0.0, "modifiers": 2, "lootQualityMult": 3, "guaranteedMagic": true},
+    {"id": "minion", "sizeMult": 1, "name": "Minion", "levelBonus": 3, "hpMult": 2, "xpMult": 5, "dmgBonus": 0.0, "accBonus": 0.0, "modifiers": 0, "lootQualityMult": 1, "guaranteedMagic": false},
+    {"id": "boss", "sizeMult": 2.2, "name": "Boss", "levelBonus": 0, "hpMult": 1, "xpMult": 15, "dmgBonus": 0.0, "accBonus": 0.0, "modifiers": 0, "lootQualityMult": 5, "guaranteedMagic": true}
   ],
   "berserkerChanceInChampionPack": 0.2
 }

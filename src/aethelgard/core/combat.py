@@ -58,6 +58,7 @@ class GuardState:
     efficiency: float = 0.0
     energy: float = 0.0
     free_block: bool = False
+    reduction: float = 0.0  # share of the hit a normal block stops (capped by guard.blockReductionCap)
 
 
 NO_GUARD = GuardState()
@@ -79,6 +80,11 @@ class AttackResult:
     mitigated: float = 0.0
     final: float = 0.0
     guard_energy_cost: float = 0.0
+    stopped: float = 0.0  # stopped by the guard; armor then works on raw − stopped
+
+    @property
+    def reached_armor(self) -> float:
+        return self.raw - self.stopped
 
     @property
     def blocked(self) -> bool:
@@ -129,20 +135,28 @@ class CombatMath:
         crit = rng.chance(a.crit_chance)
         raw = rng.uniform(a.dmg_min, a.dmg_max) * (1 + a.damage_bonus_pct) * (self.p.crit_multiplier if crit else 1)
 
-        outcome, cost = BlockOutcome.NONE, 0.0
+        outcome, cost, share = BlockOutcome.NONE, 0.0, 0.0
         if guard.raised and guard.in_arc:
-            if guard.perfect:
-                return AttackResult(True, BlockOutcome.PERFECT, crit, raw, raw, 0.0, 0.0)
-            if guard.free_block:
-                return AttackResult(True, BlockOutcome.BLOCKED, crit, raw, raw, 0.0, 0.0)
-            cost = self.guard_cost(raw, guard.efficiency)
-            if guard.energy >= cost:
-                return AttackResult(True, BlockOutcome.BLOCKED, crit, raw, raw, 0.0, cost)
-            outcome, cost = BlockOutcome.GUARD_BROKEN, guard.energy  # out of Energy: the guard breaks
+            if guard.perfect:  # no Energy, the most a block can stop
+                outcome, share = BlockOutcome.PERFECT, self.g.block_reduction_cap
+            elif guard.free_block:  # Bulwark: no Energy, normal share
+                outcome, share = BlockOutcome.BLOCKED, guard.reduction
+            else:
+                cost = self.guard_cost(raw, guard.efficiency)
+                if guard.energy >= cost:
+                    outcome, share = BlockOutcome.BLOCKED, guard.reduction
+                else:
+                    outcome, cost = BlockOutcome.GUARD_BROKEN, guard.energy  # out of Energy: the guard breaks
 
+        stopped = raw * self.block_share(share)
+        passed = raw - stopped
         reduction = 1 - (1 - self.armor_reduction(d.armor, a.level)) * (1 - max(0.0, min(d.physical_reduction, 0.9)))
-        mitigated = raw * reduction
-        return AttackResult(True, outcome, crit, raw, mitigated, raw - mitigated, cost)
+        mitigated = passed * reduction
+        return AttackResult(True, outcome, crit, raw, mitigated, passed - mitigated, cost, stopped)
+
+    def block_share(self, share: float) -> float:
+        """A block never stops the whole hit: at most ``guard.blockReductionCap`` (GDD 7.4)."""
+        return max(0.0, min(share, self.g.block_reduction_cap))
 
 
 # ---------------------------------------------------------------- player
@@ -154,6 +168,7 @@ class GuardProfile:
     arc_degrees: float
     efficiency: float
     perfect_window: float
+    block_reduction: float = 0.0
 
 
 BASE_ACCURACY = 20.0
@@ -184,7 +199,8 @@ def player_guard(skills, gear: Loadout, g: GuardParams) -> GuardProfile:
     arc = g.arc_degrees + skills.effect("heavy_shield", "guardArcDegrees")
     eff = gear.off_hand.base.guard_efficiency + skills.effect("defensive_stance", "guardEfficiency")
     window = g.perfect_window_seconds + skills.effect("parry", "perfectWindowSeconds")
-    return GuardProfile(True, arc, min(eff, g.efficiency_cap), window)
+    block = g.block_reduction + gear.off_hand.base.block_reduction + skills.effect("defensive_stance", "blockReduction")
+    return GuardProfile(True, arc, min(eff, g.efficiency_cap), window, min(block, g.block_reduction_cap))
 
 
 def monster_attack(m) -> AttackerStats:

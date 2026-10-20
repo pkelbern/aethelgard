@@ -1,5 +1,5 @@
 {
- "_comment": "Bases, affixes and drop rules. guardEfficiency (shields) reduces the Energy spent per block. level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears. rareNames = parts of rare item names: '<first> <second>'.",
+ "_comment": "Bases, affixes and drop rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears. rareNames = parts of rare item names: '<first> <second>'.",
  "inventory": {
   "columns": 10,
   "rows": 6
@@ -178,6 +178,7 @@
    "level": 1,
    "armor": 3,
    "guardEfficiency": 0.0,
+   "blockReduction": 0.0,
    "size": [
     2,
     2
@@ -196,6 +197,7 @@
    "level": 5,
    "armor": 8,
    "guardEfficiency": 0.1,
+   "blockReduction": 0.05,
    "size": [
     2,
     2
@@ -214,6 +216,7 @@
    "level": 9,
    "armor": 14,
    "guardEfficiency": 0.2,
+   "blockReduction": 0.1,
    "size": [
     2,
     3
@@ -232,6 +235,7 @@
    "level": 13,
    "armor": 22,
    "guardEfficiency": 0.3,
+   "blockReduction": 0.15,
    "size": [
     2,
     3

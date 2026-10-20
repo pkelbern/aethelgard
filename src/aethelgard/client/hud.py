@@ -129,6 +129,8 @@ class Hud:
         if mi.type.name not in mi.name:  # uniques and bosses have their own names: say what they are
             details += f"  ·  {mi.type.name}"
         mods = ", ".join(x.name for x in mi.modifiers)
+        if not m.collides:  # explicit: this one has no body (monsters.json collides=false)
+            mods = ", ".join(x for x in (mods, "Ethereal: passes through bodies") if x)
         h = 74 + (18 if mods else 0)
         rect = pygame.Rect(W // 2 - TARGET_W // 2, 10, TARGET_W, h)
         draw_panel(screen, rect, edge=color)

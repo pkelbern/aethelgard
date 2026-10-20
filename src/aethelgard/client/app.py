@@ -17,19 +17,20 @@ from ..core.progression import Bind
 from ..core.saves import SaveStore
 from ..core.session import GameSession
 from ..core.simulation import run_act
-from ..core.world import AttackTarget, MonsterActor, MoveTo, SetGuard, UseSkill, World, is_implemented
+from ..core.world import AttackTarget, MonsterActor, MoveTo, Respawn, SetGuard, UseSkill, World, is_implemented
 from ..core.world_gen import ExitKind
 from . import palette as C
 from .hud import Hud
 from .iso import Camera, MapRenderer
 from .keys import KeyMap
-from .tooltip import draw_tooltip
+from .tooltip import draw_panel, draw_tooltip
 from .ui import GameUI
 from .vision import Vision
 
 FPS = 60
 DT = 1 / FPS
-MONSTER_RADIUS = {"boss": 22, "unique": 15, "champion": 13, "berserker": 13}  # body size on screen, by rank (default 10)
+PX_PER_TILE = 33  # body radius on screen = collision radius (tiles, from the core) × this
+HOLD_REPEAT_SECONDS = 0.12  # holding the mouse button repeats the click this often (move/attack)
 CONSOLE_HELP = (
     "save · load · bag · xp <prof> <amount> · level <prof> <n> · point <node> · area <id> [floor] · "
     "god · kill · heal · reveal · sim · seed"
@@ -66,6 +67,8 @@ class Game:
         self.cam = Camera(*size)
         self.hud = Hud(self.fonts, self.keys)
         self.hovered: MonsterActor | None = None
+        self.hold: dict | None = None  # left button held in the world: {"target": monster id or None, "timer": s}
+        self.death_text: str | None = None  # set while the character lies dead, waiting for a click
         self.vision = Vision()
         self.big_map = False
         self.floaters: list[Floater] = []
@@ -146,10 +149,23 @@ class Game:
             self.load_area(e.target_area, 0, came_from=w.area_id)
 
     def _on_death(self, e: PlayerDied) -> None:
+        """The character stays on the floor, the screen turns gray, and a click takes them back to town."""
+        if e.player_id != self.session.player_id:
+            return
         r = self.session.apply_death()
         extra = "".join(f", {v:.0f} {self.session.proficiencies[k].name} XP" for k, v in r.xp_lost.items())
-        self.hud.add(f"You died. Lost {r.gold_lost} gold{extra}.", C.LIFE)
-        self.player.reset_vitals()
+        self.death_text = f"Lost {r.gold_lost} gold{extra}."
+        self.hud.add(f"You died. {self.death_text}", C.LIFE)
+        self.hold = None
+        self.ui.close_all()
+
+    @property
+    def dead(self) -> bool:
+        return self.player.state == "dead"
+
+    def respawn(self) -> None:
+        self.world.apply(Respawn(self.session.player_id))
+        self.death_text = None
         self.load_area(self.data.town_id)
 
     def load_area(self, area_id: str, floor: int = 0, came_from: str | None = None, arrive_at: ExitKind | None = None) -> None:
@@ -177,18 +193,22 @@ class Game:
         for m in self.world.monsters.values():
             if not self.vision.sees(m.x, m.y):
                 continue
-            r = MONSTER_RADIUS.get(m.monster.rank.id, 10)
+            r = self.body_px(m)
             sx, sy = self.cam.to_screen(m.x, m.y)
             d = math.hypot(sx - mx, sy - r - my)
             if d <= r + 12 and d < best_d:
                 best, best_d = m, d
         return best
 
+    @staticmethod
+    def body_px(actor) -> int:
+        return max(6, round(actor.radius * PX_PER_TILE))
+
     def slot_under_mouse(self) -> int | None:
         return self.hud.slot_at(pygame.mouse.get_pos(), len(self.session.skill_bar), self.screen.get_size())
 
     def _update_hover(self) -> None:
-        over_hud = self.ui.over_ui or self.slot_under_mouse() is not None
+        over_hud = self.dead or self.ui.over_ui or self.slot_under_mouse() is not None
         self.hovered = None if over_hud else self.monster_under_mouse()
 
     # ------------------------------------------------------------ action bar
@@ -257,8 +277,13 @@ class Game:
                 continue  # the interface (windows, text field) consumed the event
             if ev.type == pygame.MOUSEBUTTONDOWN:
                 self._on_click(ev.button)
+            elif ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
+                self.hold = None
             elif ev.type == pygame.KEYDOWN:
                 self._on_key(ev.key)
+        if self.dead:
+            return
+        self._repeat_held_click()
 
         # guard: hold the guard key, shield pointed at the mouse
         held = not self.ui.typing and pygame.key.get_pressed()[self.keys.key("guard")]
@@ -266,6 +291,10 @@ class Game:
         self.world.apply(SetGuard(pid, bool(held), gx - self.player.x, gy - self.player.y))
 
     def _on_click(self, button: int) -> None:
+        if self.dead:
+            if button == 1:
+                self.respawn()
+            return
         slot = self.slot_under_mouse()
         if slot is not None:  # the bar: left picks a skill for the key, right clears it
             if button == 1:
@@ -275,14 +304,44 @@ class Game:
             return
         if button != 1:
             return
+        target = self.hovered if not self.player.guarding else None
+        self.hold = {"target": target.id if target else None, "timer": HOLD_REPEAT_SECONDS}
+        self._world_click(self.hold["target"])
+
+    def _world_click(self, target_id: int | None) -> None:
         pid = self.session.player_id
-        target = self.hovered
-        if target is not None and not self.player.guarding:
-            self.world.apply(AttackTarget(pid, target.id))
+        if target_id is not None:
+            self.world.apply(AttackTarget(pid, target_id))
         else:
             self.world.apply(MoveTo(pid, *self.mouse_grid()))
 
+    def _repeat_held_click(self) -> None:
+        """Holding the left button acts like clicking again and again (D2): it keeps walking toward the
+        cursor, or keeps attacking the monster it was pressed on until that one dies."""
+        if self.hold is None:
+            return
+        if not pygame.mouse.get_pressed()[0]:
+            self.hold = None
+            return
+        if self.ui.over_ui:  # passing over a window pauses the repeat, releasing ends it
+            return
+        self.hold["timer"] -= DT
+        if self.hold["timer"] > 0:
+            return
+        self.hold["timer"] = HOLD_REPEAT_SECONDS
+        target = self.hold["target"]
+        if target is not None and target not in self.world.monsters:
+            self.hold = None  # the target died: stand still until the next click
+            return
+        self._world_click(target)
+
     def _on_key(self, key: int) -> None:
+        if self.dead:
+            if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self.respawn()
+            elif self.keys.action_for(key) == "cancel":
+                self.running = False
+            return
         slot = self.keys.slot_for(key)
         if slot is not None:
             node_id = self.ui.hovered_node(pygame.mouse.get_pos())
@@ -378,14 +437,43 @@ class Game:
         self.vision.draw_automap(screen, self.world.layout, self.player.x, self.player.y, big=self.big_map)
         self.hud.draw(screen, self.world, self.player, self.hovered)
         self.ui.draw(screen)
-        tip = self.skill_tooltip()
-        if tip:
-            draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
+        if self.dead:
+            self._draw_death_screen()
+        else:
+            tip = self.skill_tooltip()
+            if tip:
+                draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
         pygame.display.flip()
+
+    def _draw_death_screen(self) -> None:
+        """Everything in gray, slightly darker, with a panel that says what was lost and how to go on."""
+        screen = self.screen
+        gray = pygame.transform.grayscale(screen)
+        shade = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+        shade.fill((0, 0, 0, 90))
+        gray.blit(shade, (0, 0))
+        screen.blit(gray, (0, 0))
+        W, H = screen.get_size()
+        title = self.fonts["title"].render("You died", True, C.LIFE)
+        lines = [self.death_text or "", "Click (or press Enter) to return to town."]
+        imgs = [self.fonts["body"].render(t, True, C.TEXT if i == 0 else C.HINT) for i, t in enumerate(lines)]
+        w = max(title.get_width(), *(i.get_width() for i in imgs)) + 60
+        rect = pygame.Rect(W // 2 - w // 2, H // 2 + 50, w, 120)  # below the body, which lies at the center
+        draw_panel(screen, rect, edge=C.LIFE)
+        screen.blit(title, title.get_rect(midtop=(rect.centerx, rect.y + 16)))
+        for k, img in enumerate(imgs):
+            screen.blit(img, img.get_rect(midtop=(rect.centerx, rect.y + 56 + 26 * k)))
 
     def _draw_player(self, p) -> None:
         sx, sy = self.cam.to_screen(p.x, p.y)
         screen = self.screen
+        if p.state == "dead":  # lying on the floor, shield and sword dropped beside the body
+            pygame.draw.ellipse(screen, (0, 0, 0), (sx - 26, sy - 6, 52, 12))
+            pygame.draw.rect(screen, C.PLAYER_BODY, (sx - 22, sy - 12, 34, 14), border_radius=5)
+            pygame.draw.circle(screen, C.PLAYER_HEAD, (sx + 18, sy - 6), 7)
+            pygame.draw.rect(screen, C.SHIELD, (sx - 30, sy - 2, 14, 8))
+            pygame.draw.line(screen, C.SWORD, (sx - 8, sy + 6), (sx + 22, sy + 10), 3)
+            return
         pygame.draw.ellipse(screen, (0, 0, 0), (sx - 12, sy - 5, 24, 10))
         body = C.PLAYER_BODY if p.state not in ("hit_recovery", "stunned") else (200, 80, 80)
         pygame.draw.rect(screen, body, (sx - 9, sy - 40, 18, 34), border_radius=4)
@@ -415,7 +503,7 @@ class Game:
     def _draw_monster(self, m: MonsterActor) -> None:
         sx, sy = self.cam.to_screen(m.x, m.y)
         rank = m.monster.rank.id
-        r = MONSTER_RADIUS.get(rank, 10)
+        r = self.body_px(m)
         color = C.RANK.get(rank, C.RANK["normal"])
         name_color = C.rank_name_color(rank)
         if m.state in ("hit_recovery", "stunned"):

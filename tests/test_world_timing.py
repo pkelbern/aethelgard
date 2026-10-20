@@ -1,13 +1,16 @@
 """Action timings (cooldowns, hit and block recovery) and the real-time world."""
 
+import math
+from dataclasses import replace
+
 import pytest
 
-from aethelgard.core.events import ExitReached, HitBlocked, MonsterKilled, SkillUsed
+from aethelgard.core.events import ExitReached, HitBlocked, MonsterKilled, PlayerDied, SkillUsed
 from aethelgard.core.monsters import MonsterInstance
 from aethelgard.core.session import GameSession
 from aethelgard.core.timing import Cooldowns, monster_hit_recovery, player_block_recovery, player_hit_recovery, skill_cooldown
 from aethelgard.core.world import AttackTarget as Attack
-from aethelgard.core.world import MonsterActor, SetGuard, UseSkill, World
+from aethelgard.core.world import MonsterActor, MoveTo, Respawn, SetGuard, UseSkill, World
 from aethelgard.core.world_gen import FLOOR, AreaLayout
 
 DT = 1 / 60
@@ -150,7 +153,8 @@ def test_block_causes_recovery_and_prevents_attacking(data):
             assert p.guarding
     assert blocks and not any(b.perfect for b in blocks[1:])
     assert seen_block_recovery
-    assert p.life == pytest.approx(p.max_life), "nothing got through the guard"
+    taken = p.max_life - p.life
+    assert 0 < taken <= 10 * 0.3 * len(blocks) + 1e-6, "a block lets at most 30% through, and armor softens it"
     assert s.proficiencies["shield"].xp > 0
 
 
@@ -189,7 +193,7 @@ def test_perfect_parry_counterattacks_with_parry(data):
 
 
 def test_bulwark_blocks_from_behind_for_free(data):
-    s, w, p, m = arena(data, monster_dmg=(10, 10), at=(4.0, 5.0))  # monster behind (−x)
+    s, w, p, m = arena(data, monster_dmg=(10, 10), at=(4.0, 5.0), level=14)  # monster behind (−x), level close to the player's
     s.proficiencies.set_xp("shield", data.xp_total_by_level[11])  # level 12
     s.skills.allocate("bulwark")
     p.reset_vitals()
@@ -197,8 +201,10 @@ def test_bulwark_blocks_from_behind_for_free(data):
     run(w, 0.3)
     assert w.apply(UseSkill(0, "bulwark")) is None
     energy = p.energy
-    run(w, 2.0)
-    assert p.life == pytest.approx(p.max_life)
+    blocks = []
+    s.bus.subscribe(HitBlocked, blocks.append)
+    run(w, 3.0)  # Bulwark lasts 3.2 s; enough swings to land a few despite the 5% minimum miss
+    assert blocks and p.max_life - p.life <= 10 * 0.3 * len(blocks) + 1e-6, "blocked from behind, still not free of damage"
     assert p.energy >= energy - 0.5, "Bulwark spends no Energy per block"
     assert w.apply(UseSkill(0, "bulwark")).startswith("Bulwark: cooldown")
 
@@ -225,3 +231,61 @@ def test_arrival_next_to_the_exit_you_came_from(data):
     entrance = next(e for e in w.layout.exits if e.target_area == "cave")
     assert (round(p.x), round(p.y)) != entrance.pos
     assert abs(p.x - entrance.pos[0]) + abs(p.y - entrance.pos[1]) <= 2
+
+
+# ---------------------------------------------------------------- bodies and death
+
+
+def test_player_cannot_walk_through_a_monster(data):
+    s, w, p, m = arena(data, monster_dmg=(0.01, 0.01), at=(6.0, 5.0))
+    touch = p.radius + m.radius
+    w.apply(MoveTo(0, 9, 5))
+    closest = 9.0
+    for _ in range(240):
+        w.step(DT)
+        closest = min(closest, math.hypot(p.x - m.x, p.y - m.y))
+    assert closest >= touch - 1e-6, "bodies never overlap"
+    assert p.x > m.x, "the player walks around the monster instead of stopping for good"
+
+
+def test_monster_without_collision_is_explicit_and_lets_you_through(data):
+    s, w, p, m = arena(data, monster_dmg=(0.01, 0.01), at=(6.0, 5.0))
+    m.monster.type = replace(m.monster.type, collides=False)  # e.g. a ghost: collides=false in monsters.json
+    w.apply(MoveTo(0, 9, 5))
+    closest = 9.0
+    for _ in range(240):
+        w.step(DT)
+        closest = min(closest, math.hypot(p.x - m.x, p.y - m.y))
+    assert closest < 0.1, "walked straight through it"
+    assert all(t.collides for t in data.monsters.types), "every Act 1 monster has a body"
+
+
+def test_monster_size_comes_from_type_and_rank(data):
+    s, w, p, m = arena(data)
+    assert m.radius == pytest.approx(data.monster_type("bandit").radius)
+    m.monster.rank = data.rank("boss")
+    assert m.radius == pytest.approx(data.monster_type("bandit").radius * 2.2)
+
+
+def test_death_waits_for_respawn(data):
+    s, w, p, m = arena(data, monster_dmg=(500, 500))
+    died = []
+    s.bus.subscribe(PlayerDied, died.append)
+    run(w, 3)
+    assert died and p.state == "dead" and p.life == 0
+    assert not p.collides, "the body on the floor blocks no one"
+    w.apply(MoveTo(0, 9, 9))
+    run(w, 0.5)
+    assert p.state == "dead" and not p.path, "dead players ignore orders"
+    w.monsters.clear()
+    w.apply(Respawn(0))
+    assert p.state == "idle" and p.life == pytest.approx(p.max_life)
+
+
+def test_packs_spawn_without_overlapping_bodies(data):
+    s = GameSession(data, 11)
+    w = World([s])
+    w.enter_area("plains")
+    ms = [m for m in w.monsters.values() if m.collides]
+    bad = sum(1 for i, a in enumerate(ms) for b in ms[i + 1 :] if math.hypot(a.x - b.x, a.y - b.y) < a.radius + b.radius - 1e-6)
+    assert bad <= len(ms) // 50, "almost every body starts on a free spot (a crowded corner may still overlap)"

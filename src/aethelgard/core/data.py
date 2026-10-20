@@ -172,6 +172,13 @@ class GuardParams:
     perfect_window_seconds: float = 0.15
     guard_break_stun_seconds: float = 1.0
     guard_raise_cooldown_seconds: float = 0.3
+    block_reduction: float = 0.7
+    block_reduction_cap: float = 0.95
+
+
+@dataclass
+class CollisionParams:
+    player_radius: float = 0.3
 
 
 @dataclass
@@ -199,6 +206,7 @@ class BalanceData:
     death: DeathParams = field(default_factory=DeathParams)
     guard: GuardParams = field(default_factory=GuardParams)
     timing: TimingParams = field(default_factory=TimingParams)
+    collision: CollisionParams = field(default_factory=CollisionParams)
 
 
 # ---------------------------------------------------------------- monsters
@@ -208,6 +216,7 @@ class BalanceData:
 class MonsterRankDef:
     id: str = ""
     name: str = ""
+    size_mult: float = 1
     level_bonus: int = 0
     hp_mult: float = 1
     xp_mult: float = 1
@@ -260,6 +269,8 @@ class MonsterTypeDef:
     attack_rate: float = 1.0
     range: float = 1
     ai: str = "melee"
+    radius: float = 0.3  # body, in tiles (times the rank sizeMult)
+    collides: bool = True  # False: passes through bodies (must be explicit in monsters.json)
 
 
 @dataclass
@@ -446,6 +457,7 @@ class ItemBaseDef:
     dmg_max: float = 0
     armor: float = 0
     guard_efficiency: float = 0
+    block_reduction: float = 0
     size: list[int] = field(default_factory=lambda: [1, 1])
     req: dict[str, int] = field(default_factory=dict)
 
@@ -672,6 +684,11 @@ def validate(d: GameData) -> list[str]:
         if all(x.id != r for x in d.ranks.ranks):
             errors.append(f"monster_ranks: missing '{r}'")
     errors += [f"monster_ranks: '{x.id}' has no name" for x in d.ranks.ranks if not x.name]
+    errors += [f"monster_ranks: '{x.id}' sizeMult must be positive" for x in d.ranks.ranks if x.size_mult <= 0]
+    errors += [f"monsters: '{t.id}' radius must be positive" for t in d.monsters.types if t.radius <= 0]
+    g = d.balance.guard
+    if not 0 <= g.block_reduction <= g.block_reduction_cap < 1:
+        errors.append("balance: need 0 <= guard.blockReduction <= guard.blockReductionCap < 1 (a block never stops everything)")
 
     families = {f.id for f in d.monsters.families}
     for t in d.monsters.types:

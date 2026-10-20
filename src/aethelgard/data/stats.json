@@ -13,6 +13,7 @@
     { "id": "critChanceLowLife",          "label": "critical chance vs. low-life enemies", "format": "pct" },
     { "id": "lowLifeThreshold",           "label": "low life below",                       "format": "pct",     "signed": false },
     { "id": "guardEfficiency",            "label": "guard efficiency",                     "format": "pct" },
+    { "id": "blockReduction",             "label": "of a blocked hit stopped",             "format": "pct" },
     { "id": "fasterBlockRecovery",        "label": "faster block recovery",                "format": "pct" },
     { "id": "stunSeconds",                "label": "stun",                                 "format": "seconds", "signed": false },
     { "id": "perfectWindowSeconds",       "label": "perfect guard window",                 "format": "seconds" },
