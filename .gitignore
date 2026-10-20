@@ -16,6 +16,9 @@ logs/
 *.png
 !docs/**/*.png
 !assets/**/*.png
+# arte baixada na primeira execução (tools/fetch_art.py) — nunca vai para o repositório
+src/aethelgard/assets/
+art/
 
 # SO / editores
 .DS_Store

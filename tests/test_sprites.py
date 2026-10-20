@@ -1,8 +1,7 @@
-"""Sprites: animation math (no screen), data/ui/sprites.json against the imported sheets, and a draw smoke test."""
+"""Sprites: animation math, sprites.json against the game data, the art download (no network: a fake Flare tree) and drawing."""
 
 import json
 import os
-from importlib import resources
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -21,15 +20,21 @@ from aethelgard.client.animation import (  # noqa: E402
     parse_flare_animation,
     pose_frame,
 )
-from aethelgard.tools.import_flare import sheets_in_use  # noqa: E402
+from aethelgard.tools.fetch_art import fetch_art, load_config, local_fetch, missing_sheets, sheets_in_use, source_of  # noqa: E402
 
-ASSETS = resources.files("aethelgard") / "assets" / "sprites"
 REQUIRED = {"stance", "run", "swing", "block", "hit", "die"}
 
 
 @pytest.fixture(scope="module")
 def cfg():
-    return json.loads((resources.files("aethelgard") / "data" / "ui" / "sprites.json").read_text(encoding="utf-8"))
+    return load_config()
+
+
+@pytest.fixture
+def screen():
+    pygame.init()
+    yield pygame.display.set_mode((200, 200))
+    pygame.quit()
 
 
 # ---------------------------------------------------------------- math
@@ -106,82 +111,166 @@ def test_shelf_packing_never_overlaps():
         pack_shelves([(200, 5)], 128)
 
 
-# ---------------------------------------------------------------- data against the imported art
-
-
-def test_every_sheet_in_use_was_imported_and_nothing_else(cfg):
-    used = set(sheets_in_use(cfg))
-    found = set(_sheet_files())
-    assert used == found, "run python -m aethelgard.tools.import_flare after changing looks or gear"
-
-
-def _sheet_files():
-    def walk(node, prefix=""):
-        for child in node.iterdir():
-            if child.is_dir():
-                yield from walk(child, f"{prefix}{child.name}/")
-            elif child.name.endswith(".json"):
-                yield f"{prefix}{child.name[:-5]}"
-
-    return walk(ASSETS)
-
-
-def test_sheets_have_the_animations_and_eight_directions(cfg):
-    for sheet in sheets_in_use(cfg):
-        meta = json.loads((ASSETS / f"{sheet}.json").read_text(encoding="utf-8"))
-        assert (ASSETS / f"{sheet}.png").is_file(), sheet
-        assert REQUIRED <= set(meta["anims"]), sheet
-        for name, a in meta["anims"].items():
-            assert len(a["rects"]) == a["frames"], (sheet, name)
-            assert all(len(row) == DIRECTIONS for row in a["rects"]), (sheet, name)
+# ---------------------------------------------------------------- sprites.json against the game data
 
 
 def test_looks_and_gear_match_the_game_data(cfg, data):
     types = {t.id for t in data.monsters.types}
     assert set(cfg["looks"]) - {"player"} <= types, "a look is the player or a monster type id"
-    bases = {b.id for b in data.items.bases}
-    assert set(cfg["gear"]) <= bases, "gear entries are item base ids"
-    for look_id, look in cfg["looks"].items():
-        attack = look.get("attack", "swing")
-        for sheet in look["layers"].values():
-            anims = json.loads((ASSETS / f"{sheet}.json").read_text(encoding="utf-8"))["anims"]
-            assert attack in anims, (look_id, sheet, attack)
-    assert set(cfg["layerOrder"]) == set(DIRECTION_NAMES)
+    assert set(cfg["gear"]) <= {b.id for b in data.items.bases}, "gear entries are item base ids"
     assert set(cfg["slotLayers"]) <= set(data.items.equipment), "slotLayers keys are equipment slots (items.json)"
+    assert set(cfg["layerOrder"]) == set(DIRECTION_NAMES)
+    assert all(look.get("attack", "swing") in cfg["import"]["anims"] for look in cfg["looks"].values())
+    assert REQUIRED <= set(cfg["import"]["anims"])
     assert all(b.base_type in types for b in data.monsters.bosses), "bosses are drawn with their base type's look"
+    for sheet in sheets_in_use(cfg):
+        assert source_of(sheet, cfg).endswith(".txt")
+
+
+def test_the_art_is_not_in_the_repository():
+    from importlib import resources
+
+    assert not (resources.files("aethelgard") / "assets").is_dir(), "the art is downloaded on first run, never committed"
+
+
+# ---------------------------------------------------------------- download (fake Flare tree, no network)
+
+
+def make_flare_tree(root, sheets_cfg):
+    """Tiny Flare-like files: one 8×8 frame per direction for every animation, colored per direction."""
+    imp = sheets_cfg["import"]
+    for sheet in sheets_in_use(sheets_cfg):
+        name = sheet.rsplit("/", 1)[1]
+        img = pygame.Surface((64, 8), pygame.SRCALPHA)
+        for d in range(DIRECTIONS):
+            img.fill((30 * d, 200, 100, 255), (d * 8, 0, 8, 8))
+        image_rel = f"images/{name}.png"
+        (root / imp["sourceRoot"] / "images").mkdir(parents=True, exist_ok=True)
+        pygame.image.save(img, str(root / imp["sourceRoot"] / image_rel))
+        lines = [f"image={image_rel}"]
+        for anim in imp["anims"]:
+            lines += ["", f"[{anim}]", "frames=1", "duration=100ms", "type=play_once"]
+            lines += [f"frame=0,{d},{d * 8},0,8,8,4,8" for d in range(DIRECTIONS)]
+        txt = root / source_of(sheet, sheets_cfg)
+        txt.parent.mkdir(parents=True, exist_ok=True)
+        txt.write_text("\n".join(lines), encoding="utf-8")
+    (root / "LICENSE.txt").write_text("CC-BY-SA 3.0", encoding="utf-8")
+
+
+def small_cfg(cfg):
+    """The real config, reduced to the player and one monster, at full scale and full color."""
+    c = json.loads(json.dumps(cfg))
+    c["looks"] = {"player": cfg["looks"]["player"], "skeleton": cfg["looks"]["skeleton"]}
+    c["gear"] = {"short_sword": cfg["gear"]["short_sword"]}
+    c["import"].update(scale=1.0, colors=0, atlasWidth=128)
+    return c
+
+
+def test_download_builds_the_missing_sheets_and_resumes(screen, cfg, tmp_path):
+    c = small_cfg(cfg)
+    make_flare_tree(tmp_path / "flare", c)
+    art = tmp_path / "art"
+    assert missing_sheets(c, art) == sheets_in_use(c)
+    calls = []
+    fetch = local_fetch(tmp_path / "flare")
+    built = fetch_art(c, art, lambda rel: calls.append(rel) or fetch(rel))
+    assert built == sheets_in_use(c) and missing_sheets(c, art) == []
+    assert (art / "sprites" / "flare" / "ATTRIBUTION.md").is_file()
+    assert (art / "sprites" / "flare" / "LICENSE-CC-BY-SA-3.0.txt").read_text() == "CC-BY-SA 3.0"
+    meta = json.loads((art / "sprites" / "flare" / "enemies" / "skeleton.json").read_text())
+    assert REQUIRED <= set(meta["anims"]) and all(len(r) == DIRECTIONS for r in meta["anims"]["run"]["rects"])
+    calls.clear()
+    assert fetch_art(c, art, fetch) == [] and calls == [], "nothing missing: nothing downloaded"
+    (art / "sprites" / "flare" / "enemies" / "skeleton.json").unlink()
+    assert fetch_art(c, art, fetch) == ["flare/enemies/skeleton"], "only what is missing"
+
+
+def test_failed_download_raises_and_leaves_no_half_sheet(screen, cfg, tmp_path):
+    c = small_cfg(cfg)
+
+    def offline(rel):
+        raise OSError("no network")
+
+    with pytest.raises(OSError):
+        fetch_art(c, tmp_path / "art", offline)
+    assert missing_sheets(c, tmp_path / "art") == sheets_in_use(c)
+    assert not list((tmp_path / "art").rglob("*.json"))
+
+
+def test_background_download_then_real_sprites(screen, cfg, tmp_path):
+    from aethelgard.client.sprites import ArtDownload, SpriteLibrary
+
+    c = small_cfg(cfg)
+    make_flare_tree(tmp_path / "flare", c)
+    lib = SpriteLibrary(c, tmp_path / "art")
+    assert lib.sheet("flare/enemies/skeleton") is None, "not downloaded yet"
+    dl = ArtDownload(lib, fetch=local_fetch(tmp_path / "flare"))
+    assert dl.start()
+    dl.wait(30)
+    assert dl.poll() == "Art downloaded." and dl.poll() is None, "reported once"
+    assert lib.sheet("flare/enemies/skeleton") is not None, "loaded after the download"
+    assert not ArtDownload(lib).start(), "nothing missing: no second download"
+
+
+def test_failed_background_download_keeps_the_game_going(screen, cfg, tmp_path):
+    from aethelgard.client.sprites import ArtDownload, SpriteLibrary
+
+    def offline(rel):
+        raise OSError("no network")
+
+    dl = ArtDownload(SpriteLibrary(small_cfg(cfg), tmp_path / "art"), fetch=offline)
+    assert dl.start()
+    dl.wait(30)
+    msg = dl.poll()
+    assert dl.state == "failed" and "no network" in msg and "fetch_art" in msg
 
 
 # ---------------------------------------------------------------- drawing
 
 
-def test_draws_the_player_and_a_corpse():
+class Actor:
+    x = y = 0.0
+    face_x, face_y = 1.0, 0.0
+    state, attack_elapsed, attack_duration = "attacking", 0.3, 0.55
+
+
+def test_missing_sprite_draws_an_obvious_stand_in(screen, cfg, tmp_path):
     from aethelgard.client.iso import Camera
-    from aethelgard.client.sprites import ActorSprites, SpriteLibrary
+    from aethelgard.client.sprites import MISSING_COLORS, ActorSprites, SpriteLibrary
 
-    pygame.init()
-    try:
-        screen = pygame.display.set_mode((200, 200))
-        lib = SpriteLibrary()
-        spr = ActorSprites(lib)
-        cam = Camera(200, 200)
+    lib = SpriteLibrary(cfg, tmp_path / "empty")
+    spr = ActorSprites(lib)
+    layers = lib.layers("player", [("mainhand", "short_sword"), ("offhand", "buckler"), ("body", "chain_mail")])
+    assert layers["main"] == "flare/male/shortsword" and layers["off"] == "flare/male/buckler"
+    assert layers["chest"] == "flare/male/chain_cuirass", "armor replaces the bare chest"
+    dual = lib.layers("player", [("mainhand", "long_sword"), ("offhand", "short_sword")])
+    assert dual["main"] == "flare/male/longsword" and "off" not in dual, "an off-hand sword never takes the main hand's place"
+    assert lib.layers("wolf") is None, "no look at all: the client keeps the old placeholder"
 
-        class Actor:
-            x = y = 0.0
-            face_x, face_y = 1.0, 0.0
-            state, attack_elapsed, attack_duration = "attacking", 0.3, 0.55
+    screen.fill((0, 0, 0))
+    box = spr.draw_actor(screen, Camera(200, 200), ("p", 0), Actor(), layers)
+    assert box.h > 30 and box.bottom == 100, "stands on its feet at the center"
+    colors = {tuple(screen.get_at((x, y)))[:3] for x in range(box.left, box.right) for y in range(box.top, box.bottom)}
+    assert MISSING_COLORS[0] in colors, "magenta: impossible to miss"
+    spr.add_corpse(Actor(), lib.layers("skeleton"), 1.0)
+    spr.draw_corpses(screen, Camera(200, 200), lambda x, y: True)  # a missing corpse lies down, no crash
 
-        layers = lib.layers("player", [("mainhand", "short_sword"), ("offhand", "buckler"), ("body", "chain_mail")])
-        assert layers["main"] == "flare/male/shortsword" and layers["off"] == "flare/male/buckler"
-        assert layers["chest"] == "flare/male/chain_cuirass", "armor replaces the bare chest"
-        dual = lib.layers("player", [("mainhand", "long_sword"), ("offhand", "short_sword")])
-        assert dual["main"] == "flare/male/longsword" and "off" not in dual, "an off-hand sword never takes the main hand's place"
-        assert lib.layers("wolf") is None, "no look: the client keeps the placeholder"
-        box = spr.draw_actor(screen, cam, ("p", 0), Actor(), layers)
-        assert box.h > 25 and box.collidepoint(100, 95), "drawn standing on its feet at the center"
-        spr.add_corpse(Actor(), lib.layers("skeleton"), 1.0)
-        spr.tick(0.5)
-        spr.draw_corpses(screen, cam, lambda x, y: True)
-        spr.tick(60)
-        assert spr.corpses == [], "bodies go away"
-    finally:
-        pygame.quit()
+
+def test_draws_real_frames_and_corpses(screen, cfg, tmp_path):
+    from aethelgard.client.iso import Camera
+    from aethelgard.client.sprites import MISSING_COLORS, ActorSprites, SpriteLibrary
+
+    c = small_cfg(cfg)
+    make_flare_tree(tmp_path / "flare", c)
+    fetch_art(c, tmp_path / "art", local_fetch(tmp_path / "flare"))
+    lib = SpriteLibrary(c, tmp_path / "art")
+    spr = ActorSprites(lib)
+    screen.fill((0, 0, 0))
+    box = spr.draw_actor(screen, Camera(200, 200), ("m", 1), Actor(), lib.layers("skeleton"))
+    assert box.size == (8, 8) and box.midbottom == (100, 100), "the frame's foot point sits on the actor"
+    assert tuple(screen.get_at(box.center))[:3] != MISSING_COLORS[0]
+    spr.add_corpse(Actor(), lib.layers("skeleton"), 1.0)
+    spr.tick(0.5)
+    spr.draw_corpses(screen, Camera(200, 200), lambda x, y: True)
+    spr.tick(60)
+    assert spr.corpses == [], "bodies go away"

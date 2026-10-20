@@ -26,10 +26,11 @@ classifiers = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
 build = ["pyinstaller>=6"]
-art = ["pillow>=10"]  # tools/import_flare.py: palette PNGs (HPND license)
+art = ["pillow>=10"]  # tools/fetch_art.py: 5× smaller palette PNGs (optional; HPND license)
 
 [project.scripts]
 aethelgard = "aethelgard.__main__:main"
+aethelgard-art = "aethelgard.tools.fetch_art:main"
 
 [project.urls]
 Repository = "https://github.com/SEU_USUARIO/aethelgard"
@@ -38,7 +39,7 @@ Repository = "https://github.com/SEU_USUARIO/aethelgard"
 where = ["src"]
 
 [tool.setuptools.package-data]
-aethelgard = ["data/*.json", "data/maps/*.tmx", "data/maps/*.tsx", "data/maps/*.png", "data/ui/*.json", "assets/sprites/**/*"]
+aethelgard = ["data/*.json", "data/maps/*.tmx", "data/maps/*.tsx", "data/maps/*.png", "data/ui/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

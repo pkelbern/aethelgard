@@ -63,11 +63,12 @@ core/                   regras, sem pygame
 ```
 data/ui/sprites.json ──► client/sprites.py  SpriteLibrary (looks, gear, ordem das camadas, folhas sob demanda)
                                             ActorSprites (memória por ator, cadáveres, desenho)
-assets/sprites/<folha>.json + .png ◄── tools/import_flare.py (converte a arte do Flare)
+<pasta de arte>/sprites/<folha>.json + .png ◄── tools/fetch_art.py (baixa só o necessário do Flare e converte)
+                                            ArtDownload (cliente): roda o mesmo código em segundo plano ao abrir o jogo
 client/animation.py   matemática sem pygame: direction8, frame_at, choose_pose, formato do Flare, empacotador
 ```
 
-- **Formato próprio** (`assets/sprites/<folha>.json`): por animação, `frames`, `seconds`, `loop` (looped, back_forth,
+- **Formato próprio** (`<pasta de arte>/sprites/<folha>.json`): por animação, `frames`, `seconds`, `loop` (looped, back_forth,
   play_once) e `rects[quadro][direção] = x, y, w, h, ox, oy`; `(ox, oy)` é o ponto que fica nos pés do ator.
   Qualquer fonte de arte alimenta esse formato: hoje o importador do Flare; depois, o render do Blender (M7-01).
 - **Direções:** 8, na bússola da arte (+x do mapa = E, que na tela é baixo-direita). `direction8(face_x, face_y)`
@@ -83,8 +84,16 @@ client/animation.py   matemática sem pygame: direction8, frame_at, choose_pose,
 - **Sem look → placeholder:** tipos sem entrada em `looks` (hoje as Feras) continuam como círculos.
 - **Cadáveres:** o `World` remove o monstro logo depois de publicar `MonsterKilled`; o cliente guarda o corpo
   (animação die + `corpseSeconds`, some aos poucos). É só visual: no multiplayer cada cliente faz o mesmo com o evento.
-- **Licença:** a arte importada é CC-BY-SA 3.0 (`assets/sprites/flare/ATTRIBUTION.md`); toda folha está em
-  `docs/licencas_assets.csv`. `tests/test_sprites.py` falha se uma folha usada não foi importada (ou sobrou alguma).
+- **Arte fora do repositório:** a pasta de arte é `<dados do usuário>/art` (`saves.default_art_dir`, variável
+  `AETHELGARD_ART_DIR`). Ao abrir, o jogo confere as folhas (`missing_sheets`); se falta alguma, `ArtDownload` baixa
+  numa thread (só os `.txt` e `.png` necessários, por `raw.githubusercontent.com`, no commit fixado em `sprites.json`),
+  converte e grava o `.json` por último (presença do `.json` = folha pronta; download interrompido continua de onde
+  parou). Sem rede, o jogo segue e avisa no log. Rodadas com `--frames` (testes/CI) e `--offline` não baixam.
+- **Sprite faltando:** folha ausente ou quebrada → `SpriteLibrary.sheet` devolve None e o ator vira um retângulo
+  xadrez magenta com "?" (deitado quando morto). Tipos sem look (Feras) continuam com o placeholder antigo.
+- **Licença:** a arte baixada é CC-BY-SA 3.0 (`ATTRIBUTION.md` e a licença vão junto para a pasta de arte); toda folha
+  está em `docs/licencas_assets.csv`. `tests/test_sprites.py` testa download, conversão e desenho com uma árvore falsa
+  do Flare (sem rede).
 
 ## Laço do jogo
 

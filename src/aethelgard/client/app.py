@@ -25,7 +25,7 @@ from .inventory_view import InventoryView
 from .iso import Camera, MapRenderer
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
-from .sprites import ActorSprites, SpriteLibrary
+from .sprites import ActorSprites, ArtDownload, SpriteLibrary
 from .tooltip import draw_panel, draw_tooltip
 from .ui import GameUI
 from .vision import Vision
@@ -52,7 +52,8 @@ class Floater:
 class Game:
     """``new_game`` ignores an existing save; ``save_dir`` overrides the per-user save folder."""
 
-    def __init__(self, seed: int | None = None, size: tuple[int, int] = (1280, 720), new_game: bool = False, save_dir: Path | None = None):
+    def __init__(self, seed: int | None = None, size: tuple[int, int] = (1280, 720), new_game: bool = False, save_dir: Path | None = None,
+                 download_art: bool = True, art_dir: Path | None = None):
         pygame.init()
         pygame.display.set_caption("Aethelgard")
         self.screen = pygame.display.set_mode(size)
@@ -76,7 +77,8 @@ class Game:
         self.hold: dict | None = None  # left button held in the world: {"target": monster id or None, "timer": s}
         self.death_text: str | None = None  # set while the character lies dead, waiting for a click
         self.vision = Vision()
-        self.sprites = ActorSprites(SpriteLibrary())
+        self.sprites = ActorSprites(SpriteLibrary(art_dir=art_dir))
+        self.art = ArtDownload(self.sprites.lib)
         self.big_map = False
         self.floaters: list[Floater] = []
         self.map: MapRenderer | None = None
@@ -90,6 +92,11 @@ class Game:
         if loaded:
             self.hud.add(f"Welcome back, {loaded.name}. Save loaded.", C.GOLD)
         self.hud.add(f"World seed: {self.seed}", C.MUTED)
+        missing = len(self.sprites.lib.missing())
+        if missing and download_art and self.art.start():
+            self.hud.add(f"{missing} sprite sheet(s) missing: downloading the art in the background…", C.MUTED)
+        elif missing:
+            self.hud.add(f"{missing} sprite sheet(s) missing (magenta squares). Run: python -m aethelgard.tools.fetch_art", C.MUTED)
 
     # ------------------------------------------------------------ session and save
 
@@ -503,6 +510,9 @@ class Game:
             screen.blit(img, (sx - img.get_width() // 2, sy - 56 - (0.9 - f.life) * 45))
 
         self.vision.draw_automap(screen, self.world.layout, self.player.x, self.player.y, big=self.big_map)
+        if self.art.status_text:
+            img = self.fonts["small"].render(self.art.status_text, True, C.MUTED)
+            screen.blit(img, img.get_rect(midtop=(screen.get_width() // 2, 8)))
         self.hud.draw(screen, self.world, self.player, self.hovered)
         self.ui.draw(screen)
         if self.dead:
@@ -678,6 +688,9 @@ class Game:
         self._update_hover()
         self.vision.update(self.player.x, self.player.y)
         self.sprites.tick(DT)
+        note = self.art.poll()
+        if note:
+            self.hud.add(note, C.GOLD if self.art.state == "done" else C.LIFE)
         self.ui.update(DT)
         for f in self.floaters:
             f.life -= DT

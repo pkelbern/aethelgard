@@ -28,7 +28,20 @@ aethelgard            # ou: python -m aethelgard
 ```
 
 Opções: `--seed 42` (mundo fixo), `--area plains` (começar numa área), `--new` (personagem novo, ignora o save),
-`--save-dir pasta` (onde guardar o save).
+`--save-dir pasta` (onde guardar o save), `--offline` (não baixa a arte), `--art-dir pasta` (onde fica a arte).
+
+**Arte:** os sprites não estão no repositório. Na primeira vez, o jogo vê que faltam e baixa sozinho, em segundo
+plano (uns 60 MB, cerca de 15 s), direto do repositório do Flare. Enquanto isso, o que não tem sprite aparece
+como um retângulo xadrez magenta com "?". A arte fica na pasta do usuário (`%APPDATA%\Aethelgard\art`,
+`~/Library/Application Support/Aethelgard/art` ou `~/.local/share/aethelgard/art`). Para baixar à mão:
+
+```bash
+python -m aethelgard.tools.fetch_art            # ou: aethelgard-art
+python -m aethelgard.tools.fetch_art --all      # refaz tudo
+python -m aethelgard.tools.fetch_art --from caminho/do/flare-game   # de um clone local, sem internet
+```
+
+Opcional: `pip install -e ".[art]"` instala o Pillow e gera PNGs 5× menores.
 
 O jogo é todo em inglês. Ao reabrir, o personagem volta **na vila** com os mesmos níveis, pontos de
 árvore, equipamento, mochila, ouro e poções; o mundo é gerado de novo (seed nova a cada jogo).
@@ -115,11 +128,11 @@ docs/       GDD, planilha, backlog, arquitetura
 
 - **Código:** [GPL-3.0-or-later](LICENSE). Você pode usar, estudar, modificar e redistribuir;
   versões modificadas precisam continuar abertas sob a mesma licença.
-- **Arte de terceiros:** os sprites em `src/aethelgard/assets/sprites/flare` vêm do jogo livre
-  [Flare](https://github.com/flareteam/flare-game) (Clint Bellanger, Justin Jacobs e colaboradores),
-  sob **CC-BY-SA 3.0**, reduzidos e reempacotados (`ATTRIBUTION.md` na pasta). Cada arquivo está em
-  [`docs/licencas_assets.csv`](docs/licencas_assets.csv). Para gerar de novo:
-  `pip install -e ".[art]"` e `python -m aethelgard.tools.import_flare <checkout do flare-game>`.
+- **Arte de terceiros:** os sprites vêm do jogo livre [Flare](https://github.com/flareteam/flare-game)
+  (Clint Bellanger, Justin Jacobs e colaboradores), sob **CC-BY-SA 3.0**. Não fazem parte deste repositório:
+  são baixados na primeira execução (versão fixa, commit em `data/ui/sprites.json`), reduzidos e
+  reempacotados, com `ATTRIBUTION.md` e a licença na pasta da arte. Cada arquivo está em
+  [`docs/licencas_assets.csv`](docs/licencas_assets.csv).
 - **Arte e som próprios:** ainda não há. Quando houver, terão licença própria (veja o backlog M8-07).
 - O balanceamento usa o ritmo de ARPGs clássicos como referência, com curvas próprias por
   fórmula. Nenhuma tabela, nome, arte ou som dos jogos de referência (Diablo, Dungeon Siege) faz parte

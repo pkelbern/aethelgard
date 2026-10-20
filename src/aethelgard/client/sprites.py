@@ -1,6 +1,8 @@
 """Animated sprites for the player and the monsters (pygame side of ``animation.py``).
 
-- ``SpriteLibrary`` reads ``data/ui/sprites.json`` and loads sheets from ``assets/sprites`` on demand.
+- ``SpriteLibrary`` reads ``data/ui/sprites.json`` and loads sheets from the art folder on demand. The art is
+  not in the repository: ``ArtDownload`` fetches it in the background on first run (``tools/fetch_art.py``).
+  A sheet that is not there yet is drawn as a magenta checkerboard, so a missing sprite is obvious.
 - ``ActorSprites`` keeps what the client needs to animate each actor (how far it walked, since when it
   is in its state) and the corpses on the floor, and draws them. It only reads the world's actors;
   the core never knows sprites exist, and actors without a look keep the placeholder drawing.
@@ -10,16 +12,37 @@ from __future__ import annotations
 
 import json
 import math
+import threading
 from dataclasses import dataclass, field
-from importlib import resources
+from pathlib import Path
 
 import pygame
 
+from ..core.saves import default_art_dir
+from ..tools.fetch_art import fetch_art, github_fetch, load_config, missing_sheets, sprites_dir
 from .animation import DIRECTION_NAMES, Pose, choose_pose, direction8, pose_frame
 from .iso import Camera
 
 FADE_SECONDS = 1.5
 MOVE_EPSILON = 0.002  # tiles per frame below which an actor is standing still
+MISSING_SIZE = (22, 46)  # the "no sprite" stand-in, about the size of a person
+MISSING_COLORS = ((255, 0, 220), (20, 0, 20))
+
+
+def missing_surface(scale: float = 1.0, lying: bool = False) -> pygame.Surface:
+    """Magenta/black checkerboard with a white frame and a "?" — impossible to mistake for real art."""
+    w, h = max(6, round(MISSING_SIZE[0] * scale)), max(6, round(MISSING_SIZE[1] * scale))
+    surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    cell = max(3, w // 4)
+    for y in range(0, h, cell):
+        for x in range(0, w, cell):
+            surf.fill(MISSING_COLORS[(x // cell + y // cell) % 2], (x, y, cell, cell))
+    pygame.draw.rect(surf, (255, 255, 255), surf.get_rect(), 1)
+    cx, cy, k = w / 2, h * 0.38, max(2, w // 6)  # "?" drawn with lines: no font needed
+    pts = [(cx - k, cy - k), (cx - k / 2, cy - 2 * k), (cx + k / 2, cy - 2 * k), (cx + k, cy - k), (cx, cy), (cx, cy + k)]
+    pygame.draw.lines(surf, (255, 255, 255), False, pts, 2)
+    pygame.draw.circle(surf, (255, 255, 255), (round(cx), round(cy + 2 * k)), 2)
+    return pygame.transform.rotate(surf, 90) if lying else surf
 
 
 class SpriteSheet:
@@ -53,26 +76,37 @@ class SpriteSheet:
 
 
 class SpriteLibrary:
-    def __init__(self, config: dict | None = None):
-        if config is None:
-            path = resources.files("aethelgard") / "data" / "ui" / "sprites.json"
-            config = json.loads(path.read_text(encoding="utf-8"))
-        self.cfg = config
-        self.looks: dict[str, dict] = config["looks"]
-        self.gear: dict[str, dict[str, str]] = config["gear"]
-        self.order = {DIRECTION_NAMES.index(name): layers for name, layers in config["layerOrder"].items()}
-        self._sheets: dict[str, SpriteSheet] = {}
-        self._root = resources.files("aethelgard") / "assets" / "sprites"
+    def __init__(self, config: dict | None = None, art_dir: Path | None = None):
+        self.cfg = config if config is not None else load_config()
+        self.art_dir = Path(art_dir) if art_dir is not None else default_art_dir()
+        self.looks: dict[str, dict] = self.cfg["looks"]
+        self.gear: dict[str, dict[str, str]] = self.cfg["gear"]
+        self.order = {DIRECTION_NAMES.index(name): layers for name, layers in self.cfg["layerOrder"].items()}
+        self._sheets: dict[str, SpriteSheet | None] = {}  # None = not on disk (tried once; see forget_missing)
+        self._root = sprites_dir(self.art_dir)
 
-    def sheet(self, sheet_id: str) -> SpriteSheet:
+    def sheet(self, sheet_id: str) -> SpriteSheet | None:
+        """The sheet, or None when its files are missing or broken (the actor is drawn as "missing")."""
         if sheet_id not in self._sheets:
-            meta = json.loads((self._root / f"{sheet_id}.json").read_text(encoding="utf-8"))
-            with resources.as_file(self._root / f"{sheet_id}.png") as png:
-                image = pygame.image.load(str(png))
-            if pygame.display.get_surface() is not None:
-                image = image.convert_alpha()
-            self._sheets[sheet_id] = SpriteSheet(meta, image)
+            self._sheets[sheet_id] = self._load(sheet_id)
         return self._sheets[sheet_id]
+
+    def _load(self, sheet_id: str) -> SpriteSheet | None:
+        try:
+            meta = json.loads((self._root / f"{sheet_id}.json").read_text(encoding="utf-8"))
+            image = pygame.image.load(str(self._root / f"{sheet_id}.png"))
+        except (OSError, ValueError, pygame.error):
+            return None
+        if pygame.display.get_surface() is not None:
+            image = image.convert_alpha()
+        return SpriteSheet(meta, image)
+
+    def forget_missing(self) -> None:
+        """Try missing sheets again (after a download)."""
+        self._sheets = {k: v for k, v in self._sheets.items() if v is not None}
+
+    def missing(self) -> list[str]:
+        return missing_sheets(self.cfg, self.art_dir)
 
     def layers(self, look_id: str, equipped: list[tuple[str, str]] = ()) -> dict[str, str] | None:
         """Layer → sheet for a look, with the equipped items on top: ``equipped`` = (equipment slot, base id) pairs.
@@ -135,6 +169,7 @@ class ActorSprites:
     tracks: dict[tuple[str, int], Track] = field(default_factory=dict)
     corpses: list[Corpse] = field(default_factory=list)
     rects: dict[tuple[str, int], pygame.Rect] = field(default_factory=dict)  # last drawn box, for the mouse
+    _missing: dict[tuple, pygame.Surface] = field(default_factory=dict)
 
     # ---- per frame
 
@@ -205,9 +240,19 @@ class ActorSprites:
 
     def _blit(self, screen, pos, sheets: list[str], pose: Pose, direction: int, scale: float, flash: int, alpha: int = 255) -> pygame.Rect:
         sx, sy = pos
+        loaded = [self.lib.sheet(s) for s in sheets]
+        if any(s is None for s in loaded):  # one missing layer is enough: the stand-in shows something is wrong
+            lying = pose.anim == "die"
+            key = (round(scale, 3), lying)
+            surf = self._missing.get(key)
+            if surf is None:
+                surf = self._missing[key] = missing_surface(scale, lying)
+            if alpha < 255:
+                surf = surf.copy()
+                surf.set_alpha(alpha)
+            return screen.blit(surf, (sx - surf.get_width() // 2, sy - surf.get_height()))
         box = pygame.Rect(sx, sy, 0, 0)
-        for sheet_id in sheets:
-            sheet = self.lib.sheet(sheet_id)
+        for sheet in loaded:
             anim = pose.anim if pose.anim in sheet.anims else "stance"
             a = sheet.anims[anim]
             index = pose_frame(pose, a["frames"], a["seconds"], a["loop"])
@@ -220,3 +265,64 @@ class ActorSprites:
             r = screen.blit(surf, (sx - ox, sy - oy))
             box.union_ip(r)
         return box
+
+
+# ---------------------------------------------------------------- first-run download
+
+
+class ArtDownload:
+    """Fetches the missing art in a background thread; the game keeps running with stand-ins meanwhile.
+
+    The main loop calls ``poll()`` every frame: it returns a message once, when the download ends,
+    and then the library is told to load the new sheets."""
+
+    def __init__(self, lib: SpriteLibrary, fetch=None):
+        self.lib = lib
+        self._fetch = fetch
+        self.state = "idle"  # idle | running | done | failed
+        self.stage, self.done, self.total = "", 0, 0
+        self.error = ""
+        self._reported = False
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> bool:
+        """Starts only if something is missing. True if a download began."""
+        if self.state == "running" or not self.lib.missing():
+            return False
+        self.state, self._reported = "running", False
+        self._thread = threading.Thread(target=self._run, name="art-download", daemon=True)
+        self._thread.start()
+        return True
+
+    def _run(self) -> None:
+        try:
+            fetch = self._fetch or github_fetch(self.lib.cfg)
+            fetch_art(self.lib.cfg, self.lib.art_dir, fetch, progress=self._progress)
+            self.state = "done"
+        except Exception as ex:  # no network, proxy, disk full: the game goes on with stand-ins
+            self.error = f"{type(ex).__name__}: {ex}"
+            self.state = "failed"
+
+    def _progress(self, stage: str, done: int, total: int) -> None:
+        self.stage, self.done, self.total = stage, done, total
+
+    def wait(self, timeout: float | None = None) -> None:
+        if self._thread is not None:
+            self._thread.join(timeout)
+
+    @property
+    def status_text(self) -> str:
+        if self.state != "running":
+            return ""
+        what = "Downloading art" if self.stage != "convert" else "Preparing sprites"
+        pct = f" {100 * self.done // self.total}%" if self.total else ""
+        return f"{what}{pct}… (missing sprites show as magenta squares)"
+
+    def poll(self) -> str | None:
+        if self._reported or self.state not in ("done", "failed"):
+            return None
+        self._reported = True
+        self.lib.forget_missing()
+        if self.state == "done":
+            return "Art downloaded."
+        return f"Could not download the art ({self.error}). Try: python -m aethelgard.tools.fetch_art"

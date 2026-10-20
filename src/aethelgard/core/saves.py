@@ -17,18 +17,30 @@ from .session import GameSession
 
 APP_DIR = "Aethelgard"
 ENV_SAVE_DIR = "AETHELGARD_SAVE_DIR"  # override for tests, CI and portable installs
+ENV_ART_DIR = "AETHELGARD_ART_DIR"
+
+
+def user_data_dir() -> Path:
+    """Per-user folder: %APPDATA%\\Aethelgard, ~/Library/Application Support/Aethelgard or ~/.local/share/aethelgard."""
+    home = Path.home()
+    if sys.platform.startswith("win"):
+        return Path(os.environ.get("APPDATA", home / "AppData" / "Roaming")) / APP_DIR
+    if sys.platform == "darwin":
+        return home / "Library" / "Application Support" / APP_DIR
+    return Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / APP_DIR.lower()
 
 
 def default_save_dir() -> Path:
-    """Per-user folder: %APPDATA%\\Aethelgard, ~/Library/Application Support/Aethelgard or ~/.local/share/aethelgard."""
     if os.environ.get(ENV_SAVE_DIR):
         return Path(os.environ[ENV_SAVE_DIR])
-    home = Path.home()
-    if sys.platform.startswith("win"):
-        return Path(os.environ.get("APPDATA", home / "AppData" / "Roaming")) / APP_DIR / "saves"
-    if sys.platform == "darwin":
-        return home / "Library" / "Application Support" / APP_DIR / "saves"
-    return Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / APP_DIR.lower() / "saves"
+    return user_data_dir() / "saves"
+
+
+def default_art_dir() -> Path:
+    """Where downloaded art goes (it is not in the repository): <user data>/art."""
+    if os.environ.get(ENV_ART_DIR):
+        return Path(os.environ[ENV_ART_DIR])
+    return user_data_dir() / "art"
 
 
 def slot_name(character_name: str) -> str:
