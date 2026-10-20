@@ -289,3 +289,17 @@ def test_packs_spawn_without_overlapping_bodies(data):
     ms = [m for m in w.monsters.values() if m.collides]
     bad = sum(1 for i, a in enumerate(ms) for b in ms[i + 1 :] if math.hypot(a.x - b.x, a.y - b.y) < a.radius + b.radius - 1e-6)
     assert bad <= len(ms) // 50, "almost every body starts on a free spot (a crowded corner may still overlap)"
+
+
+def test_monster_faces_its_target_and_keeps_facing_during_the_swing(data):
+    """The facing is world state (the client picks the sprite direction from it; in co-op the host sends it)."""
+    s, w, p, m = arena(data, monster_dmg=(0.01, 0.01), at=(5.0, 7.0))  # monster below the player (+y)
+    m.alert = True
+    w.step(DT)
+    assert (m.face_x, m.face_y) == pytest.approx((0.0, -1.0))
+    run(w, 1.0)
+    assert m.state == "attacking" or m.attack_cooldown > 0
+    p.x = 7.0  # the player steps aside in the middle of the swing
+    if m.state == "attacking":
+        w.step(DT)
+        assert (m.face_x, m.face_y) == pytest.approx((0.0, -1.0)), "a swing keeps its direction"

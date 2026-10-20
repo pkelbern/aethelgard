@@ -11,7 +11,7 @@ import pygame
 
 from ..core.data import GameData
 from ..core.describe import Line, describe_skill
-from ..core.events import ExitReached, FloatingText, LootPicked, PlayerDied, ProficiencyLeveledUp
+from ..core.events import ExitReached, FloatingText, LootPicked, MonsterKilled, PlayerDied, ProficiencyLeveledUp
 from ..core.items import GoldDrop, ItemDrop, drop_name
 from ..core.progression import Bind
 from ..core.saves import SaveStore
@@ -25,6 +25,7 @@ from .inventory_view import InventoryView
 from .iso import Camera, MapRenderer
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
+from .sprites import ActorSprites, SpriteLibrary
 from .tooltip import draw_panel, draw_tooltip
 from .ui import GameUI
 from .vision import Vision
@@ -75,6 +76,7 @@ class Game:
         self.hold: dict | None = None  # left button held in the world: {"target": monster id or None, "timer": s}
         self.death_text: str | None = None  # set while the character lies dead, waiting for a click
         self.vision = Vision()
+        self.sprites = ActorSprites(SpriteLibrary())
         self.big_map = False
         self.floaters: list[Floater] = []
         self.map: MapRenderer | None = None
@@ -102,6 +104,14 @@ class Game:
         bus.subscribe(LootPicked, self._on_loot)
         bus.subscribe(ExitReached, self._on_exit)
         bus.subscribe(PlayerDied, self._on_death)
+        bus.subscribe(MonsterKilled, self._on_monster_killed)
+
+    def _on_monster_killed(self, e: MonsterKilled) -> None:
+        """The world removes the monster right after this event, so its body stays here, on the client."""
+        m = self.world.monsters.get(e.monster.instance_id)
+        layers = self.monster_layers(m) if m else None
+        if layers:
+            self.sprites.add_corpse(m, layers, self.monster_scale(m))
 
     def _read_save(self) -> GameSession | None:
         try:
@@ -194,6 +204,7 @@ class Game:
         level = "" if area.kind == "town" else f"  (level {area.level_for_floor(floor)})"
         self.hud.area_title = f"{area.name}{suffix}{level}"
         self.floaters.clear()
+        self.sprites.clear()
         self.cam.follow(self.player.x, self.player.y, DT, snap=True)
 
     # ------------------------------------------------------------ input
@@ -209,10 +220,16 @@ class Game:
         for m in self.world.monsters.values():
             if not self.vision.sees(m.x, m.y):
                 continue
-            r = self.body_px(m)
             sx, sy = self.cam.to_screen(m.x, m.y)
-            d = math.hypot(sx - mx, sy - r - my)
-            if d <= r + 12 and d < best_d:
+            box = self.sprites.rects.get(("m", m.id))
+            if box is not None and box.w > 0:  # drawn as a sprite: its box (a little margin), closest feet first
+                inside = box.inflate(8, 8).collidepoint(mx, my)
+                d = math.hypot(sx - mx, sy - my)
+            else:
+                r = self.body_px(m)
+                d = math.hypot(sx - mx, sy - r - my)
+                inside = d <= r + 12
+            if inside and d < best_d:
                 best, best_d = m, d
         return best
 
@@ -462,6 +479,7 @@ class Game:
         self.map.draw(screen, cam, self.vision.explored)
         self.map.draw_markers(screen, cam, self.fonts["tiny"], self.area_names, self.vision.explored)
         drops = self.visible_drops()
+        self.sprites.draw_corpses(screen, cam, self.vision.sees)  # bodies lie under what they dropped
         self.ground_view.draw_shapes(screen, cam, drops)
         self._draw_portal()
 
@@ -552,7 +570,39 @@ class Game:
             pygame.draw.circle(screen, (190, 150, 255), head, 6)
             pygame.draw.circle(screen, (250, 240, 255), head, 3)
 
+    # ---- looks (data/ui/sprites.json); None = placeholder shapes
+
+    def player_layers(self, p) -> dict[str, str] | None:
+        return self.sprites.lib.layers("player", [item.base.id for item in p.session.gear.slots.values()])
+
+    def monster_layers(self, m: MonsterActor) -> dict[str, str] | None:
+        return self.sprites.lib.layers(m.monster.type.id)
+
+    def monster_scale(self, m: MonsterActor) -> float:
+        return m.monster.rank.size_mult * self.sprites.lib.draw_scale(m.monster.type.id)
+
     def _draw_player(self, p) -> None:
+        layers = self.player_layers(p)
+        if layers is None:
+            self._draw_player_shapes(p)
+            return
+        sx, sy = self.cam.to_screen(p.x, p.y)
+        self.sprites.draw_actor(self.screen, self.cam, ("p", p.player_id), p, layers, scale=self.sprites.lib.draw_scale("player"),
+                                guarding=p.guarding)
+        if p.guarding and p.state != "dead":
+            self._draw_guard_arc(p, sx, sy)
+
+    def _draw_guard_arc(self, p, sx: int, sy: int) -> None:
+        """Where the guard covers: the arc in front, or a full ring while Bulwark is up."""
+        fx, fy = self.cam.to_screen(p.x + p.face_x, p.y + p.face_y)
+        ang = math.atan2(fy - sy, fx - sx)
+        arc = math.radians(p.session.data.balance.guard.arc_degrees) / 2
+        if p.bulwark_left > 0:
+            pygame.draw.circle(self.screen, C.GUARD, (sx, sy - 20), 36, 2)
+        else:
+            pygame.draw.arc(self.screen, C.GUARD, (sx - 36, sy - 56, 72, 72), -ang - arc, -ang + arc, 2)
+
+    def _draw_player_shapes(self, p) -> None:
         sx, sy = self.cam.to_screen(p.x, p.y)
         screen = self.screen
         if p.state == "dead":  # lying on the floor, shield and sword dropped beside the body
@@ -574,12 +624,7 @@ class Game:
         if p.session.gear.has_shield:
             if p.guarding:
                 pygame.draw.circle(screen, C.SHIELD, (sx + ux * 16, sy - 26 + uy * 16), 10)
-                ang = math.atan2(uy, ux)
-                arc = math.radians(p.session.data.balance.guard.arc_degrees) / 2
-                if p.bulwark_left > 0:
-                    pygame.draw.circle(screen, C.GUARD, (sx, sy - 20), 36, 2)
-                else:
-                    pygame.draw.arc(screen, C.GUARD, (sx - 36, sy - 56, 72, 72), -ang - arc, -ang + arc, 2)
+                self._draw_guard_arc(p, sx, sy)
             else:
                 pygame.draw.rect(screen, C.SHIELD, (sx - 17, sy - 32, 8, 16))
         elif p.session.gear.dual_wielding:  # second blade in the left hand
@@ -602,20 +647,28 @@ class Game:
         if m.aura is not None:  # leader: a faint ring shows how far its aura reaches
             ar = m.aura.radius_tiles
             pygame.draw.ellipse(screen, (110, 90, 40), (sx - ar * 32, sy - ar * 16, ar * 64, ar * 32), 1)
-        pygame.draw.ellipse(screen, (0, 0, 0), (sx - r, sy - r // 3, 2 * r, 2 * r // 3))
+        layers = self.monster_layers(m)
+        if layers is None:
+            pygame.draw.ellipse(screen, (0, 0, 0), (sx - r, sy - r // 3, 2 * r, 2 * r // 3))
         if m is self.hovered:  # outline at the feet, in the color of its name
             pygame.draw.ellipse(screen, name_color, (sx - r - 4, sy - r // 3 - 2, 2 * r + 8, 2 * r // 3 + 4), 2)
-        pygame.draw.circle(screen, color, (sx, sy - r), r)
-        if m.state == "attacking":  # swing warning: a ring that closes until the impact
-            k = min(1.0, m.attack_elapsed / (m.attack_duration * 0.5))
-            pygame.draw.circle(screen, (255, 255, 255), (sx, sy - r), int(r + 10 * (1 - k)), 1)
+        if layers is None:
+            pygame.draw.circle(screen, color, (sx, sy - r), r)
+            top = sy - 2 * r
+            if m.state == "attacking":  # swing warning: a ring that closes until the impact
+                k = min(1.0, m.attack_elapsed / (m.attack_duration * 0.5))
+                pygame.draw.circle(screen, (255, 255, 255), (sx, sy - r), int(r + 10 * (1 - k)), 1)
+        else:  # the sprite's own swing shows the attack coming
+            box = self.sprites.draw_actor(screen, self.cam, ("m", m.id), m, layers,
+                                          attack_anim=self.sprites.lib.attack_anim(m.monster.type.id), scale=self.monster_scale(m))
+            top = min(box.top, sy - 2 * r) + 6
         frac = m.monster.hp / m.monster.max_hp
-        pygame.draw.rect(screen, (0, 0, 0), (sx - 16, sy - 2 * r - 10, 32, 4))
-        pygame.draw.rect(screen, C.LIFE, (sx - 16, sy - 2 * r - 10, 32 * frac, 4))
+        pygame.draw.rect(screen, (0, 0, 0), (sx - 16, top - 10, 32, 4))
+        pygame.draw.rect(screen, C.LIFE, (sx - 16, top - 10, 32 * frac, 4))
         first_of_pack = not m.pack_ids or m.pack_ids[0] == m.id or m.pack_ids[0] not in self.world.monsters
         if m is self.hovered or rank in ("unique", "boss") or (rank in ("champion", "berserker") and first_of_pack):
             img = self.fonts["tiny"].render(m.monster.name, True, name_color)  # details go to the target frame
-            screen.blit(img, (sx - img.get_width() // 2, sy - 2 * r - 26))
+            screen.blit(img, (sx - img.get_width() // 2, top - 26))
 
     # ------------------------------------------------------------ loop
 
@@ -624,6 +677,7 @@ class Game:
         self.world.step(DT)  # the world keeps running while windows are open
         self._update_hover()
         self.vision.update(self.player.x, self.player.y)
+        self.sprites.tick(DT)
         self.ui.update(DT)
         for f in self.floaters:
             f.life -= DT

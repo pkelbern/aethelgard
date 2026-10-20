@@ -14,7 +14,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 1 | 8 | 7.5 |
 | M6 – Loot | 2 | 3 | 8 | 5.5 |
-| M7 – Vertical slice | 0 | 0 | 8 | 31.5 |
+| M7 – Vertical slice | 0 | 2 | 9 | 28.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
 | M10 – Multiplayer | 2 | 0 | 6 | 22 |
@@ -53,7 +53,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M1-04** Morte e retorno à cidade _(código, ~1 d)_  
   Feito: o personagem cai, a tela fica cinza com o que foi perdido, e um clique (ou Enter) leva à Vila (comando Respawn no World); perde 10% do ouro; perda de XP dentro do nível existe por parâmetro e está desligada. Pendente: corpo com equipamento para recuperar.
 - [ ] **M1-05** Animação de ataque e impacto (placeholder) _(game feel, ~1.5 d)_  
-  Flash no alvo, recuo curto e som de impacto. Critério: o golpe 'tem peso'.
+  Flash no alvo, recuo curto e som de impacto. Critério: o golpe 'tem peso'. Com os sprites (M7-09): o alvo acende enquanto está em recuperação de golpe ou atordoado (`hitFlash` em data/ui/sprites.json).
 - [ ] **M1-06** Poções de vida e energia com recarga _(código, ~1 d)_ — **escrito, validar**  
   Q/W (GDD 12.3): Vida 40% do máximo em 2 s, Energia 50% em 1,5 s, recarga de 0,5 s, várias se somam (items.json consumables). Contador e recarga no HUD ao lado da barra. Falta: cinto.
 - [ ] **M1-07** Projéteis de monstros à distância _(código, ~1.5 d)_ — **escrito, validar**  
@@ -181,7 +181,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M7-02** Tileset dos 3 biomas do Ato 1 _(arte, ~5 d)_  
   Planície, caverna, cripta (packs licenciados ou próprios).
 - [ ] **M7-03** Sprites do guerreiro e das 3 famílias _(arte, ~10 d)_  
-  Parado, andar, atacar ×2, bloquear, ser atingido, morrer.
+  Parado, andar, atacar ×2, bloquear, ser atingido, morrer. Protótipo com a arte do Flare (M7-09) cobre o guerreiro, Mortos-vivos e Saqueadores. Falta: Feras (lobo, lobo alfa, javali), 2ª variação de ataque e a arte própria (M7-01).
 - [ ] **M7-04** Áudio: impactos, bloqueio, drops, level up, música _(áudio, ~4 d)_  
   Prioridade nos sons de feedback de combate.
 - [ ] **M7-05** Menus: título, opções, novo jogo/continuar _(UI, ~2 d)_  
@@ -190,8 +190,10 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Jogo todo em inglês desde out/2026 (nomes nos JSON, mensagens no código). Falta: mover as mensagens do cliente para um arquivo de strings e decidir se PT-BR entra no lançamento.
 - [ ] **M7-07** Playtest com 5 pessoas de fora _(produção, ~3 d)_  
   Roteiro, gravação, questionário; consolidar feedback.
-- [ ] **M7-08** Planilha de licenças de assets _(jurídico, ~0.5 d)_  
-  Arquivo, autor, fonte, licença, exige crédito.
+- [ ] **M7-08** Planilha de licenças de assets _(jurídico, ~0.5 d)_ — **escrito, validar**  
+  Arquivo, autor, fonte, licença, exige crédito: `docs/licencas_assets.csv` (36 folhas do Flare). Falta: conferir o autor de cada folha no histórico do flare-game e pôr os créditos numa tela do jogo.
+- [ ] **M7-09** Sprites animados de protótipo (arte do Flare, CC-BY-SA 3.0) _(arte/código, ~1.5 d)_ — **escrito, validar**  
+  `tools/import_flare.py` converte as folhas do Flare (escala 1/3 para tiles 64×32, atlas por folha, paleta de 256 cores) para o formato próprio; `client/sprites.py` desenha em 8 direções com pose pelo estado do núcleo (parado, andar, golpe sincronizado com o tempo do ataque, bloquear, ser atingido com brilho, morrer + cadáver). Jogador em camadas com equipamento visível; Esqueleto, Arqueiro, Necromante, Zumbi, Bandido, Lanceiro e Xamã. Validar no jogo: tamanho na tela, leitura do golpe, desempenho com 60 monstros (M0-06).
 
 ## M8 – Vitrine
 
@@ -210,7 +212,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M8-06** Busca de marca do nome Aethelgard _(jurídico, ~0.5 d)_  
   INPI (Brasil), USPTO e EUIPO; domínio e nome livre na Steam. Já existe um projeto no itch.io com esse nome: avaliar subtítulo. Antes de anunciar.
 - [ ] **M8-07** Definir licença da arte e do som _(jurídico, ~0.5 d)_  
-  Código é GPL-3.0; assets precisam de licença própria (ex.: CC-BY-NC-SA ou todos os direitos reservados) antes de publicar arte.
+  Código é GPL-3.0; assets precisam de licença própria (ex.: CC-BY-NC-SA ou todos os direitos reservados) antes de publicar arte. Atenção: o que for derivado da arte do Flare (M7-09) tem de seguir CC-BY-SA 3.0 (sem NC); a escolha vale só para a arte própria.
 
 ## M9 – Lançamento
 

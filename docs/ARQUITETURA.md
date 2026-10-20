@@ -3,7 +3,7 @@
 ## Camadas
 
 ```
-client/ (pygame-ce)     entrada → comandos; desenho do estado; HUD; console
+client/ (pygame-ce)     entrada → comandos; desenho do estado (sprites animados); HUD; console
    │  World.apply(comando) / World.step(dt) / eventos
    ▼
 core/                   regras, sem pygame
@@ -57,6 +57,34 @@ core/                   regras, sem pygame
 - `World._hit_player` é o único caminho de dano no jogador (golpe e projétil): guarda, armadura, XP, recuperação, morte.
 - `World.ground` guarda `GroundItem`s; `PickUp` anda até o item e chama `GameSession.collect`. `items.drop_name` é o nome usado no log e nos rótulos.
 - Líder = tipo com `leader` em monsters.json. `World._apply_auras` recalcula `MonsterActor.buffs` a cada passo; `MonsterActor.stat/attack/defense` já somam os bônus.
+
+## Sprites e animação
+
+```
+data/ui/sprites.json ──► client/sprites.py  SpriteLibrary (looks, gear, ordem das camadas, folhas sob demanda)
+                                            ActorSprites (memória por ator, cadáveres, desenho)
+assets/sprites/<folha>.json + .png ◄── tools/import_flare.py (converte a arte do Flare)
+client/animation.py   matemática sem pygame: direction8, frame_at, choose_pose, formato do Flare, empacotador
+```
+
+- **Formato próprio** (`assets/sprites/<folha>.json`): por animação, `frames`, `seconds`, `loop` (looped, back_forth,
+  play_once) e `rects[quadro][direção] = x, y, w, h, ox, oy`; `(ox, oy)` é o ponto que fica nos pés do ator.
+  Qualquer fonte de arte alimenta esse formato: hoje o importador do Flare; depois, o render do Blender (M7-01).
+- **Direções:** 8, na bússola da arte (+x do mapa = E, que na tela é baixo-direita). `direction8(face_x, face_y)`
+  usa o vetor de grade do núcleo. `MonsterActor.face_x/face_y` (núcleo) diz para onde o monstro olha: o alvo
+  quando alerta, o líder quando o segue; durante o golpe a direção não muda.
+- **Pose pelo estado do núcleo** (`choose_pose`): `dead` → die (fica no último quadro), `attacking` → swing/shoot/cast
+  pela fração `attack_elapsed / attack_duration` (o quadro acompanha o tempo do golpe do `balance.json`),
+  `hit_recovery`/`stunned` → hit com brilho, guarda erguida ou `block_recovery` → block, andando → run pela
+  distância percorrida (`strideTiles`, sem pé deslizando a qualquer velocidade), parado → stance.
+- **Camadas (paper doll):** um look é um conjunto de camadas (`head`, `chest`, `legs`, `feet`, `hands`, `main`, `off`),
+  uma folha cada, desenhadas na ordem de `layerOrder` da direção. O jogador soma o equipamento (`gear`, por id da
+  base do item). Saqueadores reusam as mesmas camadas com outro equipamento.
+- **Sem look → placeholder:** tipos sem entrada em `looks` (hoje as Feras) continuam como círculos.
+- **Cadáveres:** o `World` remove o monstro logo depois de publicar `MonsterKilled`; o cliente guarda o corpo
+  (animação die + `corpseSeconds`, some aos poucos). É só visual: no multiplayer cada cliente faz o mesmo com o evento.
+- **Licença:** a arte importada é CC-BY-SA 3.0 (`assets/sprites/flare/ATTRIBUTION.md`); toda folha está em
+  `docs/licencas_assets.csv`. `tests/test_sprites.py` falha se uma folha usada não foi importada (ou sobrou alguma).
 
 ## Laço do jogo
 
@@ -112,6 +140,7 @@ de visita. Nunca use o módulo `random` em regra de jogo.
 | `proficiencies.json` | proficiências, perfil de atributos, títulos |
 | `skills.json` | nós das árvores, recargas e sinergias |
 | `items.json` | bases, afixos, chances de raridade e de drop |
+| `ui/sprites.json` | (cliente) looks dos atores, equipamento visível, ordem das camadas, importação da arte |
 
 ## Save
 

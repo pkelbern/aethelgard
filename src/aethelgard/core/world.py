@@ -250,6 +250,8 @@ class MonsterActor:
     pack_ids: list[int] = field(default_factory=list)
     leader_id: int | None = None
     alert: bool = False
+    face_x: float = 0.0  # where it looks (unit vector): its target while alert, its leader while following
+    face_y: float = 1.0
     # states: idle | attacking | hit_recovery | stunned
     state: str = "idle"
     state_left: float = 0.0
@@ -899,6 +901,7 @@ class World:
             return
 
         if m.alert:
+            self._face(m, target.x - m.x, target.y - m.y)
             sees = not m.ranged or line_of_sight(self.layout, (m.x, m.y), (target.x, target.y))
             if dist > m.reach or not sees:  # archers and casters get closer until they have a clear shot
                 self._step_towards(m, (target.x, target.y), m.speed, dt)
@@ -908,6 +911,7 @@ class World:
         elif m.leader_id is not None:
             leader = self.monsters.get(m.leader_id)
             if leader and math.hypot(leader.x - m.x, leader.y - m.y) > 4:
+                self._face(m, leader.x - m.x, leader.y - m.y)
                 self._step_towards(m, (leader.x, leader.y), m.speed * 0.6, dt)
 
     def _separate(self, m: MonsterActor, dt: float) -> None:
@@ -1092,7 +1096,7 @@ class World:
         self.bus.publish(FloatingText(x, y, text, kind))
 
     @staticmethod
-    def _face(p: PlayerActor, dx: float, dy: float) -> None:
+    def _face(p: PlayerActor | MonsterActor, dx: float, dy: float) -> None:
         n = math.hypot(dx, dy)
         if n > 1e-6:
             p.face_x, p.face_y = dx / n, dy / n

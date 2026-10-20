@@ -5,7 +5,7 @@ evolui nas proficiências que usa (Blades, Shield, Armor…). Mapas gerados por 
 em grupos normais, champions e únicos com minions, loot com afixos, guarda ativa com escudo e
 tempos de ação (recarga de habilidades, recuperação de golpe e de bloqueio).
 
-Status: **protótipo jogável (marcos M0–M2)**, com formas simples no lugar da arte.
+Status: **protótipo jogável (marcos M0–M2)**, com sprites animados de protótipo (arte do [Flare](https://github.com/flareteam/flare-game), CC-BY-SA 3.0) e formas simples onde ainda falta arte.
 
 ![Captura do protótipo](docs/captura_prototipo.png)
 
@@ -115,7 +115,12 @@ docs/       GDD, planilha, backlog, arquitetura
 
 - **Código:** [GPL-3.0-or-later](LICENSE). Você pode usar, estudar, modificar e redistribuir;
   versões modificadas precisam continuar abertas sob a mesma licença.
-- **Arte e som:** ainda não há assets próprios. Quando houver, terão licença própria, descrita
-  em `assets/LICENSE` (veja o backlog M8-07).
+- **Arte de terceiros:** os sprites em `src/aethelgard/assets/sprites/flare` vêm do jogo livre
+  [Flare](https://github.com/flareteam/flare-game) (Clint Bellanger, Justin Jacobs e colaboradores),
+  sob **CC-BY-SA 3.0**, reduzidos e reempacotados (`ATTRIBUTION.md` na pasta). Cada arquivo está em
+  [`docs/licencas_assets.csv`](docs/licencas_assets.csv). Para gerar de novo:
+  `pip install -e ".[art]"` e `python -m aethelgard.tools.import_flare <checkout do flare-game>`.
+- **Arte e som próprios:** ainda não há. Quando houver, terão licença própria (veja o backlog M8-07).
 - O balanceamento usa o ritmo de ARPGs clássicos como referência, com curvas próprias por
-  fórmula. Nenhuma tabela, nome, arte ou som de outros jogos faz parte deste repositório.
+  fórmula. Nenhuma tabela, nome, arte ou som dos jogos de referência (Diablo, Dungeon Siege) faz parte
+  deste repositório; arte de terceiros só entra com licença livre que permita redistribuição.
