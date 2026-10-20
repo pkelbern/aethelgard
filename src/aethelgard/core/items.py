@@ -168,7 +168,7 @@ class LootGenerator:
         pool = [
             a
             for a in self._d.items.affixes
-            if a.kind == kind and a.group not in used and set(a.tags) & set(base.tags) and any(t.level <= ilvl for t in a.tiers)
+            if a.kind == kind and a.group not in used and a.fits(base) and any(t.level <= ilvl for t in a.tiers)
         ]
         if not pool:
             return

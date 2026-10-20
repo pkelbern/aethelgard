@@ -1,5 +1,5 @@
 {
- "_comment": "Bases, affixes and drop rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears. rareNames = parts of rare item names: '<first> <second>'.",
+ "_comment": "Bases, affixes and drop rules. An affix only rolls on item types listed in its slots (no attack speed on body armor, no movement speed on a weapon); tags are kept for older rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears. rareNames = parts of rare item names: '<first> <second>'.",
  "inventory": {
   "columns": 10,
   "rows": 6
@@ -467,7 +467,8 @@
    ],
    "tags": [
     "sword"
-   ]
+   ],
+   "slots": ["mainhand"]
   },
   {
    "id": "sturdy",
@@ -490,7 +491,8 @@
    "tags": [
     "armor",
     "shield"
-   ]
+   ],
+   "slots": ["body", "head", "hands", "feet", "waist", "offhand"]
   },
   {
    "id": "accurate",
@@ -514,7 +516,8 @@
     "sword",
     "jewelry",
     "armor"
-   ]
+   ],
+   "slots": ["mainhand", "hands", "ring", "neck"]
   },
   {
    "id": "flaming",
@@ -537,7 +540,8 @@
    "tags": [
     "sword",
     "jewelry"
-   ]
+   ],
+   "slots": ["mainhand", "ring", "neck"]
   },
   {
    "id": "nimble",
@@ -555,7 +559,8 @@
    "tags": [
     "sword",
     "armor"
-   ]
+   ],
+   "slots": ["mainhand", "hands", "neck"]
   },
   {
    "id": "masters",
@@ -573,7 +578,8 @@
    "tags": [
     "sword",
     "jewelry"
-   ]
+   ],
+   "slots": ["mainhand", "neck"]
   },
   {
    "id": "of_the_bear",
@@ -597,7 +603,8 @@
     "armor",
     "shield",
     "jewelry"
-   ]
+   ],
+   "slots": ["body", "head", "offhand", "waist", "ring", "neck"]
   },
   {
    "id": "of_the_fox",
@@ -621,7 +628,8 @@
     "sword",
     "armor",
     "jewelry"
-   ]
+   ],
+   "slots": ["mainhand", "hands", "feet", "ring", "neck"]
   },
   {
    "id": "of_the_bull",
@@ -646,7 +654,8 @@
     "armor",
     "shield",
     "jewelry"
-   ]
+   ],
+   "slots": ["mainhand", "hands", "waist", "offhand", "ring", "neck"]
   },
   {
    "id": "of_life",
@@ -670,7 +679,8 @@
     "armor",
     "shield",
     "jewelry"
-   ]
+   ],
+   "slots": ["body", "head", "offhand", "waist", "ring", "neck"]
   },
   {
    "id": "of_luck",
@@ -688,7 +698,8 @@
    "tags": [
     "jewelry",
     "armor"
-   ]
+   ],
+   "slots": ["head", "feet", "ring", "neck"]
   },
   {
    "id": "of_the_squire",
@@ -705,7 +716,8 @@
    ],
    "tags": [
     "shield"
-   ]
+   ],
+   "slots": ["offhand"]
   },
   {
    "id": "of_steadiness",
@@ -728,7 +740,8 @@
    "tags": [
     "armor",
     "jewelry"
-   ]
+   ],
+   "slots": ["body", "waist", "neck"]
   },
   {
    "id": "of_reflexes",
@@ -746,7 +759,8 @@
    "tags": [
     "shield",
     "jewelry"
-   ]
+   ],
+   "slots": ["offhand", "neck"]
   },
   {
    "id": "hasty",
@@ -763,7 +777,8 @@
    ],
    "tags": [
     "jewelry"
-   ]
+   ],
+   "slots": ["ring", "neck"]
   }
  ],
  "rareAffixCount": {

@@ -229,7 +229,7 @@ def test_items_respect_level_and_groups(data):
         assert len(groups) == len(set(groups))
         for a in item.affixes:
             assert any(t.level <= ilvl for t in a.affix.tiers)
-            assert set(a.affix.tags) & set(item.base.tags)
+            assert a.affix.fits(item.base) and item.base.slot in a.affix.slots
 
 
 def test_magic_names_use_english_order(data):
@@ -351,3 +351,15 @@ def test_path_goes_around_a_wall(data):
     assert all(L.is_floor(c) for c in path)
     assert any(x == 9 for x, _ in path), "goes through the gap"
     assert find_path(L, (2, 2), (4, 5))[-1] != (4, 5), "a goal on a wall becomes the nearest floor"
+
+
+def test_affixes_only_roll_where_they_make_sense(data):
+    loot, rng = LootGenerator(data), Rng(77)
+    seen: dict[str, set[str]] = {}
+    for _ in range(4000):
+        item = loot.roll_item(rng.randint(5, 15), 3, 1, Rarity.MAGIC, rng)
+        for a in item.affixes:
+            seen.setdefault(a.affix.stat, set()).add(item.base.slot)
+    assert "body" not in seen.get("attackSpeedPct", set()), "no attack speed on body armor"
+    assert seen.get("guardEfficiency", set()) <= {"offhand"}
+    assert "mainhand" not in seen.get("armorPct", set())

@@ -480,6 +480,10 @@ class AffixDef:
     stat: str = ""
     tiers: list[AffixTier] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    slots: list[str] = field(default_factory=list)  # item types it may roll on (bases' 'slot')
+
+    def fits(self, base) -> bool:
+        return base.slot in self.slots if self.slots else bool(set(self.tags) & set(base.tags))
 
 
 @dataclass
@@ -792,7 +796,11 @@ def validate(d: GameData) -> list[str]:
         errors.append("skills: barSlots must be at least 1")
     errors += _validate_stats(d)
 
+    item_types = {b.slot for b in d.items.bases}
     for a in d.items.affixes:
+        if not a.slots:
+            errors.append(f"items: affix '{a.id}' has no slots (which item types it may roll on)")
+        errors += [f"items: affix '{a.id}' lists unknown item type '{t}'" for t in a.slots if t not in item_types]
         if not a.tiers:
             errors.append(f"items: affix '{a.id}' has no tiers")
     if len({a.id for a in d.items.affixes}) != len(d.items.affixes):
