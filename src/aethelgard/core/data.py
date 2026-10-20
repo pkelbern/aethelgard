@@ -538,6 +538,7 @@ class RareNameParts:
 class ItemsData:
     inventory: InventorySize = field(default_factory=InventorySize)
     starting_gear: list[str] = field(default_factory=list)
+    slot_names: dict[str, str] = field(default_factory=dict)  # equipment slot → name on screen (inventory, tooltips)
     rare_names: RareNameParts = field(default_factory=RareNameParts)
     rarity_chances: RarityChances = field(default_factory=RarityChances)
     drop_count: dict[str, DropCountDef] = field(default_factory=dict)
@@ -780,6 +781,7 @@ def validate(d: GameData) -> list[str]:
         errors.append("items: duplicate affix ids")
     base_ids = {b.id for b in d.items.bases}
     errors += [f"items: starting gear '{b}' is not a base" for b in d.items.starting_gear if b not in base_ids]
+    errors += [f"items: base '{b.id}' uses slot '{b.slot}' with no entry in slotNames" for b in d.items.bases if b.slot not in d.items.slot_names]
     if d.items.inventory.capacity <= 0:
         errors.append("items: inventory has no room")
     return errors

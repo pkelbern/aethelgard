@@ -84,8 +84,8 @@ class Hud:
             self._text(screen, text, (16, ly), self.f["small"], color)
             ly += 18
         k = self.keys
-        help_ = (f"Click: move/attack · {k.action_label('guard')}: guard · {k.bar_labels}: skills · {k.action_label('skillTrees')}: trees · "
-                 f"{k.action_label('map')}: map · {k.action_label('save')}: save · {k.action_label('console')}: console")
+        parts = [("guard", "guard"), ("skillTrees", "trees"), ("inventory", "inventory"), ("showItems", "items"), ("map", "map"), ("save", "save")]
+        help_ = f"Click: move/attack · {k.bar_labels}: skills · " + " · ".join(f"{k.action_label(a)}: {label}" for a, label in parts)
         self._text(screen, help_, (W - self.f["tiny"].size(help_)[0] - 16, H - 20), self.f["tiny"], C.MUTED)
 
     def _skill_bar(self, screen, p: PlayerActor) -> None:

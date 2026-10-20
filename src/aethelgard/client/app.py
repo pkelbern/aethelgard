@@ -21,6 +21,7 @@ from ..core.world import AttackTarget, MonsterActor, MoveTo, PickUp, Respawn, Se
 from ..core.world_gen import ExitKind
 from . import palette as C
 from .hud import Hud
+from .inventory_view import InventoryView
 from .iso import Camera, MapRenderer
 from .keys import KeyMap
 from .loot_view import GroundView
@@ -70,6 +71,7 @@ class Game:
         self.hovered: MonsterActor | None = None
         self.hovered_drop: int | None = None
         self.ground_view = GroundView(self.fonts["tiny"])
+        self.inventory_view = InventoryView(self)
         self.hold: dict | None = None  # left button held in the world: {"target": monster id or None, "timer": s}
         self.death_text: str | None = None  # set while the character lies dead, waiting for a click
         self.vision = Vision()
@@ -163,6 +165,7 @@ class Game:
         self.hud.add(f"You died. {self.death_text}", C.LIFE)
         self.hold = None
         self.ui.close_all()
+        self.inventory_view.open = False
 
     @property
     def dead(self) -> bool:
@@ -218,7 +221,8 @@ class Game:
 
     def _update_hover(self) -> None:
         """What a click would act on. With Alt held, a drop label wins over a monster (labels sit on top)."""
-        over_hud = self.dead or self.ui.over_ui or self.slot_under_mouse() is not None
+        mouse = pygame.mouse.get_pos()
+        over_hud = self.dead or self.ui.over_ui or self.inventory_view.contains(mouse) or self.slot_under_mouse() is not None
         if over_hud:
             self.hovered = self.hovered_drop = None
             return
@@ -293,6 +297,8 @@ class Game:
                 continue
             if self.ui.process(ev) or self.ui.typing:
                 continue  # the interface (windows, text field) consumed the event
+            if not self.dead and self.inventory_view.handle(ev):
+                continue
             if ev.type == pygame.MOUSEBUTTONDOWN:
                 self._on_click(ev.button)
             elif ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
@@ -345,7 +351,7 @@ class Game:
         if not pygame.mouse.get_pressed()[0]:
             self.hold = None
             return
-        if self.ui.over_ui:  # passing over a window pauses the repeat, releasing ends it
+        if self.ui.over_ui or self.inventory_view.contains(pygame.mouse.get_pos()):  # over a window: pause, release ends it
             return
         self.hold["timer"] -= DT
         if self.hold["timer"] > 0:
@@ -377,11 +383,14 @@ class Game:
             self.save_game()
         elif action == "skillTrees":
             self.ui.toggle_tree()
+        elif action == "inventory":
+            self.inventory_view.toggle()
         elif action == "map":
             self.big_map = not self.big_map
         elif action == "cancel":
-            if self.ui.any_open:
+            if self.ui.any_open or self.inventory_view.open:
                 self.ui.close_all()
+                self.inventory_view.open = False
             else:
                 self.running = False
 
@@ -468,7 +477,8 @@ class Game:
         if self.dead:
             self._draw_death_screen()
         else:
-            tip = self.skill_tooltip()
+            self.inventory_view.draw(screen)
+            tip = None if self.inventory_view.contains(pygame.mouse.get_pos()) else self.skill_tooltip()
             if tip:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
         pygame.display.flip()

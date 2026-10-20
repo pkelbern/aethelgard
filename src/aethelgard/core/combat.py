@@ -130,7 +130,8 @@ class CombatMath:
     def resolve_physical(
         self, a: AttackerStats, d: DefenderStats, rng: Rng, guard: GuardState = NO_GUARD, always_hit: bool = False
     ) -> AttackResult:
-        if not always_hit and not rng.chance(self.hit_chance(a.accuracy, d.defense, a.level, d.level)):
+        guarded = guard.raised and guard.in_arc  # a hit on the raised guard always reaches it: no dodging while blocking
+        if not always_hit and not guarded and not rng.chance(self.hit_chance(a.accuracy, d.defense, a.level, d.level)):
             return MISS
         crit = rng.chance(a.crit_chance)
         raw = rng.uniform(a.dmg_min, a.dmg_max) * (1 + a.damage_bonus_pct) * (self.p.crit_multiplier if crit else 1)

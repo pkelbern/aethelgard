@@ -406,8 +406,9 @@ class Bind(Enum):
 class SkillBar:
     """Active skills bound to the action bar slots (GDD 6.1). The client maps each slot to a key.
 
-    Each skill sits in at most one slot: binding it elsewhere moves it, and the skill that was in
-    the target slot goes to the old place (a swap). It belongs to the character and is saved with it.
+    Each skill sits in at most one slot: binding it elsewhere moves it and leaves the old slot empty;
+    a skill that was already in the target slot is taken off the bar (no swap). It belongs to the
+    character and is saved with it.
     """
 
     def __init__(self, trees: SkillTrees, size: int):
@@ -441,7 +442,7 @@ class SkillBar:
         if r is Bind.OK:
             old = self.slot_of(node_id)
             if old is not None:
-                self.slots[old] = self.slots[slot]
+                self.slots[old] = None
             self.slots[slot] = node_id
         return r
 

@@ -54,6 +54,7 @@
     { "id": "str",                        "label": "Strength",                             "format": "flat" },
     { "id": "dex",                        "label": "Dexterity",                            "format": "flat" },
     { "id": "vit",                        "label": "Vitality",                             "format": "flat" },
+    { "id": "int",                        "label": "Intelligence",                         "format": "flat" },
     { "id": "fireDamage",                 "label": "fire damage",                          "format": "flat" },
     { "id": "magicFind",                  "label": "magic find",                           "format": "pct" },
     { "id": "maxLife",                    "label": "life",                                 "format": "flat" }

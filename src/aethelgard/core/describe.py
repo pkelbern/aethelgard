@@ -56,6 +56,30 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
+def describe_item(data: GameData, item, missing: dict[str, int] | None = None) -> list[Line]:
+    """Item tooltip: name in its rarity color, base and slot, damage or armor, guard numbers, affixes,
+    item level and requirements (unmet ones as warnings)."""
+    b = item.base
+    rarity = item.rarity.name.title()
+    sub = "  ·  ".join(x for x in (b.name if b.name != item.name else "", data.items.slot_names.get(b.slot, b.slot), rarity) if x)
+    lines = [Line(item.name, f"rarity{int(item.rarity)}"), Line(sub, "subtitle")]
+    if b.dmg_max > 0:
+        lines.append(Line(f"Damage: {_num(b.dmg_min)}–{_num(b.dmg_max)}", "stat"))
+    if b.armor > 0:
+        lines.append(Line(f"Armor: {_num(b.armor)}", "stat"))
+    if "shield" in b.tags:
+        lines.append(Line(stat_line(data.stat("blockReduction"), b.block_reduction), "stat"))
+        if b.guard_efficiency > 0:
+            lines.append(Line(stat_line(data.stat("guardEfficiency"), b.guard_efficiency), "stat"))
+    lines += [Line(stat_line(data.stat(a.affix.stat), a.value), "next") for a in item.affixes]
+    lines.append(Line(f"Item level {item.item_level}", "muted"))
+    missing = missing or {}
+    for k, v in b.req.items():
+        if v > 0:
+            lines.append(Line(f"Requires {v} {data.stat(k).label}", "warn" if k in missing else "muted"))
+    return lines
+
+
 def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented: bool = True) -> list[Line]:
     """Everything the player needs to decide on a point: effect in words, numbers now and next, cost, synergies."""
     n = data.node(node_id)

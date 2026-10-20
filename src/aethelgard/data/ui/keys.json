@@ -3,6 +3,7 @@
   "skillBar": ["1", "2", "3", "4", "5", "6"],
   "guard": "space",
   "skillTrees": "t",
+  "inventory": "i",
   "map": "tab",
   "console": "f1",
   "save": "f5",

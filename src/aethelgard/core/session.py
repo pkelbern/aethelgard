@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from dataclasses import dataclass
+from enum import Enum
 
 from .combat import CombatMath
 from .data import GameData
@@ -26,6 +27,13 @@ from .world_gen import AreaGenerator, AreaLayout
 # v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables. v3: + action bar.
 SAVE_VERSION = 3
 DEFAULT_NAME = "Wanderer"
+
+
+class Equip(Enum):
+    OK = "ok"
+    NO_ITEM = "no such item"
+    REQUIREMENTS = "requirements not met"
+    BACKPACK_FULL = "backpack full"
 
 
 @dataclass(frozen=True)
@@ -81,6 +89,37 @@ class GameSession:
         if r is Allocate.OK:
             self.skill_bar.auto_bind(node_id)
         return r
+
+    def missing_requirements(self, item) -> dict[str, int]:
+        """Attribute → how much is required, for each requirement the character does not meet yet."""
+        a = self.character.attributes
+        return {k: v for k, v in item.base.req.items() if v > getattr(a, k, 0)}
+
+    def equip_from_backpack(self, index: int) -> tuple[Equip, str]:
+        """Wears the backpack item at ``index``; what was in that slot takes its place in the backpack."""
+        if not 0 <= index < len(self.inventory.items):
+            return Equip.NO_ITEM, "no such item"
+        item = self.inventory.items[index]
+        missing = self.missing_requirements(item)
+        if missing:
+            need = ", ".join(f"{v} {self.data.stat(k).label}" for k, v in missing.items())
+            return Equip.REQUIREMENTS, f"{item.name} needs {need}"
+        previous = self.gear.equip(item)
+        if previous is None:
+            self.inventory.items.pop(index)
+        else:
+            self.inventory.items[index] = previous  # a swap never needs a free cell
+        return Equip.OK, f"Equipped {item.name}"
+
+    def unequip(self, slot: str) -> tuple[Equip, str]:
+        item = self.gear.get(slot)
+        if item is None:
+            return Equip.NO_ITEM, "nothing equipped there"
+        if self.inventory.full:
+            return Equip.BACKPACK_FULL, "Backpack full"
+        del self.gear.slots[slot]
+        self.inventory.add(item)
+        return Equip.OK, f"Took off {item.name}"
 
     def collect(self, drop) -> bool:
         """Puts a drop where it belongs. False when it does not fit (backpack full)."""

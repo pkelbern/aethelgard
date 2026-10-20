@@ -22,6 +22,7 @@ STYLES = {
     "warn": ("small", C.WARN),
     "muted": ("tiny", C.MUTED),
     "hint": ("tiny", C.HINT),
+    **{f"rarity{r}": ("body", color) for r, color in C.RARITY.items()},  # item names
 }
 SPACE_BEFORE = {"header": 6, "body": 4, "hint": 6}
 PAD = 10

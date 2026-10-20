@@ -43,7 +43,7 @@ from .items import GoldDrop, GroundItem
 from .monsters import MonsterInstance, PackKind
 from .pathfinding import find_path
 from .projectiles import Projectile, line_of_sight
-from .session import GameSession
+from .session import Equip, GameSession
 from .timing import (
     Cooldowns,
     monster_hit_recovery,
@@ -120,13 +120,27 @@ class PickUp:
 
 
 @dataclass(frozen=True)
+class EquipItem:
+    """Wear the backpack item at ``index`` (swaps with what is in its slot)."""
+
+    player_id: int
+    index: int
+
+
+@dataclass(frozen=True)
+class UnequipItem:
+    player_id: int
+    slot: str
+
+
+@dataclass(frozen=True)
 class Respawn:
     """A dead player gets up with full life. The client then takes them to town (the death penalty is the session's)."""
 
     player_id: int
 
 
-Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp
+Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem
 
 
 # ---------------------------------------------------------------- actors
@@ -370,6 +384,12 @@ class World:
                 n = math.hypot(cmd.face_x, cmd.face_y)
                 p.face_x, p.face_y = cmd.face_x / n, cmd.face_y / n
             return None
+        if isinstance(cmd, EquipItem | UnequipItem):  # gear changes the fight, so it goes through the world
+            r, msg = p.session.equip_from_backpack(cmd.index) if isinstance(cmd, EquipItem) else p.session.unequip(cmd.slot)
+            if r is Equip.OK and not p.session.gear.has_shield:
+                self._lower_guard(p, start_cooldown=False)
+            p.life, p.energy = min(p.life, p.max_life), min(p.energy, p.max_energy)
+            return None if r is Equip.OK else msg
         if isinstance(cmd, PickUp):
             if cmd.ground_id in self.ground:
                 p.pickup_id, p.target_id, p.pending_skill = cmd.ground_id, None, None

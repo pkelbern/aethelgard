@@ -58,7 +58,7 @@ def test_learned_actives_fill_the_bar_and_passives_do_not(data):
     assert len(s.skill_bar) == data.skills.bar_slots == 6
 
 
-def test_binding_moves_and_swaps(data):
+def test_binding_moves_and_replaces_without_swapping(data):
     s = trained(data)
     for node in ("precise_strike", "wide_slash", "bulwark"):
         s.allocate_skill(node)
@@ -66,7 +66,7 @@ def test_binding_moves_and_swaps(data):
     assert bar.bind(5, "bulwark") is Bind.OK
     assert bar.slots == ["precise_strike", "wide_slash", None, None, None, "bulwark"], "moved, old slot freed"
     assert bar.bind(0, "wide_slash") is Bind.OK
-    assert bar.slots[:2] == ["wide_slash", "precise_strike"], "swap with what was there"
+    assert bar.slots[:2] == ["wide_slash", None], "Precise Strike leaves the bar; key 2 is left empty"
     bar.clear(0)
     assert bar.skill_at(0) is None and bar.slot_of("wide_slash") is None
 

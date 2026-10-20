@@ -4,12 +4,13 @@ import json
 
 import pytest
 
+from aethelgard.core.describe import describe_item
 from aethelgard.core.events import LootPicked
 from aethelgard.core.items import GoldDrop, Item, ItemDrop, LootGenerator, PotionDrop, Rarity, ScrollDrop
 from aethelgard.core.rng import Rng
 from aethelgard.core.saves import SaveStore, default_save_dir, slot_name
 from aethelgard.core.session import SAVE_VERSION, GameSession
-from aethelgard.core.world import PickUp, World
+from aethelgard.core.world import EquipItem, PickUp, SetGuard, UnequipItem, World
 
 
 def veteran(data) -> GameSession:
@@ -150,3 +151,47 @@ def test_save_dir_can_be_overridden(monkeypatch, tmp_path):
     monkeypatch.setenv("AETHELGARD_SAVE_DIR", str(tmp_path))
     assert default_save_dir() == tmp_path
     assert slot_name("Sir Ana!") == "sir_ana" and slot_name("???") == "character"
+
+
+# ---------------------------------------------------------------- equipment (inventory screen)
+
+
+def test_equipping_swaps_in_place_and_checks_requirements(data):
+    s = GameSession(data, 1)
+    w = World([s])
+    w.enter_area(data.town_id)
+    round_shield = Item.plain(data.base("round_shield"))  # needs 20 Strength
+    s.inventory.add(Item.plain(data.base("long_dagger")))
+    s.inventory.add(round_shield)
+    assert "needs 20 Strength" in w.apply(EquipItem(0, 1))
+    s.proficiencies.set_xp("blades", data.xp_total_by_level[5])  # +10 Strength
+    assert w.apply(EquipItem(0, 1)) is None
+    assert s.gear.off_hand is round_shield and s.inventory.items[1].base.id == "buckler", "the buckler took its cell"
+    assert len(s.inventory) == 2
+
+
+def test_unequipping_needs_room_and_drops_the_guard(data):
+    s = GameSession(data, 1)
+    w = World([s])
+    w.enter_area(data.town_id)
+    p = w.players[0]
+    w.apply(SetGuard(0, True, 1, 0))
+    w.step(1 / 60)
+    assert p.guarding
+    assert w.apply(UnequipItem(0, "offhand")) is None
+    assert not s.gear.has_shield and not p.guarding and s.inventory.items[-1].base.id == "buckler"
+    s.inventory.capacity = len(s.inventory)
+    assert w.apply(UnequipItem(0, "body")) == "Backpack full"
+
+
+def test_item_tooltip_lists_numbers_affixes_and_requirements(data):
+    s = GameSession(data, 1)
+    loot, rng = LootGenerator(data), Rng(3)
+    item = next(i for i in (loot.roll_item(9, 3, 1, Rarity.MAGIC, rng) for _ in range(200)) if i.affixes and i.base.req.get("str"))
+    lines = describe_item(data, item, s.missing_requirements(item))
+    texts = [x.text for x in lines]
+    assert lines[0].text == item.name and lines[0].style == f"rarity{int(item.rarity)}"
+    assert any(t.startswith("Requires") for t in texts)
+    assert len([x for x in lines if x.style == "next"]) == len(item.affixes)
+    shield = describe_item(data, Item.plain(data.base("tower_shield")))
+    assert "+15% of a blocked hit stopped" in [x.text for x in shield]

@@ -5,6 +5,7 @@
   "rows": 6
  },
  "startingGear": ["short_sword", "buckler", "leather_armor"],
+ "slotNames": {"mainhand": "Weapon", "offhand": "Shield", "body": "Body Armor", "head": "Helm", "hands": "Gloves", "feet": "Boots", "waist": "Belt", "ring": "Ring", "neck": "Amulet"},
  "rareNames": {
   "first": ["Ruin", "Fury", "Shadow", "Death", "Sorrow", "Storm", "Raven", "Moon", "Thorn", "Ember"],
   "second": ["Bite", "Ward", "Cry", "Veil", "Fang", "Mark", "Crown", "Edge", "Hide", "Oath"]

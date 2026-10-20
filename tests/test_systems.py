@@ -95,6 +95,17 @@ def test_block_reduction_grows_with_shield_and_defensive_stance(data):
     assert player_guard(s.skills, s.gear, g).block_reduction == pytest.approx(0.95), "0.7 + 0.15 + 9 × 0.025 capped"
 
 
+def test_no_dodging_while_blocking(data):
+    c = cm(data)
+    clumsy = AttackerStats(1, 1, 20, 20)  # almost always misses an agile defender...
+    nimble = DefenderStats(30, 1e6)
+    assert not c.resolve_physical(clumsy, nimble, Rng(1)).hit
+    r = c.resolve_physical(clumsy, nimble, Rng(1), GuardState(True, True, energy=100, reduction=0.7))
+    assert r.hit and r.block is BlockOutcome.BLOCKED, "...but a hit on the raised guard always lands on the shield"
+    behind = c.resolve_physical(clumsy, nimble, Rng(1), GuardState(True, False, energy=100, reduction=0.7))
+    assert not behind.hit, "from behind the guard does not help, dodging still does"
+
+
 def test_guard_does_not_cover_the_back_nor_when_lowered(data):
     c = cm(data)
     assert c.resolve_physical(HIT20, BARE, Rng(1), GuardState(True, False, energy=100)).block is BlockOutcome.NONE

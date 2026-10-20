@@ -11,7 +11,7 @@ from importlib import resources
 
 import pygame
 
-ACTIONS = ("guard", "skillTrees", "map", "console", "save", "cancel", "showItems")
+ACTIONS = ("guard", "skillTrees", "inventory", "map", "console", "save", "cancel", "showItems")
 
 
 class KeyMap:
