@@ -8,12 +8,12 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | Marco | Feito | Validar | Total | Dias restantes |
 |---|---|---|---|---|
 | M0 – Base | 4 | 0 | 8 | 2.5 |
-| M1 – Combate | 6 | 4 | 13 | 5.5 |
+| M1 – Combate | 6 | 5 | 14 | 5.5 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
 | M3 – Árvores | 2 | 1 | 7 | 8 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 0 | 8 | 8.5 |
-| M6 – Loot | 2 | 1 | 8 | 9 |
+| M6 – Loot | 2 | 2 | 8 | 7 |
 | M7 – Vertical slice | 0 | 0 | 8 | 31.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
@@ -62,6 +62,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Arco frontal, custo de Energia por bloqueio, janela perfeita com contra-ataque (Aparar), guarda quebrada atordoa. Testado no mundo em tempo real.
 - [x] **M1-09** Recarga curta entre guardas _(balanceamento, ~0.5 d)_  
   0,3 s para erguer a guarda de novo (evita abuso do aparo perfeito).
+- [ ] **M1-14** Sem esquiva com a guarda erguida _(regra, ~0.2 d)_ — **escrito, validar**  
+  Golpe dentro do arco da guarda erguida sempre chega à guarda (vira bloqueio); pelas costas a esquiva por Defesa continua valendo.
 - [ ] **M1-11** Bloqueio parcial: o golpe bloqueado ainda fere _(balanceamento, ~0.5 d)_ — **escrito, validar**  
   O bloqueio para 70% do golpe (balance.guard.blockReduction) + base do escudo (0/5/10/15%) + Postura Defensiva (+2,5%/ponto), no máximo 95% (blockReductionCap); a armadura age sobre o que passa. Aparo perfeito para 95%. Validar no jogo se 70% de base está bom.
 - [ ] **M1-12** Colisão entre corpos _(código, ~1 d)_ — **escrito, validar**  
@@ -97,7 +99,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [x] **M3-02** Tela de árvores (pygame_gui) _(UI, ~3 d)_  
   Feito: janela com as 3 árvores (T), botão + por nó, tooltip desenhado pelo jogo (core/describe.py) com descrição, valores do nível atual e do próximo, custo, sinergias e requisito. Falta: arte dos ícones e linhas entre camadas.
 - [ ] **M3-03** Barra de habilidades com contagem regressiva _(UI, ~1 d)_ — **escrito, validar**  
-  Feito: barra de 6 atalhos (GDD 6.1) nas teclas 1–6 (data/ui/keys.json), setor de recarga e segundos. O jogador escolhe a habilidade de cada tecla: passar o mouse na árvore e apertar a tecla, ou clicar no atalho (seletor); clique direito limpa. Habilidade nova vai para o primeiro atalho livre. Salva com o personagem (save v3). Tooltip ao passar o mouse no atalho. Falta: arrastar e soltar; clique direito para usar habilidade (GDD 12.3).
+  Feito: barra de 6 atalhos (GDD 6.1) nas teclas 1–6 (data/ui/keys.json), setor de recarga e segundos. O jogador escolhe a habilidade de cada tecla: passar o mouse na árvore e apertar a tecla, ou clicar no atalho (seletor); clique direito limpa; atribuir numa tecla ocupada tira a habilidade antiga da barra (não troca). Habilidade nova vai para o primeiro atalho livre. Salva com o personagem (save v3). Tooltip ao passar o mouse no atalho. Falta: arrastar e soltar; clique direito para usar habilidade (GDD 12.3).
 - [ ] **M3-04** Implementar as ativas que faltam _(código, ~3 d)_  
   Feitas: Precise Strike, Shield Bash (atordoa e empurra 1,5 tile), Wide Slash (arco), Bulwark (guarda 360°), Shield Throw (projétil reto que ricocheteia em linha reta para o inimigo mais próximo) — as duas últimas mudanças **escrito, validar**. Faltam: Charge, Whirlwind, War Cry.
 - [ ] **M3-05** Implementar os passivos do MVP _(código, ~3 d)_  
@@ -157,8 +159,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Quantidade, raridade, base, afixos por iLvl, nomes; testes.
 - [ ] **M6-02** Itens no chão e coleta _(código, ~2 d)_ — **escrito, validar**  
   Drops caem em volta do corpo com cor de raridade; clique anda até o item e coleta (comando PickUp); ouro coletado ao passar por cima (balance.loot.autoPickupGold); Alt mostra todos os nomes sem sobreposição; mochila cheia deixa o item no chão. Some ao sair da área.
-- [ ] **M6-03** Inventário em grade 10×6 e equipamento _(UI, ~4 d)_  
-  Itens ocupam várias células; equipar altera PlayerCombat (afixos inclusos).
+- [ ] **M6-03** Inventário em grade 10×6 e equipamento _(UI, ~4 d)_ — parte **escrito, validar**  
+  Feito: tela no I (client/inventory_view.py) com slots de equipamento e grade 10×6; equipar arrastando para o slot, duplo clique ou Ctrl+clique; o mesmo tira; requisitos (borda vermelha, aviso); troca no lugar da mochila; comandos EquipItem/UnequipItem no World; tooltip do item (describe_item). Falta: itens ocupando várias células (size) e os afixos valerem no combate (hoje só a base conta: dano, armadura, escudo).
 - [ ] **M6-04** Tooltip com comparação ao equipado _(UI, ~1.5 d)_  
   Verde/vermelho por atributo.
 - [ ] **M6-05** Tela do baú compartilhado e vendedor _(UI, ~2 d)_  
