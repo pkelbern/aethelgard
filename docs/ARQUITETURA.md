@@ -63,8 +63,9 @@ core/                   regras, sem pygame
 ```
 data/ui/sprites.json ──► client/sprites.py  SpriteLibrary (looks, gear, ordem das camadas, folhas sob demanda)
                                             ActorSprites (memória por ator, cadáveres, desenho)
-<pasta de arte>/sprites/<folha>.json + .png ◄── tools/fetch_art.py (baixa só o necessário do Flare e converte)
-                                            ArtDownload (cliente): roda o mesmo código em segundo plano ao abrir o jogo
+<pasta de arte>/sprites/<folha>.json + .png ◄── tools/fetch_art.py (baixa só o necessário das fontes e converte)
+                                            ArtDownload (cliente): roda o mesmo código numa thread; Game._check_art
+                                            confere a arte ao abrir e mostra a tela de carregamento
 client/animation.py   matemática sem pygame: direction8, frame_at, choose_pose, formato do Flare, empacotador
 ```
 
@@ -85,12 +86,18 @@ client/animation.py   matemática sem pygame: direction8, frame_at, choose_pose,
 - **Cadáveres:** o `World` remove o monstro logo depois de publicar `MonsterKilled`; o cliente guarda o corpo
   (animação die + `corpseSeconds`, some aos poucos). É só visual: no multiplayer cada cliente faz o mesmo com o evento.
 - **Arte fora do repositório:** a pasta de arte é `<dados do usuário>/art` (`saves.default_art_dir`, variável
-  `AETHELGARD_ART_DIR`). Ao abrir, o jogo confere as folhas (`missing_sheets`); se falta alguma, `ArtDownload` baixa
-  numa thread (só os `.txt` e `.png` necessários, por `raw.githubusercontent.com`, no commit fixado em `sprites.json`),
-  converte e grava o `.json` por último (presença do `.json` = folha pronta; download interrompido continua de onde
-  parou). Sem rede, o jogo segue e avisa no log. Rodadas com `--frames` (testes/CI) e `--offline` não baixam.
-- **Sprite faltando:** folha ausente ou quebrada → `SpriteLibrary.sheet` devolve None e o ator vira um retângulo
-  xadrez magenta com "?" (deitado quando morto). Tipos sem look (Feras) continuam com o placeholder antigo.
+  `AETHELGARD_ART_DIR`). Toda vez que o jogo abre, `Game._check_art` confere todas as folhas usadas por looks e
+  equipamento (`missing_sheets`) e lista no terminal os tipos de monstro sem look. Se falta folha, uma tela de
+  carregamento com barra baixa só o que falta (`ArtDownload`, numa thread; Esc joga na hora e o download segue).
+- **Fontes** (`import.sources`, uma por prefixo do id): `repo` baixa arquivo por arquivo de um repositório num commit
+  fixo (Flare: `.txt` + `.png`); `archive` baixa um pacote `.7z`/`.zip` (OpenGameArt) e escolhe os arquivos por
+  padrões de nome em ordem de preferência (`animation`, `image` para recolors, `exclude`). O leitor entende os dois
+  formatos do Flare: comprimido (`frame=`) e o antigo em grade (`render_size`/`position`), comum nos pacotes.
+  Uma fonte que falha não para as outras (`ArtError` lista os problemas; as folhas prontas ficam); o `.json` é
+  gravado por último, então um download interrompido continua de onde parou. `--frames` e `--offline` não baixam.
+- **Animação ausente na folha:** `fallbacks` em `sprites.json` (ex.: sem `hit` → `block` → `stance`).
+- **Sprite faltando:** folha ausente/quebrada ou tipo sem look → retângulo xadrez magenta com "?" (deitado quando
+  morto), do tamanho do monstro. Hoje só o Javali não tem arte definida.
 - **Licença:** a arte baixada é CC-BY-SA 3.0 (`ATTRIBUTION.md` e a licença vão junto para a pasta de arte); toda folha
   está em `docs/licencas_assets.csv`. `tests/test_sprites.py` testa download, conversão e desenho com uma árvore falsa
   do Flare (sem rede).

@@ -115,8 +115,14 @@ class FlareAnim:
 
 
 def parse_flare_animation(text: str) -> tuple[str, dict[str, FlareAnim]]:
-    """Reads a Flare ``animations/*.txt`` file (compressed format): returns the image path and the animations."""
+    """Reads a Flare animation file: returns the image path and the animations.
+
+    Both Flare formats: *compressed* (one ``frame=`` line per frame and direction, as in flare-game) and the
+    older *uncompressed* grid (``render_size``/``render_offset`` once, then per animation ``position`` = first
+    column; frame i of direction d is the cell at column position+i, row d), used by many community packs."""
     image, anims, current = "", {}, None
+    size, offset = (0, 0), (0, 0)  # uncompressed: carried over from where they were set
+    grids: dict[str, tuple[int, tuple[int, int], tuple[int, int]]] = {}  # anim → position, size, offset
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -124,13 +130,27 @@ def parse_flare_animation(text: str) -> tuple[str, dict[str, FlareAnim]]:
         if line.startswith("[") and line.endswith("]"):
             current = FlareAnim(1, 0.0, "looped", {})
             anims[line[1:-1]] = current
+            grids[line[1:-1]] = (0, size, offset)
             continue
         key, _, val = line.partition("=")
         key, val = key.strip(), val.strip()
         if key == "image":
-            image = val.split(",")[0]
+            image = val.split(",")[0].strip()
+        elif key in ("render_size", "render_offset"):
+            a, b = (int(v) for v in val.split(",")[:2])
+            if key == "render_size":
+                size = (a, b)
+            else:
+                offset = (a, b)
+            if current is not None:
+                name = next(reversed(anims))
+                pos, s, o = grids[name]
+                grids[name] = (pos, size, offset)
         elif current is None:
             continue
+        elif key == "position":
+            name = next(reversed(anims))
+            grids[name] = (int(val), size, offset)
         elif key == "frames":
             current.frames = int(val)
         elif key == "duration":
@@ -143,6 +163,10 @@ def parse_flare_animation(text: str) -> tuple[str, dict[str, FlareAnim]]:
             direction = DIRECTION_NAMES.index(parts[1]) if parts[1] in DIRECTION_NAMES else int(parts[1])
             x, y, w, h, ox, oy = (int(p) for p in parts[2:8])
             current.rects[(index, direction)] = (x, y, w, h, ox, oy)
+    for name, a in anims.items():  # uncompressed animations: every cell of the grid
+        pos, (w, h), (ox, oy) = grids[name]
+        if not a.rects and w > 0 and h > 0:
+            a.rects = {(i, d): ((pos + i) * w, d * h, w, h, ox, oy) for i in range(a.frames) for d in range(DIRECTIONS)}
     return image, anims
 
 

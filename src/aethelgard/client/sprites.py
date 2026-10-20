@@ -19,7 +19,7 @@ from pathlib import Path
 import pygame
 
 from ..core.saves import default_art_dir
-from ..tools.fetch_art import fetch_art, github_fetch, load_config, missing_sheets, sprites_dir
+from ..tools.fetch_art import ArtError, fetch_art, http_fetch, load_config, missing_sheets, sheets_in_use, sprites_dir
 from .animation import DIRECTION_NAMES, Pose, choose_pose, direction8, pose_frame
 from .iso import Camera
 
@@ -107,6 +107,20 @@ class SpriteLibrary:
 
     def missing(self) -> list[str]:
         return missing_sheets(self.cfg, self.art_dir)
+
+    def total(self) -> int:
+        return len(sheets_in_use(self.cfg))
+
+    def without_look(self, monster_type_ids) -> list[str]:
+        """Monster types that have no art defined at all (drawn as the magenta stand-in)."""
+        return [t for t in monster_type_ids if t not in self.looks]
+
+    def anim_for(self, sheet: SpriteSheet, wanted: str) -> str:
+        """``wanted`` if the sheet has it, else the first of its fallbacks that it has (packs often lack hit/block)."""
+        for name in (wanted, *self.cfg.get("fallbacks", {}).get(wanted, ()), "stance"):
+            if name in sheet.anims:
+                return name
+        return next(iter(sheet.anims))
 
     def layers(self, look_id: str, equipped: list[tuple[str, str]] = ()) -> dict[str, str] | None:
         """Layer → sheet for a look, with the equipped items on top: ``equipped`` = (equipment slot, base id) pairs.
@@ -238,10 +252,18 @@ class ActorSprites:
             alpha = 255 if age < ttl - FADE_SECONDS else max(0, int(255 * (ttl - age) / FADE_SECONDS))
             self._blit(screen, cam.to_screen(c.x, c.y), c.sheets, Pose("die", "clock", age), c.direction, c.scale, 0, alpha)
 
+    def draw_missing(self, screen: pygame.Surface, cam: Camera, key: tuple[str, int], actor, scale: float = 1.0) -> pygame.Rect:
+        """An actor with no art at all: the magenta stand-in (lying down when dead)."""
+        self._track(key, actor)
+        pose = Pose("die" if actor.state == "dead" else "stance", "clock", 0.0)
+        rect = self._blit(screen, cam.to_screen(actor.x, actor.y), [], pose, 0, scale, 0)
+        self.rects[key] = rect
+        return rect
+
     def _blit(self, screen, pos, sheets: list[str], pose: Pose, direction: int, scale: float, flash: int, alpha: int = 255) -> pygame.Rect:
         sx, sy = pos
         loaded = [self.lib.sheet(s) for s in sheets]
-        if any(s is None for s in loaded):  # one missing layer is enough: the stand-in shows something is wrong
+        if not loaded or any(s is None for s in loaded):  # one missing layer is enough: the stand-in shows something is wrong
             lying = pose.anim == "die"
             key = (round(scale, 3), lying)
             surf = self._missing.get(key)
@@ -253,7 +275,7 @@ class ActorSprites:
             return screen.blit(surf, (sx - surf.get_width() // 2, sy - surf.get_height()))
         box = pygame.Rect(sx, sy, 0, 0)
         for sheet in loaded:
-            anim = pose.anim if pose.anim in sheet.anims else "stance"
+            anim = self.lib.anim_for(sheet, pose.anim)
             a = sheet.anims[anim]
             index = pose_frame(pose, a["frames"], a["seconds"], a["loop"])
             surf, ox, oy = sheet.frame(anim, index, direction, scale, flash)
@@ -282,6 +304,7 @@ class ArtDownload:
         self.state = "idle"  # idle | running | done | failed
         self.stage, self.done, self.total = "", 0, 0
         self.error = ""
+        self.problems: list[str] = []
         self._reported = False
         self._thread: threading.Thread | None = None
 
@@ -295,16 +318,29 @@ class ArtDownload:
         return True
 
     def _run(self) -> None:
+        self.problems = []
         try:
-            fetch = self._fetch or github_fetch(self.lib.cfg)
-            fetch_art(self.lib.cfg, self.lib.art_dir, fetch, progress=self._progress)
+            fetch_art(self.lib.cfg, self.lib.art_dir, self._fetch or http_fetch(), progress=self._progress)
             self.state = "done"
+        except ArtError as ex:  # some sources worked: those sheets are in place
+            self.problems = ex.problems
+            self.error = f"{len(ex.problems)} problem(s): " + "; ".join(ex.problems)
+            self.state = "failed"
         except Exception as ex:  # no network, proxy, disk full: the game goes on with stand-ins
-            self.error = f"{type(ex).__name__}: {ex}"
+            self.problems = [f"{type(ex).__name__}: {ex}"]
+            self.error = self.problems[0]
             self.state = "failed"
 
     def _progress(self, stage: str, done: int, total: int) -> None:
         self.stage, self.done, self.total = stage, done, total
+
+    @property
+    def fraction(self) -> float:
+        """0..1 for a progress bar: downloads are the first 70%, conversion the rest."""
+        if self.state in ("done", "failed"):
+            return 1.0
+        part = self.done / self.total if self.total else 0.0
+        return 0.7 * part if self.stage != "convert" else 0.7 + 0.3 * part
 
     def wait(self, timeout: float | None = None) -> None:
         if self._thread is not None:
@@ -325,4 +361,4 @@ class ArtDownload:
         self.lib.forget_missing()
         if self.state == "done":
             return "Art downloaded."
-        return f"Could not download the art ({self.error}). Try: python -m aethelgard.tools.fetch_art"
+        return f"Some art could not be downloaded ({self.error}). Magenta squares = missing sprites. Retry: python -m aethelgard.tools.fetch_art"

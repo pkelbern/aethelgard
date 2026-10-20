@@ -186,7 +186,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M7-02** Tileset dos 3 biomas do Ato 1 _(arte, ~5 d)_  
   Planície, caverna, cripta (packs licenciados ou próprios).
 - [ ] **M7-03** Sprites do guerreiro e das 3 famílias _(arte, ~10 d)_  
-  Parado, andar, atacar ×2, bloquear, ser atingido, morrer. Protótipo com a arte do Flare (M7-09) cobre o guerreiro, Mortos-vivos e Saqueadores. Falta: Feras (lobo, lobo alfa, javali), 2ª variação de ataque e a arte própria (M7-01).
+  Parado, andar, atacar ×2, bloquear, ser atingido, morrer. Protótipo com a arte do Flare (M7-09) cobre o guerreiro, Mortos-vivos e Saqueadores. Lobo e Lobo Alfa: pacote 'Wolf monsters animated' (Danimal, CC-BY-SA, OpenGameArt), baixado quando o jogo abre. Falta: Javali, 2ª variação de ataque e a arte própria (M7-01). Validar no jogo os nomes dos arquivos dentro do pacote dos lobos (escolhidos por padrão de nome).
 - [ ] **M7-04** Áudio: impactos, bloqueio, drops, level up, música _(áudio, ~4 d)_  
   Prioridade nos sons de feedback de combate.
 - [ ] **M7-05** Menus: título, opções, novo jogo/continuar _(UI, ~2 d)_  
@@ -198,7 +198,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M7-08** Planilha de licenças de assets _(jurídico, ~0.5 d)_ — **escrito, validar**  
   Arquivo, autor, fonte, licença, exige crédito: `docs/licencas_assets.csv` (36 folhas do Flare). Falta: conferir o autor de cada folha no histórico do flare-game e pôr os créditos numa tela do jogo.
 - [ ] **M7-09** Sprites animados de protótipo (arte do Flare, CC-BY-SA 3.0) _(arte/código, ~1.5 d)_ — **escrito, validar**  
-  A arte não fica no GitHub: na primeira execução o jogo baixa em segundo plano só os arquivos necessários do Flare (commit fixo) para a pasta do usuário; sem sprite, aparece um xadrez magenta. `tools/fetch_art.py` (também `aethelgard-art`) faz o mesmo à mão e converte as folhas do Flare (escala 1/3 para tiles 64×32, atlas por folha, paleta de 256 cores) para o formato próprio; `client/sprites.py` desenha em 8 direções com pose pelo estado do núcleo (parado, andar, golpe sincronizado com o tempo do ataque, bloquear, ser atingido com brilho, morrer + cadáver). Jogador em camadas com equipamento visível; Esqueleto, Arqueiro, Necromante, Zumbi, Bandido, Lanceiro e Xamã. Validar no jogo: tamanho na tela, leitura do golpe, desempenho com 60 monstros (M0-06).
+  A arte não fica no GitHub: toda vez que o jogo abre ele confere as folhas e, se falta alguma, mostra uma tela de carregamento e baixa só o que falta para a pasta do usuário (Flare num commit fixo; pacotes .7z do OpenGameArt); sem sprite, aparece um xadrez magenta. `tools/fetch_art.py` (também `aethelgard-art`) faz o mesmo à mão e converte as folhas do Flare (escala 1/3 para tiles 64×32, atlas por folha, paleta de 256 cores) para o formato próprio; `client/sprites.py` desenha em 8 direções com pose pelo estado do núcleo (parado, andar, golpe sincronizado com o tempo do ataque, bloquear, ser atingido com brilho, morrer + cadáver). Jogador em camadas com equipamento visível; Esqueleto, Arqueiro, Necromante, Zumbi, Bandido, Lanceiro e Xamã. Validar no jogo: tamanho na tela, leitura do golpe, desempenho com 60 monstros (M0-06).
 
 ## M8 – Vitrine
 

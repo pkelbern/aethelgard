@@ -119,11 +119,82 @@ class Game:
         if loaded:
             self.hud.add(f"Welcome back, {loaded.name}. Save loaded.", C.GOLD)
         self.hud.add(f"World seed: {self.seed}", C.MUTED)
-        missing = len(self.sprites.lib.missing())
-        if missing and download_art and self.art.start():
-            self.hud.add(f"{missing} sprite sheet(s) missing: downloading the art in the background…", C.MUTED)
-        elif missing:
-            self.hud.add(f"{missing} sprite sheet(s) missing (magenta squares). Run: python -m aethelgard.tools.fetch_art", C.MUTED)
+        self._check_art(download_art)
+
+    # ------------------------------------------------------------ art check on start
+
+    def _check_art(self, download: bool) -> None:
+        """Every time the game opens: are all sprite sheets in the art folder? Missing ones are downloaded
+        behind a loading screen (Esc plays at once and lets the download go on in the background)."""
+        lib = self.sprites.lib
+        missing = lib.missing()
+        no_look = lib.without_look(t.id for t in self.data.monsters.types)
+        print(f"[art] {lib.art_dir / 'sprites'}: {lib.total() - len(missing)}/{lib.total()} sheets ready", flush=True)
+        if no_look:
+            print(f"[art] no art defined for: {', '.join(no_look)} (magenta stand-ins)", flush=True)
+            self.hud.add(f"No art yet for: {', '.join(no_look)} (magenta squares).", C.MUTED)
+        if not missing:
+            return
+        if not download:
+            self.hud.add(f"{len(missing)} sprite sheet(s) missing (magenta squares). Run: python -m aethelgard.tools.fetch_art", C.MUTED)
+            return
+        print(f"[art] downloading {len(missing)} missing sheet(s)…", flush=True)
+        self.art.start()
+        self._loading_screen()
+
+    def _loading_screen(self) -> None:
+        while self.art.state == "running":
+            for ev in pygame.event.get():
+                if ev.type == pygame.QUIT:
+                    self.running = False
+                    return
+                if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
+                    self.hud.add("The art keeps downloading in the background; sprites appear when it ends.", C.MUTED)
+                    return
+            self._draw_loading(["Checking the art and downloading what is missing…", self.art.status_text.split("…")[0]],
+                               self.art.fraction, "Esc: play now with placeholders (the download goes on)")
+            self.clock.tick(30)
+        note = self.art.poll()
+        for line in self.art.problems if self.art.state == "failed" else []:
+            print(f"[art]   - {line}", flush=True)
+        print(f"[art] {note}", flush=True)
+        if self.art.state != "failed":
+            self.hud.add(note, C.GOLD)
+            return
+        lines = ["Some art could not be downloaded:", *self.art.problems[:6]]
+        while True:
+            for ev in pygame.event.get():
+                if ev.type == pygame.QUIT:
+                    self.running = False
+                    return
+                if ev.type == pygame.KEYDOWN and ev.key == pygame.K_r:
+                    self.art.start()
+                    return self._loading_screen()
+                if (ev.type == pygame.KEYDOWN and ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE)) or ev.type == pygame.MOUSEBUTTONDOWN:
+                    self.hud.add("Missing sprites show as magenta squares. Retry: python -m aethelgard.tools.fetch_art", C.LIFE)
+                    return
+            self._draw_loading(lines, 1.0, "R: try again  ·  Enter: play with placeholders", error=True)
+            self.clock.tick(30)
+
+    def _draw_loading(self, lines: list[str], fraction: float, hint: str, error: bool = False) -> None:
+        screen = self.screen
+        W, H = screen.get_size()
+        screen.fill(C.BG)
+        title = self.fonts["title"].render("Aethelgard", True, C.GOLD)
+        screen.blit(title, title.get_rect(midbottom=(W // 2, H // 2 - 70)))
+        y = H // 2 - 50
+        for i, text in enumerate(lines):
+            for part in _wrap(text, self.fonts["small"], W - 160):
+                img = self.fonts["body" if i == 0 else "small"].render(part, True, C.LIFE if error and i else C.TEXT)
+                screen.blit(img, img.get_rect(midtop=(W // 2, y)))
+                y += 26 if i == 0 else 20
+        bar = pygame.Rect(W // 2 - 220, max(y + 12, H // 2 + 20), 440, 14)
+        pygame.draw.rect(screen, (0, 0, 0), bar)
+        pygame.draw.rect(screen, C.LIFE if error else C.XP, (bar.x, bar.y, bar.w * max(0.0, min(1.0, fraction)), bar.h))
+        pygame.draw.rect(screen, C.PANEL_EDGE, bar, 1)
+        img = self.fonts["small"].render(hint, True, C.MUTED)
+        screen.blit(img, img.get_rect(midtop=(W // 2, bar.bottom + 14)))
+        pygame.display.flip()
 
     # ------------------------------------------------------------ session and save
 
@@ -173,9 +244,8 @@ class Game:
     def _on_monster_killed(self, e: MonsterKilled) -> None:
         """The world removes the monster right after this event, so its body stays here, on the client."""
         m = self.world.monsters.get(e.monster.instance_id)
-        layers = self.monster_layers(m) if m else None
-        if layers:
-            self.sprites.add_corpse(m, layers, self.monster_scale(m))
+        if m is not None:  # no look: the magenta stand-in lies down too
+            self.sprites.add_corpse(m, self.monster_layers(m) or {}, self.monster_scale(m))
 
     def _read_save(self) -> GameSession | None:
         try:
@@ -774,29 +844,23 @@ class Game:
         sx, sy = self.cam.to_screen(m.x, m.y)
         rank = m.monster.rank.id
         r = self.body_px(m)
-        color = C.RANK.get(rank, C.RANK["normal"])
         name_color = C.rank_name_color(rank)
-        if m.state in ("hit_recovery", "stunned"):
-            color = tuple(min(255, c + 70) for c in color)
         screen = self.screen
         if m.aura is not None:  # leader: a faint ring shows how far its aura reaches
             ar = m.aura.radius_tiles
             pygame.draw.ellipse(screen, (110, 90, 40), (sx - ar * 32, sy - ar * 16, ar * 64, ar * 32), 1)
         layers = self.monster_layers(m)
-        if layers is None:
-            pygame.draw.ellipse(screen, (0, 0, 0), (sx - r, sy - r // 3, 2 * r, 2 * r // 3))
         if m is self.hovered:  # outline at the feet, in the color of its name
             pygame.draw.ellipse(screen, name_color, (sx - r - 4, sy - r // 3 - 2, 2 * r + 8, 2 * r // 3 + 4), 2)
-        if layers is None:
-            pygame.draw.circle(screen, color, (sx, sy - r), r)
-            top = sy - 2 * r
-            if m.state == "attacking":  # swing warning: a ring that closes until the impact
+        if layers is None:  # no art defined for this type: magenta stand-in, with a ring that closes until the impact
+            box = self.sprites.draw_missing(screen, self.cam, ("m", m.id), m, self.monster_scale(m))
+            if m.state == "attacking":
                 k = min(1.0, m.attack_elapsed / (m.attack_duration * 0.5))
-                pygame.draw.circle(screen, (255, 255, 255), (sx, sy - r), int(r + 10 * (1 - k)), 1)
+                pygame.draw.circle(screen, (255, 255, 255), box.center, int(box.h / 2 + 10 * (1 - k)), 1)
         else:  # the sprite's own swing shows the attack coming
             box = self.sprites.draw_actor(screen, self.cam, ("m", m.id), m, layers,
                                           attack_anim=self.sprites.lib.attack_anim(m.monster.type.id), scale=self.monster_scale(m))
-            top = min(box.top, sy - 2 * r) + 6
+        top = min(box.top, sy - 2 * r) + 6
         frac = m.monster.hp / m.monster.max_hp
         pygame.draw.rect(screen, (0, 0, 0), (sx - 16, top - 10, 32, 4))
         pygame.draw.rect(screen, C.LIFE, (sx - 16, top - 10, 32 * frac, 4))
@@ -847,3 +911,15 @@ class Game:
         if screenshot:
             pygame.image.save(self.screen, screenshot)
         pygame.quit()
+
+
+def _wrap(text: str, font: pygame.font.Font, width: int) -> list[str]:
+    words, lines, line = text.split(" "), [], ""
+    for w in words:
+        test = f"{line} {w}".strip()
+        if font.size(test)[0] > width and line:
+            lines.append(line)
+            line = w
+        else:
+            line = test
+    return [*lines, line] if line else lines

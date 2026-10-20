@@ -30,15 +30,18 @@ aethelgard            # ou: python -m aethelgard
 Opções: `--seed 42` (mundo fixo), `--area plains` (começar numa área), `--new` (personagem novo, ignora o save),
 `--save-dir pasta` (onde guardar o save), `--offline` (não baixa a arte), `--art-dir pasta` (onde fica a arte).
 
-**Arte:** os sprites não estão no repositório. Na primeira vez, o jogo vê que faltam e baixa sozinho, em segundo
-plano (uns 60 MB, cerca de 15 s), direto do repositório do Flare. Enquanto isso, o que não tem sprite aparece
-como um retângulo xadrez magenta com "?". A arte fica na pasta do usuário (`%APPDATA%\Aethelgard\art`,
+**Arte:** os sprites não estão no repositório. Toda vez que o jogo abre, ele confere se todas as folhas de sprite
+estão na pasta de arte; se falta alguma, mostra uma tela de carregamento e baixa só o que falta (na primeira vez,
+uns 65 MB: personagens e mortos-vivos do repositório do Flare, lobos do OpenGameArt). Esc começa a jogar na hora e
+o download continua por trás. Se uma fonte falhar, a tela mostra o motivo (R tenta de novo, Enter joga assim).
+O que não tem sprite aparece como um retângulo xadrez magenta com "?". O terminal também mostra a conferência
+(`[art] … 38/38 sheets ready`). A arte fica na pasta do usuário (`%APPDATA%\Aethelgard\art`,
 `~/Library/Application Support/Aethelgard/art` ou `~/.local/share/aethelgard/art`). Para baixar à mão:
 
 ```bash
 python -m aethelgard.tools.fetch_art            # ou: aethelgard-art
 python -m aethelgard.tools.fetch_art --all      # refaz tudo
-python -m aethelgard.tools.fetch_art --from caminho/do/flare-game   # de um clone local, sem internet
+python -m aethelgard.tools.fetch_art --flare caminho/do/flare-game  # arquivos do Flare de um clone local
 ```
 
 Opcional: `pip install -e ".[art]"` instala o Pillow e gera PNGs 5× menores.
@@ -128,10 +131,11 @@ docs/       GDD, planilha, backlog, arquitetura
 
 - **Código:** [GPL-3.0-or-later](LICENSE). Você pode usar, estudar, modificar e redistribuir;
   versões modificadas precisam continuar abertas sob a mesma licença.
-- **Arte de terceiros:** os sprites vêm do jogo livre [Flare](https://github.com/flareteam/flare-game)
-  (Clint Bellanger, Justin Jacobs e colaboradores), sob **CC-BY-SA 3.0**. Não fazem parte deste repositório:
-  são baixados na primeira execução (versão fixa, commit em `data/ui/sprites.json`), reduzidos e
-  reempacotados, com `ATTRIBUTION.md` e a licença na pasta da arte. Cada arquivo está em
+- **Arte de terceiros (CC-BY-SA 3.0):** personagens e mortos-vivos do jogo livre
+  [Flare](https://github.com/flareteam/flare-game) (Clint Bellanger, Justin Jacobs e colaboradores); lobos de
+  [Wolf monsters animated](https://opengameart.org/content/wolf-monsters-animated) (Danimal; modelo de Micket, CC0;
+  texturas de p0ss). Não fazem parte deste repositório: são baixados quando o jogo abre (fontes em
+  `data/ui/sprites.json`), reduzidos e reempacotados, com `ATTRIBUTION.md` e a licença em cada pasta da arte. Cada arquivo está em
   [`docs/licencas_assets.csv`](docs/licencas_assets.csv).
 - **Arte e som próprios:** ainda não há. Quando houver, terão licença própria (veja o backlog M8-07).
 - O balanceamento usa o ritmo de ARPGs clássicos como referência, com curvas próprias por
