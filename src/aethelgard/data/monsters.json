@@ -1,0 +1,23 @@
+{
+  "_comment": "Tipos de monstro. hp/dmg são valores base multiplicados pelo hpPct/dmgPct do nível (monster_levels.json) / 100. expPct = Exp% do tipo (média 90).",
+  "families": [
+    { "id": "feras",       "name": "Feras" },
+    { "id": "mortos_vivos","name": "Mortos-vivos" },
+    { "id": "saqueadores", "name": "Saqueadores" }
+  ],
+  "types": [
+    { "id": "lobo",           "name": "Lobo",              "family": "feras",        "hp": 110, "dmgMin": 40, "dmgMax": 90,  "expPct": 80,  "moveSpeed": 1.4, "attackRate": 1.2, "range": 1, "ai": "flanker" },
+    { "id": "lobo_alfa",      "name": "Lobo Alfa",         "family": "feras",        "hp": 160, "dmgMin": 60, "dmgMax": 120, "expPct": 110, "moveSpeed": 1.3, "attackRate": 1.0, "range": 1, "ai": "flanker" },
+    { "id": "javali",         "name": "Javali",            "family": "feras",        "hp": 180, "dmgMin": 50, "dmgMax": 110, "expPct": 95,  "moveSpeed": 1.0, "attackRate": 0.8, "range": 1, "ai": "charger" },
+    { "id": "esqueleto",      "name": "Esqueleto",         "family": "mortos_vivos", "hp": 110, "dmgMin": 35, "dmgMax": 100, "expPct": 85,  "moveSpeed": 0.9, "attackRate": 1.0, "range": 1, "ai": "melee" },
+    { "id": "esqueleto_arq",  "name": "Esqueleto Arqueiro","family": "mortos_vivos", "hp": 80,  "dmgMin": 30, "dmgMax": 80,  "expPct": 90,  "moveSpeed": 0.9, "attackRate": 0.8, "range": 7, "ai": "ranged" },
+    { "id": "zumbi",          "name": "Zumbi",             "family": "mortos_vivos", "hp": 180, "dmgMin": 50, "dmgMax": 150, "expPct": 110, "moveSpeed": 0.6, "attackRate": 0.7, "range": 1, "ai": "melee" },
+    { "id": "necromante",     "name": "Necromante",        "family": "mortos_vivos", "hp": 90,  "dmgMin": 30, "dmgMax": 70,  "expPct": 120, "moveSpeed": 0.9, "attackRate": 0.6, "range": 6, "ai": "caster_revive" },
+    { "id": "bandido",        "name": "Bandido",           "family": "saqueadores",  "hp": 130, "dmgMin": 50, "dmgMax": 100, "expPct": 90,  "moveSpeed": 1.0, "attackRate": 1.0, "range": 1, "ai": "melee" },
+    { "id": "bandido_lanca",  "name": "Bandido Lanceiro",  "family": "saqueadores",  "hp": 120, "dmgMin": 60, "dmgMax": 110, "expPct": 95,  "moveSpeed": 1.0, "attackRate": 0.9, "range": 2, "ai": "melee" },
+    { "id": "xama",           "name": "Xamã",              "family": "saqueadores",  "hp": 90,  "dmgMin": 25, "dmgMax": 60,  "expPct": 110, "moveSpeed": 0.9, "attackRate": 0.6, "range": 6, "ai": "support_heal" }
+  ],
+  "bosses": [
+    { "id": "chefe_ato1", "name": "O Guardião da Cripta", "baseType": "esqueleto", "level": 12, "hp": 2400, "dmgMin": 30, "dmgMax": 70, "expPct": 90 }
+  ]
+}

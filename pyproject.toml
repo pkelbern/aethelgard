@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aethelgard"
+version = "0.1.0"
+description = "RPG de ação isométrico 2D, sem classes: o personagem evolui nas proficiências que usa."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+authors = [{ name = "Peter" }]
+dependencies = [
+    "pygame-ce>=2.5,<3",   # janela, desenho, entrada, som (LGPL)
+    "pygame_gui>=0.6.12",  # janelas e widgets: árvore de habilidades, console (MIT)
+    "numpy>=1.26",         # geração de mapas vetorizada (BSD)
+    "tcod>=16",            # A*, distâncias e campo de visão em C (BSD)
+    "pytmx>=3.32",         # mapas feitos à mão no editor Tiled (LGPL)
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment :: Role-Playing",
+    "Natural Language :: Portuguese (Brazilian)",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+build = ["pyinstaller>=6"]
+
+[project.scripts]
+aethelgard = "aethelgard.__main__:main"
+
+[project.urls]
+Repository = "https://github.com/SEU_USUARIO/aethelgard"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+aethelgard = ["data/*.json", "data/maps/*.tmx", "data/maps/*.tsx", "data/maps/*.png", "data/ui/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: testes demorados (rode com -m slow)"]
+addopts = "-m 'not slow'"
+
+[tool.ruff]
+line-length = 160
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["B008"]

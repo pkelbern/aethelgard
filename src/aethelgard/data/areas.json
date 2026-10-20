@@ -1,0 +1,17 @@
+{
+  "_comment": "Ato 1 do MVP. map = mapa feito à mão no editor Tiled (data/maps/*.tmx); sem map, a área é gerada pela seed. kind: town | open | dungeon. Para masmorras, 'floors' gera N andares com nível crescente (levelMin..levelMax). normalPacks = grupos normais por área/andar.",
+  "acts": [
+    {
+      "id": "ato1",
+      "name": "Ato 1",
+      "areas": [
+        { "id": "vila",       "name": "Vila",               "kind": "town",    "level": 0,  "links": ["planicie"], "waypoint": true, "map": "maps/vila.tmx" },
+        { "id": "planicie",   "name": "Planície Sangrenta", "kind": "open",    "level": 2,  "links": ["vila", "bosque", "caverna"], "families": ["feras", "saqueadores"], "normalPacks": 22, "sizeChunks": [8, 8] },
+        { "id": "caverna",    "name": "Caverna Rasa",       "kind": "dungeon", "levelMin": 3, "levelMax": 4, "floors": 2, "links": ["planicie"], "families": ["feras", "mortos_vivos"], "normalPacks": 16 },
+        { "id": "bosque",     "name": "Bosque Sombrio",     "kind": "open",    "level": 5,  "links": ["planicie", "colinas"], "families": ["feras", "saqueadores"], "normalPacks": 22, "waypoint": true },
+        { "id": "colinas",    "name": "Colinas Rochosas",   "kind": "open",    "level": 7,  "links": ["bosque", "cripta"], "families": ["saqueadores", "mortos_vivos"], "normalPacks": 22, "waypoint": true },
+        { "id": "cripta",     "name": "Cripta Esquecida",   "kind": "dungeon", "levelMin": 9, "levelMax": 11, "floors": 3, "links": ["colinas"], "families": ["mortos_vivos"], "normalPacks": 16, "boss": "chefe_ato1", "waypoint": true }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "_comment": "Modificadores de únicos e champions. 'stats' são aditivos sobre o monstro; efeitos especiais são tratados por id no código (Monsters/ModifierEffects).",
+  "modifiers": [
+    { "id": "veloz",        "name": "Veloz",          "stats": { "moveSpeedPct": 0.5, "attackSpeedPct": 0.5 } },
+    { "id": "brutal",       "name": "Brutal",         "stats": { "damagePct": 0.75, "critChance": 0.10 } },
+    { "id": "pele_pedra",   "name": "Pele de Pedra",  "stats": { "physicalReduction": 0.5 } },
+    { "id": "igneo",        "name": "Ígneo",          "stats": { "fireDamagePct": 0.5 }, "onDeath": "explode_fire" },
+    { "id": "gelido",       "name": "Gélido",         "stats": { "coldDamagePct": 0.3 }, "onHit": "slow", "onDeath": "frost_nova" },
+    { "id": "eletrico",     "name": "Elétrico",       "stats": { "lightningDamagePct": 0.3 }, "onHurt": "charged_bolt" },
+    { "id": "vampirico",    "name": "Vampírico",      "stats": { "lifeLeech": 0.15 } },
+    { "id": "teleportador", "name": "Teleportador",   "stats": {}, "ability": "teleport_to_player" },
+    { "id": "aura_furia",   "name": "Aura de Fúria",  "stats": {}, "aura": { "radiusTiles": 6, "damagePct": 0.3, "attackSpeedPct": 0.2 }, "uniqueOnly": true }
+  ]
+}

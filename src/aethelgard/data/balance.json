@@ -1,0 +1,86 @@
+{
+  "_comment": "Parâmetros globais de balanceamento. A simulação do Ato 1 (aethelgard.core.simulation) usa estes valores.",
+  "xp": {
+    "defenseXpPerHit": 0.1,
+    "defenseXpCapPerMonster": 0.75,
+    "trivialMonsterDelta": -10
+  },
+  "levelFactor": {
+    "_comment": "Fator de XP por Δ = nível do monstro − nível da proficiência (tabela do D2 abaixo do nível 25). Fora de −10..+10 vale a ponta; ausentes = 1.0.",
+    "table": {
+      "-10": 0.05,
+      "-9": 0.24,
+      "-8": 0.43,
+      "-7": 0.62,
+      "-6": 0.81,
+      "6": 0.88,
+      "7": 0.68,
+      "8": 0.36,
+      "9": 0.15,
+      "10": 0.02
+    }
+  },
+  "attributes": {
+    "pointsPerProficiencyLevel": 3
+  },
+  "character": {
+    "secondaryProficiencyWeight": 0.25,
+    "baseLife": 50,
+    "lifePerVit": 4,
+    "lifePerLevel": 3,
+    "baseEnergy": 30,
+    "energyPerInt": 2,
+    "energyPerTwoVit": 1
+  },
+  "combat": {
+    "hitChanceMin": 0.05,
+    "hitChanceMax": 0.95,
+    "armorCap": 0.75,
+    "armorPerAttackerLevel": 50,
+    "resistCap": 0.75,
+    "critMultiplier": 1.5,
+    "ccReductionUniqueAndBoss": 0.5
+  },
+  "spawn": {
+    "specialPacksMin": 1,
+    "specialPacksMax": 2,
+    "uniquePackChance": 0.8,
+    "championPackSizeMin": 2,
+    "championPackSizeMax": 4,
+    "minionsMin": 3,
+    "minionsMax": 6,
+    "normalPackSizeMin": 3,
+    "normalPackSizeMax": 5,
+    "minionLeashTiles": 6
+  },
+  "death": {
+    "_comment": "Penalidade de morte. xpLossPctOfLevel = fração do XP já ganho DENTRO do nível atual que se perde (nunca perde nível). 0 = desligado no MVP.",
+    "goldLossPct": 0.1,
+    "xpLossPctOfLevel": 0.0,
+    "dropCorpse": true
+  },
+  "guard": {
+    "_comment": "Bloqueio ativo (segurar o botão de guarda). Bloqueia golpes físicos dentro do arco frontal; cada bloqueio gasta Energia. Janela perfeita no início da guarda: custo zero e contra-ataque (Aparar). Depois de baixar a guarda, só pode erguer de novo após guardRaiseCooldownSeconds (evita abuso do aparo perfeito).",
+    "arcDegrees": 120,
+    "baseEnergyCost": 1.0,
+    "energyPerDamage": 0.25,
+    "efficiencyCap": 0.6,
+    "moveSpeedMult": 0.5,
+    "perfectWindowSeconds": 0.15,
+    "guardBreakStunSeconds": 1.0,
+    "guardRaiseCooldownSeconds": 0.3
+  },
+  "timing": {
+    "_comment": "Tempos de ação (GDD 7.7). Todas as durações em segundos. 'faster…' reduz a duração: duração = base / (1 + bônus).",
+    "attackSeconds": 0.55,
+    "attackHitFraction": 0.45,
+    "hitRecoverySeconds": 0.4,
+    "hitRecoveryThresholdPctLife": 0.0833,
+    "blockRecoverySeconds": 0.3,
+    "monsterHitRecoverySeconds": 0.35,
+    "monsterHitRecoveryThresholdPctLife": 0.125,
+    "bossHitRecoveryMult": 0.0,
+    "uniqueHitRecoveryMult": 0.5,
+    "globalCooldownSeconds": 0.2
+  }
+}

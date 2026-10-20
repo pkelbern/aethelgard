@@ -1,0 +1,351 @@
+{
+ "_comment": "Árvores por proficiência. Muralha: guarda de 360° sem custo por (3 + durationSeconds×pontos) s. layer = nível de proficiência que libera o nó. perPoint = valor ganho por ponto; após 'diminishingAfter' pontos o ganho cai pela metade. synergies: bônus que ESTE nó recebe por ponto investido em 'from'. cooldown = recarga em segundos (ativas). Recuperação de golpe/bloqueio: Firmeza (fasterHitRecovery) e Postura Defensiva (fasterBlockRecovery).",
+ "diminishingAfter": 8,
+ "nodes": [
+  {
+   "id": "golpe_preciso",
+   "tree": "laminas",
+   "name": "Golpe Preciso",
+   "layer": 1,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 3,
+   "effects": {
+    "damagePct": 0.15,
+    "accuracyPct": 0.1
+   },
+   "cooldown": 0.0
+  },
+  {
+   "id": "lamina_afiada",
+   "tree": "laminas",
+   "name": "Lâmina Afiada",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "swordDamagePct": 0.06
+   }
+  },
+  {
+   "id": "corte_amplo",
+   "tree": "laminas",
+   "name": "Corte Amplo",
+   "layer": 6,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 5,
+   "effects": {
+    "damagePct": 0.1,
+    "arcDegrees": 120
+   },
+   "cooldown": 2.0
+  },
+  {
+   "id": "sangramento",
+   "tree": "laminas",
+   "name": "Sangramento",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "bleedChance": 0.03,
+    "bleedDamagePct": 0.05
+   }
+  },
+  {
+   "id": "investida",
+   "tree": "laminas",
+   "name": "Investida",
+   "layer": 12,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 6,
+   "effects": {
+    "damagePct": 0.2,
+    "rangeTiles": 6
+   },
+   "cooldown": 6.0
+  },
+  {
+   "id": "ritmo_combate",
+   "tree": "laminas",
+   "name": "Ritmo de Combate",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "attackSpeedPerStackPct": 0.02,
+    "maxStacks": 5
+   }
+  },
+  {
+   "id": "turbilhao",
+   "tree": "laminas",
+   "name": "Turbilhão",
+   "layer": 18,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 4,
+   "channeled": true,
+   "effects": {
+    "damagePct": 0.12
+   },
+   "cooldown": 0.0
+  },
+  {
+   "id": "golpe_fatal",
+   "tree": "laminas",
+   "name": "Golpe Fatal",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "critChanceLowLife": 0.03,
+    "lowLifeThreshold": 0.3
+   }
+  },
+  {
+   "id": "postura_defensiva",
+   "tree": "escudo",
+   "name": "Postura Defensiva",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "guardEfficiency": 0.03,
+    "fasterBlockRecovery": 0.04
+   }
+  },
+  {
+   "id": "golpe_escudo",
+   "tree": "escudo",
+   "name": "Golpe de Escudo",
+   "layer": 1,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 4,
+   "effects": {
+    "damagePct": 0.1,
+    "stunSeconds": 0.6
+   },
+   "cooldown": 4.0
+  },
+  {
+   "id": "aparar",
+   "tree": "escudo",
+   "name": "Aparar",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "perfectWindowSeconds": 0.02,
+    "counterDamagePct": 0.25
+   }
+  },
+  {
+   "id": "escudo_pesado",
+   "tree": "escudo",
+   "name": "Escudo Pesado",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "shieldArmorPct": 0.08,
+    "guardArcDegrees": 6
+   }
+  },
+  {
+   "id": "muralha",
+   "tree": "escudo",
+   "name": "Muralha",
+   "layer": 12,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 10,
+   "effects": {
+    "durationSeconds": 0.2,
+    "fullCircleGuard": 1,
+    "freeBlocks": 1
+   },
+   "cooldown": 20.0
+  },
+  {
+   "id": "revide",
+   "tree": "escudo",
+   "name": "Revide",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "damageAfterBlockPct": 0.08
+   }
+  },
+  {
+   "id": "arremesso_escudo",
+   "tree": "escudo",
+   "name": "Arremesso de Escudo",
+   "layer": 18,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 8,
+   "effects": {
+    "damagePct": 0.15,
+    "bounces": 2
+   },
+   "cooldown": 5.0
+  },
+  {
+   "id": "bastiao",
+   "tree": "escudo",
+   "name": "Bastião",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "allResistWithShield": 0.03
+   }
+  },
+  {
+   "id": "pele_ferro",
+   "tree": "couraca",
+   "name": "Pele de Ferro",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "armorPct": 0.06
+   }
+  },
+  {
+   "id": "recuperacao",
+   "tree": "couraca",
+   "name": "Recuperação",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "lifeRegenPerSecond": 0.5
+   }
+  },
+  {
+   "id": "firmeza",
+   "tree": "couraca",
+   "name": "Firmeza",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "ccReduction": 0.05,
+    "fasterHitRecovery": 0.05
+   }
+  },
+  {
+   "id": "segundo_folego",
+   "tree": "couraca",
+   "name": "Segundo Fôlego",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "healPctOfMax": 0.05,
+    "threshold": 0.25,
+    "cooldownSeconds": 60
+   }
+  },
+  {
+   "id": "grito_guerra",
+   "tree": "couraca",
+   "name": "Grito de Guerra",
+   "layer": 12,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 8,
+   "effects": {
+    "enemyDamageReduction": 0.03,
+    "durationSeconds": 6,
+    "radiusTiles": 5
+   },
+   "cooldown": 15.0
+  },
+  {
+   "id": "resist_elemental",
+   "tree": "couraca",
+   "name": "Resistência Elemental",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "elementalResist": 0.03
+   }
+  },
+  {
+   "id": "inabalavel",
+   "tree": "couraca",
+   "name": "Inabalável",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "deferredDamagePct": 0.03,
+    "deferSeconds": 3
+   }
+  },
+  {
+   "id": "colosso",
+   "tree": "couraca",
+   "name": "Colosso",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "maxLifePct": 0.04,
+    "damagePerMissingLife10Pct": 0.01
+   }
+  }
+ ],
+ "synergies": [
+  {
+   "target": "golpe_escudo",
+   "from": "lamina_afiada",
+   "stat": "damagePct",
+   "perPoint": 0.06
+  },
+  {
+   "target": "investida",
+   "from": "golpe_escudo",
+   "stat": "stunChance",
+   "perPoint": 0.01
+  },
+  {
+   "target": "turbilhao",
+   "from": "corte_amplo",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "revide",
+   "from": "aparar",
+   "stat": "counterDamagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "arremesso_escudo",
+   "from": "golpe_escudo",
+   "stat": "damagePct",
+   "perPoint": 0.08
+  },
+  {
+   "target": "arremesso_escudo",
+   "from": "escudo_pesado",
+   "stat": "bounces",
+   "perPoint": 0.2
+  },
+  {
+   "target": "segundo_folego",
+   "from": "recuperacao",
+   "stat": "healPctOfMax",
+   "perPoint": 0.02
+  }
+ ]
+}

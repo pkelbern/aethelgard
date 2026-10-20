@@ -1,0 +1,740 @@
+{
+ "_comment": "Bases, afixos e regras de drop. guardEfficiency (escudos) reduz a Energia gasta por bloqueio. level = nível mínimo do item (iLvl) para a base/afixo aparecer. size = células no inventário [largura, altura].",
+ "rarityChances": {
+  "_comment": "Chance base por item de equipamento, testada em ordem unique → rare → magic. Multiplicada pelo lootQualityMult do tipo de monstro e por (1 + achar itens mágicos).",
+  "unique": 0.004,
+  "rare": 0.03,
+  "magic": 0.18
+ },
+ "dropCount": {
+  "normal": {
+   "min": 0,
+   "max": 1,
+   "noDropChance": 0.55
+  },
+  "champion": {
+   "min": 1,
+   "max": 2,
+   "noDropChance": 0.1
+  },
+  "berserker": {
+   "min": 1,
+   "max": 2,
+   "noDropChance": 0.1
+  },
+  "minion": {
+   "min": 0,
+   "max": 1,
+   "noDropChance": 0.5
+  },
+  "unique": {
+   "min": 2,
+   "max": 4,
+   "noDropChance": 0.0
+  },
+  "boss": {
+   "min": 4,
+   "max": 6,
+   "noDropChance": 0.0
+  }
+ },
+ "dropKind": {
+  "gold": 0.4,
+  "potion": 0.25,
+  "scroll": 0.05,
+  "equipment": 0.3
+ },
+ "bases": [
+  {
+   "id": "adaga_longa",
+   "name": "Adaga Longa",
+   "slot": "mainhand",
+   "tags": [
+    "sword"
+   ],
+   "level": 1,
+   "dmgMin": 2,
+   "dmgMax": 6,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "str": 0,
+    "dex": 0
+   }
+  },
+  {
+   "id": "espada_curta",
+   "name": "Espada Curta",
+   "slot": "mainhand",
+   "tags": [
+    "sword"
+   ],
+   "level": 1,
+   "dmgMin": 2,
+   "dmgMax": 7,
+   "size": [
+    1,
+    3
+   ],
+   "req": {
+    "str": 0,
+    "dex": 0
+   }
+  },
+  {
+   "id": "gladio",
+   "name": "Gládio",
+   "slot": "mainhand",
+   "tags": [
+    "sword"
+   ],
+   "level": 4,
+   "dmgMin": 3,
+   "dmgMax": 8,
+   "size": [
+    1,
+    3
+   ],
+   "req": {
+    "str": 15,
+    "dex": 10
+   }
+  },
+  {
+   "id": "sabre",
+   "name": "Sabre",
+   "slot": "mainhand",
+   "tags": [
+    "sword"
+   ],
+   "level": 7,
+   "dmgMin": 3,
+   "dmgMax": 10,
+   "size": [
+    1,
+    3
+   ],
+   "req": {
+    "str": 20,
+    "dex": 20
+   }
+  },
+  {
+   "id": "espada_longa",
+   "name": "Espada Longa",
+   "slot": "mainhand",
+   "tags": [
+    "sword"
+   ],
+   "level": 10,
+   "dmgMin": 5,
+   "dmgMax": 12,
+   "size": [
+    1,
+    3
+   ],
+   "req": {
+    "str": 30,
+    "dex": 15
+   }
+  },
+  {
+   "id": "espada_bastarda",
+   "name": "Espada Bastarda",
+   "slot": "mainhand",
+   "tags": [
+    "sword"
+   ],
+   "level": 14,
+   "dmgMin": 6,
+   "dmgMax": 16,
+   "size": [
+    1,
+    4
+   ],
+   "req": {
+    "str": 40,
+    "dex": 20
+   }
+  },
+  {
+   "id": "broquel",
+   "name": "Broquel",
+   "slot": "offhand",
+   "tags": [
+    "shield"
+   ],
+   "level": 1,
+   "armor": 3,
+   "guardEfficiency": 0.0,
+   "size": [
+    2,
+    2
+   ],
+   "req": {
+    "str": 0
+   }
+  },
+  {
+   "id": "escudo_redondo",
+   "name": "Escudo Redondo",
+   "slot": "offhand",
+   "tags": [
+    "shield"
+   ],
+   "level": 5,
+   "armor": 8,
+   "guardEfficiency": 0.1,
+   "size": [
+    2,
+    2
+   ],
+   "req": {
+    "str": 20
+   }
+  },
+  {
+   "id": "escudo_pipa",
+   "name": "Escudo de Pipa",
+   "slot": "offhand",
+   "tags": [
+    "shield"
+   ],
+   "level": 9,
+   "armor": 14,
+   "guardEfficiency": 0.2,
+   "size": [
+    2,
+    3
+   ],
+   "req": {
+    "str": 30
+   }
+  },
+  {
+   "id": "escudo_torre",
+   "name": "Escudo de Torre",
+   "slot": "offhand",
+   "tags": [
+    "shield"
+   ],
+   "level": 13,
+   "armor": 22,
+   "guardEfficiency": 0.3,
+   "size": [
+    2,
+    3
+   ],
+   "req": {
+    "str": 45
+   }
+  },
+  {
+   "id": "couro",
+   "name": "Armadura de Couro",
+   "slot": "body",
+   "tags": [
+    "armor"
+   ],
+   "level": 1,
+   "armor": 10,
+   "size": [
+    2,
+    3
+   ],
+   "req": {
+    "str": 0
+   }
+  },
+  {
+   "id": "couro_batido",
+   "name": "Couro Batido",
+   "slot": "body",
+   "tags": [
+    "armor"
+   ],
+   "level": 4,
+   "armor": 18,
+   "size": [
+    2,
+    3
+   ],
+   "req": {
+    "str": 15
+   }
+  },
+  {
+   "id": "cota_malha",
+   "name": "Cota de Malha",
+   "slot": "body",
+   "tags": [
+    "armor"
+   ],
+   "level": 8,
+   "armor": 30,
+   "size": [
+    2,
+    3
+   ],
+   "req": {
+    "str": 30
+   }
+  },
+  {
+   "id": "cota_escamas",
+   "name": "Cota de Escamas",
+   "slot": "body",
+   "tags": [
+    "armor"
+   ],
+   "level": 11,
+   "armor": 42,
+   "size": [
+    2,
+    3
+   ],
+   "req": {
+    "str": 40
+   }
+  },
+  {
+   "id": "placas",
+   "name": "Armadura de Placas",
+   "slot": "body",
+   "tags": [
+    "armor"
+   ],
+   "level": 15,
+   "armor": 60,
+   "size": [
+    2,
+    3
+   ],
+   "req": {
+    "str": 55
+   }
+  },
+  {
+   "id": "elmo",
+   "name": "Elmo",
+   "slot": "head",
+   "tags": [
+    "armor"
+   ],
+   "level": 1,
+   "armor": 4,
+   "size": [
+    2,
+    2
+   ],
+   "req": {
+    "str": 0
+   }
+  },
+  {
+   "id": "luvas",
+   "name": "Luvas",
+   "slot": "hands",
+   "tags": [
+    "armor"
+   ],
+   "level": 1,
+   "armor": 2,
+   "size": [
+    2,
+    2
+   ],
+   "req": {
+    "str": 0
+   }
+  },
+  {
+   "id": "botas",
+   "name": "Botas",
+   "slot": "feet",
+   "tags": [
+    "armor"
+   ],
+   "level": 1,
+   "armor": 2,
+   "size": [
+    2,
+    2
+   ],
+   "req": {
+    "str": 0
+   }
+  },
+  {
+   "id": "cinto",
+   "name": "Cinto",
+   "slot": "waist",
+   "tags": [
+    "armor"
+   ],
+   "level": 1,
+   "armor": 2,
+   "size": [
+    2,
+    1
+   ],
+   "req": {
+    "str": 0
+   }
+  },
+  {
+   "id": "anel",
+   "name": "Anel",
+   "slot": "ring",
+   "tags": [
+    "jewelry"
+   ],
+   "level": 1,
+   "size": [
+    1,
+    1
+   ],
+   "req": {}
+  },
+  {
+   "id": "amuleto",
+   "name": "Amuleto",
+   "slot": "neck",
+   "tags": [
+    "jewelry"
+   ],
+   "level": 1,
+   "size": [
+    1,
+    1
+   ],
+   "req": {}
+  }
+ ],
+ "affixes": [
+  {
+   "id": "afiado",
+   "kind": "prefix",
+   "name": "Afiado",
+   "group": "dmg_pct",
+   "stat": "damagePct",
+   "tiers": [
+    {
+     "level": 1,
+     "min": 0.1,
+     "max": 0.2
+    },
+    {
+     "level": 8,
+     "min": 0.21,
+     "max": 0.35
+    }
+   ],
+   "tags": [
+    "sword"
+   ]
+  },
+  {
+   "id": "robusto",
+   "kind": "prefix",
+   "name": "Robusto",
+   "group": "arm_pct",
+   "stat": "armorPct",
+   "tiers": [
+    {
+     "level": 1,
+     "min": 0.1,
+     "max": 0.2
+    },
+    {
+     "level": 8,
+     "min": 0.21,
+     "max": 0.35
+    }
+   ],
+   "tags": [
+    "armor",
+    "shield"
+   ]
+  },
+  {
+   "id": "preciso",
+   "kind": "prefix",
+   "name": "Preciso",
+   "group": "acc",
+   "stat": "accuracy",
+   "tiers": [
+    {
+     "level": 1,
+     "min": 10,
+     "max": 30
+    },
+    {
+     "level": 10,
+     "min": 31,
+     "max": 60
+    }
+   ],
+   "tags": [
+    "sword",
+    "jewelry",
+    "armor"
+   ]
+  },
+  {
+   "id": "flamejante",
+   "kind": "prefix",
+   "name": "Flamejante",
+   "group": "fire_dmg",
+   "stat": "fireDamage",
+   "tiers": [
+    {
+     "level": 3,
+     "min": 2,
+     "max": 6
+    },
+    {
+     "level": 10,
+     "min": 5,
+     "max": 12
+    }
+   ],
+   "tags": [
+    "sword",
+    "jewelry"
+   ]
+  },
+  {
+   "id": "agil",
+   "kind": "prefix",
+   "name": "Ágil",
+   "group": "ias",
+   "stat": "attackSpeedPct",
+   "tiers": [
+    {
+     "level": 5,
+     "min": 0.1,
+     "max": 0.2
+    }
+   ],
+   "tags": [
+    "sword",
+    "armor"
+   ]
+  },
+  {
+   "id": "do_mestre",
+   "kind": "prefix",
+   "name": "do Mestre",
+   "group": "skill",
+   "stat": "laminasSkills",
+   "tiers": [
+    {
+     "level": 12,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "tags": [
+    "sword",
+    "jewelry"
+   ]
+  },
+  {
+   "id": "do_urso",
+   "kind": "suffix",
+   "name": "do Urso",
+   "group": "vit",
+   "stat": "vit",
+   "tiers": [
+    {
+     "level": 1,
+     "min": 1,
+     "max": 5
+    },
+    {
+     "level": 9,
+     "min": 6,
+     "max": 10
+    }
+   ],
+   "tags": [
+    "armor",
+    "shield",
+    "jewelry"
+   ]
+  },
+  {
+   "id": "da_raposa",
+   "kind": "suffix",
+   "name": "da Raposa",
+   "group": "dex",
+   "stat": "dex",
+   "tiers": [
+    {
+     "level": 1,
+     "min": 1,
+     "max": 5
+    },
+    {
+     "level": 9,
+     "min": 6,
+     "max": 10
+    }
+   ],
+   "tags": [
+    "sword",
+    "armor",
+    "jewelry"
+   ]
+  },
+  {
+   "id": "do_touro",
+   "kind": "suffix",
+   "name": "do Touro",
+   "group": "str",
+   "stat": "str",
+   "tiers": [
+    {
+     "level": 1,
+     "min": 1,
+     "max": 5
+    },
+    {
+     "level": 9,
+     "min": 6,
+     "max": 10
+    }
+   ],
+   "tags": [
+    "sword",
+    "armor",
+    "shield",
+    "jewelry"
+   ]
+  },
+  {
+   "id": "da_vida",
+   "kind": "suffix",
+   "name": "da Vida",
+   "group": "life",
+   "stat": "maxLife",
+   "tiers": [
+    {
+     "level": 1,
+     "min": 5,
+     "max": 15
+    },
+    {
+     "level": 8,
+     "min": 16,
+     "max": 30
+    }
+   ],
+   "tags": [
+    "armor",
+    "shield",
+    "jewelry"
+   ]
+  },
+  {
+   "id": "da_sorte",
+   "kind": "suffix",
+   "name": "da Sorte",
+   "group": "mf",
+   "stat": "magicFind",
+   "tiers": [
+    {
+     "level": 4,
+     "min": 0.05,
+     "max": 0.15
+    }
+   ],
+   "tags": [
+    "jewelry",
+    "armor"
+   ]
+  },
+  {
+   "id": "do_escudeiro",
+   "kind": "suffix",
+   "name": "do Escudeiro",
+   "group": "block",
+   "stat": "guardEfficiency",
+   "tiers": [
+    {
+     "level": 3,
+     "min": 0.03,
+     "max": 0.08
+    }
+   ],
+   "tags": [
+    "shield"
+   ]
+  },
+  {
+   "id": "da_firmeza",
+   "kind": "suffix",
+   "name": "da Firmeza",
+   "group": "fhr",
+   "stat": "fasterHitRecovery",
+   "tiers": [
+    {
+     "level": 3,
+     "min": 0.1,
+     "max": 0.2
+    },
+    {
+     "level": 10,
+     "min": 0.21,
+     "max": 0.35
+    }
+   ],
+   "tags": [
+    "armor",
+    "jewelry"
+   ]
+  },
+  {
+   "id": "do_reflexo",
+   "kind": "suffix",
+   "name": "do Reflexo",
+   "group": "fbr",
+   "stat": "fasterBlockRecovery",
+   "tiers": [
+    {
+     "level": 3,
+     "min": 0.1,
+     "max": 0.25
+    }
+   ],
+   "tags": [
+    "shield",
+    "jewelry"
+   ]
+  },
+  {
+   "id": "expedito",
+   "kind": "prefix",
+   "name": "Expedito",
+   "group": "cdr",
+   "stat": "cooldownReduction",
+   "tiers": [
+    {
+     "level": 8,
+     "min": 0.05,
+     "max": 0.1
+    }
+   ],
+   "tags": [
+    "jewelry"
+   ]
+  }
+ ],
+ "rareAffixCount": {
+  "min": 3,
+  "max": 6
+ }
+}

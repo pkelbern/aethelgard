@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+*.spec
+
+# Jogo
+saves/
+logs/
+*.png
+!docs/**/*.png
+!assets/**/*.png
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.zip

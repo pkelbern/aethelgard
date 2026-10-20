@@ -1,0 +1,12 @@
+{
+  "_comment": "Multiplicadores por tipo de monstro (dificuldade Normal, valores do D2). dmgBonus/accBonus são aditivos (0.9 = +90%).",
+  "ranks": [
+    { "id": "normal",    "levelBonus": 0, "hpMult": 1, "xpMult": 1,  "dmgBonus": 0.00, "accBonus": 0.00, "modifiers": 0, "lootQualityMult": 1, "guaranteedMagic": false },
+    { "id": "champion",  "levelBonus": 2, "hpMult": 3, "xpMult": 3,  "dmgBonus": 0.90, "accBonus": 0.67, "modifiers": 1, "lootQualityMult": 2, "guaranteedMagic": false },
+    { "id": "berserker", "levelBonus": 2, "hpMult": 3, "xpMult": 5,  "dmgBonus": 2.70, "accBonus": 2.70, "modifiers": 1, "lootQualityMult": 2, "guaranteedMagic": false },
+    { "id": "unique",    "levelBonus": 3, "hpMult": 4, "xpMult": 5,  "dmgBonus": 0.00, "accBonus": 0.00, "modifiers": 2, "lootQualityMult": 3, "guaranteedMagic": true },
+    { "id": "minion",    "levelBonus": 3, "hpMult": 2, "xpMult": 5,  "dmgBonus": 0.00, "accBonus": 0.00, "modifiers": 0, "lootQualityMult": 1, "guaranteedMagic": false },
+    { "id": "boss",      "levelBonus": 0, "hpMult": 1, "xpMult": 15, "dmgBonus": 0.00, "accBonus": 0.00, "modifiers": 0, "lootQualityMult": 5, "guaranteedMagic": true }
+  ],
+  "berserkerChanceInChampionPack": 0.2
+}

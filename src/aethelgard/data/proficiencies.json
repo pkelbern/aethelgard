@@ -1,0 +1,88 @@
+{
+  "_comment": "Proficiências. attributes = pontos ganhos por nível (somam balance.attributes.pointsPerProficiencyLevel). xpSource: offense (dano causado), block (golpes bloqueados), armor (dano mitigado). defaultTitle: título enquanto todas as proficiências estão no nível 1.",
+  "proficiencies": [
+    {
+      "id": "laminas",
+      "name": "Lâminas",
+      "xpSource": "offense",
+      "attributes": {
+        "str": 2,
+        "dex": 1,
+        "vit": 0,
+        "int": 0
+      },
+      "weaponTags": [
+        "sword"
+      ]
+    },
+    {
+      "id": "escudo",
+      "name": "Escudo",
+      "xpSource": "block",
+      "attributes": {
+        "str": 1,
+        "dex": 0,
+        "vit": 2,
+        "int": 0
+      },
+      "weaponTags": [
+        "shield"
+      ]
+    },
+    {
+      "id": "couraca",
+      "name": "Couraça",
+      "xpSource": "armor",
+      "attributes": {
+        "str": 1,
+        "dex": 0,
+        "vit": 2,
+        "int": 0
+      },
+      "weaponTags": []
+    }
+  ],
+  "titles": [
+    {
+      "ids": [
+        "laminas"
+      ],
+      "title": "Duelista"
+    },
+    {
+      "ids": [
+        "escudo"
+      ],
+      "title": "Protetor"
+    },
+    {
+      "ids": [
+        "couraca"
+      ],
+      "title": "Colosso"
+    },
+    {
+      "ids": [
+        "laminas",
+        "escudo"
+      ],
+      "title": "Guardião"
+    },
+    {
+      "ids": [
+        "laminas",
+        "couraca"
+      ],
+      "title": "Gladiador"
+    },
+    {
+      "ids": [
+        "escudo",
+        "couraca"
+      ],
+      "title": "Bastião"
+    }
+  ],
+  "titleSecondaryThreshold": 0.5,
+  "defaultTitle": "Recruta"
+}
