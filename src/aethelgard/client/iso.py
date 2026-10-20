@@ -134,18 +134,27 @@ class MapRenderer:
         self._fog[(cx, cy)] = (seen, fog)
         return fog
 
-    def draw_markers(self, screen: pygame.Surface, cam: Camera, font: pygame.font.Font, area_names: dict[str, str]) -> None:
+    def draw_markers(self, screen: pygame.Surface, cam: Camera, font: pygame.font.Font, area_names: dict[str, str], explored=None) -> None:
+        """Exits, waypoint and NPCs, but only where the fog of war has been lifted (same rule as the automap)."""
         L = self.layout
+
+        def seen(c) -> bool:
+            return explored is None or bool(explored[round(c[1]), round(c[0])])
+
         for e in L.exits:
+            if not seen(e.pos):
+                continue
             sx, sy = cam.to_screen(*e.pos)
             pygame.draw.polygon(screen, C.EXIT, diamond(sx, sy, 0.8))
             label = {ExitKind.STAIRS_DOWN: "Down", ExitKind.STAIRS_UP: "Up"}.get(e.kind) or area_names.get(e.target_area or "", "")
             img = font.render(label, True, C.EXIT)
             screen.blit(img, (sx - img.get_width() // 2, sy - 30))
-        if L.waypoint:
+        if L.waypoint and seen(L.waypoint):
             sx, sy = cam.to_screen(*L.waypoint)
             pygame.draw.polygon(screen, C.WAYPOINT, diamond(sx, sy, 0.7))
         for name, (cell, props) in L.markers.items():
+            if not seen(cell):
+                continue
             sx, sy = cam.to_screen(*cell)
             color = C.NPC.get(props.get("role", ""), C.TEXT)
             pygame.draw.circle(screen, (0, 0, 0), (sx, sy), 10)

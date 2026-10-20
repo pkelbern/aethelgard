@@ -11,6 +11,19 @@
   "energy_potion": { "name": "Energy Potion", "restore": "energy", "pctOfMax": 0.5, "seconds": 1.5, "cooldownSeconds": 0.5 },
   "portal_scroll": { "name": "Portal Scroll", "portal": true, "cooldownSeconds": 1.0 }
  },
+ "equipment": {
+  "_comment": "Equipment slots, in screen order. accepts = item slot types (bases' 'slot') that fit; the first one is the slot's own type, used when equipping with a double-click. offhand also takes a one-hand weapon: two weapons alternate their swings, but there is no guard and no Shield skills without a shield.",
+  "head":     { "name": "Helm",       "accepts": ["head"] },
+  "neck":     { "name": "Amulet",     "accepts": ["neck"] },
+  "mainhand": { "name": "Weapon",     "accepts": ["mainhand"] },
+  "body":     { "name": "Body Armor", "accepts": ["body"] },
+  "offhand":  { "name": "Off Hand",   "accepts": ["offhand", "mainhand"] },
+  "hands":    { "name": "Gloves",     "accepts": ["hands"] },
+  "waist":    { "name": "Belt",       "accepts": ["waist"] },
+  "ring1":    { "name": "Ring",       "accepts": ["ring"] },
+  "ring2":    { "name": "Ring",       "accepts": ["ring"] },
+  "feet":     { "name": "Boots",      "accepts": ["feet"] }
+ },
  "slotNames": {"mainhand": "Weapon", "offhand": "Shield", "body": "Body Armor", "head": "Helm", "hands": "Gloves", "feet": "Boots", "waist": "Belt", "ring": "Ring", "neck": "Amulet"},
  "rareNames": {
   "first": ["Ruin", "Fury", "Shadow", "Death", "Sorrow", "Storm", "Raven", "Moon", "Thorn", "Ember"],

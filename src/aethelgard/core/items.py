@@ -259,22 +259,46 @@ class Inventory(ItemContainer):
 
 
 class Loadout:
-    """Equipped items, one per slot (``ItemBaseDef.slot``). Affixes start counting with M6-03."""
+    """Equipped items by equipment slot (items.json → equipment). Two ring slots; the off hand takes a
+    shield or a one-hand weapon. Affixes start counting with M6-03."""
 
-    def __init__(self) -> None:
+    LEGACY = {"ring": "ring1"}  # saves before two rings existed
+
+    def __init__(self, accepts: dict[str, list[str]]):
+        self.accepts = accepts
         self.slots: dict[str, Item] = {}
 
     @classmethod
+    def for_data(cls, d: GameData) -> Loadout:
+        return cls({k: list(v.accepts) for k, v in d.items.equipment.items()})
+
+    @classmethod
     def starting(cls, d: GameData) -> Loadout:
-        gear = cls()
+        gear = cls.for_data(d)
         for base_id in d.items.starting_gear:
             gear.equip(Item.plain(d.base(base_id)))
         return gear
 
-    def equip(self, item: Item) -> Item | None:
-        """Puts the item in its slot and returns what was there before."""
-        previous = self.slots.get(item.slot)
-        self.slots[item.slot] = item
+    def slots_for(self, item: Item) -> list[str]:
+        """Every slot the item fits in."""
+        return [k for k, acc in self.accepts.items() if item.slot in acc]
+
+    def native_slots(self, item: Item) -> list[str]:
+        """Slots made for this kind of item (a sword's is the main hand, not the off hand)."""
+        return [k for k, acc in self.accepts.items() if acc and acc[0] == item.slot]
+
+    def auto_slot(self, item: Item) -> str | None:
+        """Where a double-click puts it: a free slot of its own kind, else the first one (a swap)."""
+        native = self.native_slots(item) or self.slots_for(item)
+        return next((k for k in native if k not in self.slots), native[0] if native else None)
+
+    def equip(self, item: Item, slot: str | None = None) -> Item | None:
+        """Puts the item in ``slot`` (or its automatic slot) and returns what was there before."""
+        slot = slot or self.auto_slot(item)
+        if slot is None or slot not in self.slots_for(item):
+            raise ValueError(f"{item.name} does not fit in {slot}")
+        previous = self.slots.get(slot)
+        self.slots[slot] = item
         return previous
 
     def get(self, slot: str) -> Item | None:
@@ -297,17 +321,31 @@ class Loadout:
         return self.off_hand is not None and "shield" in self.off_hand.base.tags
 
     @property
+    def dual_wielding(self) -> bool:
+        return self.main_hand is not None and self.off_hand is not None and self.off_hand.base.dmg_max > 0
+
+    def weapon(self, hand: str = "main") -> Item | None:
+        """The weapon that swings this time: ``main``, or ``off`` when holding two weapons."""
+        return self.off_hand if hand == "off" and self.dual_wielding else self.main_hand
+
+    @property
     def armor(self) -> float:
         return sum(i.base.armor for i in self.slots.values())
+
+    @property
+    def shield_armor(self) -> float:
+        return self.off_hand.base.armor if self.has_shield else 0.0
 
     def to_dict(self) -> dict[str, dict]:
         return {slot: item_to_dict(i) for slot, i in self.slots.items()}
 
     @classmethod
     def from_dict(cls, d: GameData, raw: dict[str, dict]) -> Loadout:
-        gear = cls()
-        for item in raw.values():
-            gear.equip(item_from_dict(d, item))
+        gear = cls.for_data(d)
+        for slot, item in raw.items():
+            it = item_from_dict(d, item)
+            slot = cls.LEGACY.get(slot, slot)
+            gear.equip(it, slot if slot in gear.slots_for(it) else None)
         return gear
 
 

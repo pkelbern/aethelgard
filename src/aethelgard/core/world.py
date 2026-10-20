@@ -130,10 +130,11 @@ class UseConsumable:
 
 @dataclass(frozen=True)
 class EquipItem:
-    """Wear the backpack item at ``index`` (swaps with what is in its slot)."""
+    """Wear the backpack item at ``index`` in ``slot`` (None = its automatic slot); swaps with what is there."""
 
     player_id: int
     index: int
+    slot: str | None = None
 
 
 @dataclass(frozen=True)
@@ -202,6 +203,7 @@ class PlayerActor:
     attack_hit_done: bool = False
     attack_skill: str | None = None
     attack_target: int | None = None
+    attack_hand: str = "main"  # with two weapons the swings alternate main → off → main
     guard_held: bool = False
     guarding: bool = False
     guard_time: float = 0.0
@@ -431,7 +433,8 @@ class World:
         if isinstance(cmd, UseConsumable):
             return self._use_consumable(p, cmd.consumable_id)
         if isinstance(cmd, EquipItem | UnequipItem):  # gear changes the fight, so it goes through the world
-            r, msg = p.session.equip_from_backpack(cmd.index) if isinstance(cmd, EquipItem) else p.session.unequip(cmd.slot)
+            s = p.session
+            r, msg = s.equip_from_backpack(cmd.index, cmd.slot) if isinstance(cmd, EquipItem) else s.unequip(cmd.slot)
             if r is Equip.OK and not p.session.gear.has_shield:
                 self._lower_guard(p, start_cooldown=False)
             p.life, p.energy = min(p.life, p.max_life), min(p.energy, p.max_energy)
@@ -465,6 +468,8 @@ class World:
         node = self.data.node(skill_id)
         if s.skills.points_in(skill_id) <= 0:
             return f"{node.name}: no points"
+        if node.tree == "shield" and node.kind == "active" and not s.gear.has_shield:
+            return f"{node.name}: needs a shield"
         if skill_id not in IMPLEMENTED_SKILLS:
             return f"{node.name}: not implemented yet"
         if not p.cooldowns.ready(skill_id):
@@ -712,6 +717,8 @@ class World:
         p.attack_hit_done = False
         p.attack_skill = skill
         p.attack_target = target_id
+        dual = p.session.gear.dual_wielding
+        p.attack_hand = ("off" if p.attack_hand == "main" else "main") if dual else "main"
         p.cooldowns.start("attack", p.attack_duration)
         if skill:
             self._commit_skill(p, skill)
@@ -732,7 +739,7 @@ class World:
                 targets.append(t)
         prof = self.data.node(skill).tree if skill else "blades"
         for t in targets:
-            atk = player_attack(s.character, s.skills, s.gear, skill)
+            atk = player_attack(s.character, s.skills, s.gear, skill, p.attack_hand)
             r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
             if not r.hit:
                 self._float(t.x, t.y, "miss", "miss")
@@ -997,8 +1004,6 @@ class World:
 
     def _throw_shield(self, p: PlayerActor, cmd: UseSkill) -> str | None:
         s = p.session
-        if not s.gear.has_shield:
-            return "Shield Throw: needs a shield"
         if p.busy or p.state == "attacking" or not p.cooldowns.ready("global"):
             return None
         t = self.monsters.get(cmd.target_id) if cmd.target_id is not None else None

@@ -535,6 +535,12 @@ class RareNameParts:
 
 
 @dataclass
+class EquipSlotDef:
+    name: str = ""
+    accepts: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ConsumableDef:
     name: str = ""
     restore: str | None = None  # life | energy
@@ -548,8 +554,9 @@ class ConsumableDef:
 class ItemsData:
     inventory: InventorySize = field(default_factory=InventorySize)
     starting_gear: list[str] = field(default_factory=list)
-    slot_names: dict[str, str] = field(default_factory=dict)
-    consumables: dict[str, ConsumableDef] = field(default_factory=dict)  # equipment slot → name on screen (inventory, tooltips)
+    slot_names: dict[str, str] = field(default_factory=dict)  # item type (base 'slot') → name in tooltips
+    consumables: dict[str, ConsumableDef] = field(default_factory=dict)
+    equipment: dict[str, EquipSlotDef] = field(default_factory=dict)  # equipment slot → what it accepts, in screen order
     rare_names: RareNameParts = field(default_factory=RareNameParts)
     rarity_chances: RarityChances = field(default_factory=RarityChances)
     drop_count: dict[str, DropCountDef] = field(default_factory=dict)
@@ -793,6 +800,8 @@ def validate(d: GameData) -> list[str]:
     base_ids = {b.id for b in d.items.bases}
     errors += [f"items: starting gear '{b}' is not a base" for b in d.items.starting_gear if b not in base_ids]
     errors += [f"items: base '{b.id}' uses slot '{b.slot}' with no entry in slotNames" for b in d.items.bases if b.slot not in d.items.slot_names]
+    accepted = {t for e in d.items.equipment.values() for t in e.accepts}
+    errors += [f"items: no equipment slot accepts '{b.slot}' (base '{b.id}')" for b in d.items.bases if b.slot not in accepted]
     for cid in ("life_potion", "energy_potion", "portal_scroll"):  # what PotionDrop/ScrollDrop give
         if cid not in d.items.consumables:
             errors.append(f"items: consumable '{cid}' missing (drops give it)")

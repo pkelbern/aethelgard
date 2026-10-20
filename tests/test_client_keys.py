@@ -36,3 +36,9 @@ def test_bad_key_maps_are_refused():
     with pytest.raises(ValueError, match="twice"):
         KeyMap({**raw, "skillBar": ["q", "t"]}, 2)
     assert KeyMap(raw, 2).bar_labels == "Q W"
+
+
+def test_inventory_screen_draws_every_equipment_slot(data):
+    from aethelgard.client.inventory_view import GEAR_LAYOUT
+
+    assert set(GEAR_LAYOUT) == set(data.items.equipment), "a slot in items.json without a place on the screen (or the reverse)"

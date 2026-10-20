@@ -147,7 +147,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M5-06** Portal de cidade (pergaminho) _(código, ~1 d)_ — **escrito, validar**  
   E abre o portal onde você está; entrar leva à vila, onde o portal aparece ao lado do waypoint; entrar de novo volta ao mesmo ponto. O portal fica até o próximo pergaminho. As áreas agora guardam o estado na partida (monstros mortos continuam mortos, itens no chão continuam lá).
 - [x] **M5-07** Névoa de guerra e mapa automático (Tab) _(UI, ~2 d)_  
-  Feito: campo de visão do tcod revela o mapa, monstros fora da visão somem, mapa pequeno no canto e grande com Tab.
+  Feito: campo de visão do tcod revela o mapa, monstros fora da visão somem, mapa pequeno no canto e grande com Tab. Saídas, waypoint, NPCs e portal só aparecem depois de explorados.
 - [x] **M5-08** Cidade feita à mão no Tiled _(conteúdo, ~2 d)_  
   Feito: data/maps/village.tmx com entrada, saída, waypoint, vendedora e baú (marcadores). Falta: lógica do vendedor e do baú.
 
@@ -160,7 +160,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M6-02** Itens no chão e coleta _(código, ~2 d)_ — **escrito, validar**  
   Drops caem em volta do corpo com cor de raridade; clique anda até o item e coleta (comando PickUp); ouro coletado ao passar por cima (balance.loot.autoPickupGold); Alt mostra todos os nomes sem sobreposição; mochila cheia deixa o item no chão. Some ao sair da área.
 - [ ] **M6-03** Inventário em grade 10×6 e equipamento _(UI, ~4 d)_ — parte **escrito, validar**  
-  Feito: tela no I (client/inventory_view.py) com slots de equipamento e grade 10×6; equipar arrastando para o slot, duplo clique ou Ctrl+clique; o mesmo tira; requisitos (borda vermelha, aviso); troca no lugar da mochila; comandos EquipItem/UnequipItem no World; tooltip do item (describe_item). Falta: itens ocupando várias células (size) e os afixos valerem no combate (hoje só a base conta: dano, armadura, escudo).
+  Feito: tela no I (client/inventory_view.py) com slots de equipamento e grade 10×6; equipar arrastando para o slot, duplo clique ou Ctrl+clique; o mesmo tira; requisitos (borda vermelha, aviso); troca no lugar da mochila; comandos EquipItem/UnequipItem no World; tooltip do item (describe_item). Slots de equipamento em items.json (equipment): dois anéis; a mão secundária aceita escudo ou arma de uma mão (duas armas alternam os golpes, sem guarda nem habilidades ativas de Escudo). Falta: itens ocupando várias células (size) e os afixos valerem no combate (hoje só a base conta: dano, armadura, escudo).
 - [ ] **M6-04** Tooltip com comparação ao equipado _(UI, ~1.5 d)_ — **escrito, validar**  
   Shift sobre um item da mochila: diferenças em verde/vermelho por atributo (describe.compare_items) e o item vestido ao lado.
 - [ ] **M6-05** Tela do baú compartilhado e vendedor _(UI, ~2 d)_  

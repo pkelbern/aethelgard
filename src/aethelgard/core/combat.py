@@ -176,10 +176,10 @@ BASE_ACCURACY = 20.0
 DEFENSE_PER_DEX = 2.0
 
 
-def player_attack(sheet, skills, gear: Loadout, skill: str | None = None) -> AttackerStats:
+def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: str = "main") -> AttackerStats:
     """STR: +1% damage per point. DEX: +5 accuracy and +0.2% crit per point (GDD 4.2)."""
     a = sheet.attributes
-    w = gear.main_hand
+    w = gear.weapon(hand)
     dmg_min, dmg_max = (w.base.dmg_min, w.base.dmg_max) if w else (1, 2)
     bonus = a.str * 0.01 + skills.effect("sharp_blade", "swordDamagePct")
     acc = BASE_ACCURACY + a.dex * 5
@@ -190,7 +190,8 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None) -> Att
 
 
 def player_defense(sheet, skills, gear: Loadout) -> DefenderStats:
-    armor = gear.armor * (1 + skills.effect("iron_skin", "armorPct") + skills.effect("heavy_shield", "shieldArmorPct"))
+    # Iron Skin raises all armor; Heavy Shield only the shield's own (nothing without a shield)
+    armor = gear.armor * (1 + skills.effect("iron_skin", "armorPct")) + gear.shield_armor * skills.effect("heavy_shield", "shieldArmorPct")
     return DefenderStats(sheet.level, sheet.attributes.dex * DEFENSE_PER_DEX, armor)
 
 

@@ -460,7 +460,7 @@ class Game:
         screen, cam = self.screen, self.cam
         screen.fill(C.BG)
         self.map.draw(screen, cam, self.vision.explored)
-        self.map.draw_markers(screen, cam, self.fonts["tiny"], self.area_names)
+        self.map.draw_markers(screen, cam, self.fonts["tiny"], self.area_names, self.vision.explored)
         drops = self.visible_drops()
         self.ground_view.draw_shapes(screen, cam, drops)
         self._draw_portal()
@@ -518,7 +518,8 @@ class Game:
     def _draw_portal(self) -> None:
         """The player's town portal, where it stands in this area (in the world, or beside the town waypoint)."""
         spot = self.world.portal_spot(self.session.player_id)
-        if spot is None:
+        e = self.vision.explored
+        if spot is None or (e is not None and not e[round(spot[1]), round(spot[0])]):
             return
         sx, sy = self.cam.to_screen(*spot)
         screen = self.screen
@@ -581,6 +582,8 @@ class Game:
                     pygame.draw.arc(screen, C.GUARD, (sx - 36, sy - 56, 72, 72), -ang - arc, -ang + arc, 2)
             else:
                 pygame.draw.rect(screen, C.SHIELD, (sx - 17, sy - 32, 8, 16))
+        elif p.session.gear.dual_wielding:  # second blade in the left hand
+            pygame.draw.line(screen, C.SWORD, (sx - 10, sy - 28), (sx - 14 + ux * 10, sy - 46 + uy * 6), 3)
         swing = 0.0
         if p.state == "attacking" and p.attack_duration > 0:
             swing = math.sin(math.pi * min(1, p.attack_elapsed / p.attack_duration))

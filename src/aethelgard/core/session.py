@@ -34,6 +34,7 @@ class Equip(Enum):
     NO_ITEM = "no such item"
     REQUIREMENTS = "requirements not met"
     BACKPACK_FULL = "backpack full"
+    WRONG_SLOT = "does not fit there"
 
 
 @dataclass(frozen=True)
@@ -95,16 +96,21 @@ class GameSession:
         a = self.character.attributes
         return {k: v for k, v in item.base.req.items() if v > getattr(a, k, 0)}
 
-    def equip_from_backpack(self, index: int) -> tuple[Equip, str]:
-        """Wears the backpack item at ``index``; what was in that slot takes its place in the backpack."""
+    def equip_from_backpack(self, index: int, slot: str | None = None) -> tuple[Equip, str]:
+        """Wears the backpack item at ``index`` in ``slot`` (or its automatic slot); what was there takes its
+        place in the backpack. A one-hand weapon in the off hand means two weapons."""
         if not 0 <= index < len(self.inventory.items):
             return Equip.NO_ITEM, "no such item"
         item = self.inventory.items[index]
+        if slot is not None and slot not in self.gear.slots_for(item):
+            names = self.data.items.equipment
+            fits = " or ".join(dict.fromkeys(names[k].name for k in self.gear.slots_for(item))) or "nowhere"
+            return Equip.WRONG_SLOT, f"{item.name} goes in {fits}, not {names[slot].name if slot in names else slot}"
         missing = self.missing_requirements(item)
         if missing:
             need = ", ".join(f"{v} {self.data.stat(k).label}" for k, v in missing.items())
             return Equip.REQUIREMENTS, f"{item.name} needs {need}"
-        previous = self.gear.equip(item)
+        previous = self.gear.equip(item, slot)
         if previous is None:
             self.inventory.items.pop(index)
         else:

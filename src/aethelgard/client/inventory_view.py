@@ -31,8 +31,8 @@ DOUBLE_CLICK_MS = 350
 GEAR_LAYOUT = {
     "head": (1, 0), "neck": (2, 0),
     "mainhand": (0, 1), "body": (1, 1), "offhand": (2, 1),
-    "hands": (0, 2), "waist": (1, 2), "ring": (2, 2),
-    "feet": (1, 3),
+    "hands": (0, 2), "waist": (1, 2), "ring1": (2, 2),
+    "ring2": (0, 3), "feet": (1, 3),
 }
 
 
@@ -131,12 +131,7 @@ class InventoryView:
             return
         s = self.g.session
         if src[0] == "bag" and target[0] == "gear":
-            item = s.inventory.items[src[1]]
-            if item.slot != target[1]:
-                names = self.g.data.items.slot_names
-                self.g.hud.add(f"{item.name} goes in the {names.get(item.slot, item.slot)} slot, not {names.get(target[1], target[1])}.", C.MUTED)
-                return
-            self._send(EquipItem(s.player_id, src[1]))
+            self._send(EquipItem(s.player_id, src[1], target[1]))  # the core says when it does not fit
         elif src[0] == "gear" and target[0] in ("bag", "grid"):
             self._send(UnequipItem(s.player_id, src[1]))
 
@@ -160,7 +155,7 @@ class InventoryView:
         img = f["tiny"].render(hint, True, C.MUTED)
         screen.blit(img, (r.right - img.get_width() - PAD, r.y + 18))
 
-        names = self.g.data.items.slot_names
+        names = {k: v.name for k, v in self.g.data.items.equipment.items()}
         for slot in GEAR_LAYOUT:
             box = self.gear_rect(slot)
             pygame.draw.rect(screen, C.PANEL, box)
@@ -187,7 +182,8 @@ class InventoryView:
             item = self._item(self.drag)
             if item is not None:
                 if self.drag[0] == "bag":
-                    pygame.draw.rect(screen, C.GOOD, self.gear_rect(item.slot), 2)
+                    for slot in s.gear.slots_for(item):
+                        pygame.draw.rect(screen, C.GOOD, self.gear_rect(slot), 2)
                 self._item_box(screen, item, pygame.Rect(mouse[0] - CELL // 2, mouse[1] - CELL // 2, CELL - 4, CELL - 4))
             return
         h = self.hit(mouse)
@@ -196,7 +192,7 @@ class InventoryView:
             return
         d = self.g.data
         lines = describe_item(d, item, s.missing_requirements(item))
-        worn = s.gear.get(item.slot)
+        worn = next((s.gear.get(k) for k in s.gear.native_slots(item) if s.gear.get(k)), None)
         comparing = h[0] == "bag" and self.g.keys.held("compare")
         if comparing:
             lines += compare_items(d, item, worn)
