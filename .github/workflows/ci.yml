@@ -30,4 +30,4 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: python -m aethelgard --seed 1 --frames 120 --area planicie
+        run: python -m aethelgard --seed 1 --frames 120 --area plains
