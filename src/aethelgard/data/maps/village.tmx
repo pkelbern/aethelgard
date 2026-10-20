@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="40" height="40" tilewidth="16" tileheight="16" infinite="0" nextlayerid="3" nextobjectid="6">
  <properties>
-  <property name="area" value="vila"/>
-  <property name="nota" value="Mapa lógico: cada tile é uma célula do jogo. O jogo desenha em isométrico."/>
+  <property name="area" value="village"/>
+  <property name="note" value="Logic map: each tile is one game cell. The game draws it in isometric."/>
  </properties>
- <tileset firstgid="1" source="logica.tsx"/>
- <layer id="1" name="terreno" width="40" height="40">
+ <tileset firstgid="1" source="logic.tsx"/>
+ <layer id="1" name="terrain" width="40" height="40">
   <data encoding="csv">
 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
 2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,
@@ -49,11 +49,11 @@
 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2
 </data>
  </layer>
- <objectgroup id="2" name="objetos">
-  <object id="1" name="entrada" type="entry" x="320" y="336" width="16" height="16"></object>
-  <object id="2" name="planicie" type="exit" x="624" y="304" width="16" height="16"><properties><property name="target" value="planicie"/></properties></object>
+ <objectgroup id="2" name="objects">
+  <object id="1" name="entry" type="entry" x="320" y="336" width="16" height="16"></object>
+  <object id="2" name="plains" type="exit" x="624" y="304" width="16" height="16"><properties><property name="target" value="plains"/></properties></object>
   <object id="3" name="waypoint" type="waypoint" x="368" y="288" width="16" height="16"></object>
-  <object id="4" name="Vendedora Ilsa" type="npc" x="384" y="352" width="16" height="16"><properties><property name="role" value="vendor"/></properties></object>
-  <object id="5" name="Baú compartilhado" type="npc" x="256" y="352" width="16" height="16"><properties><property name="role" value="stash"/></properties></object>
+  <object id="4" name="Ilsa the Merchant" type="npc" x="384" y="352" width="16" height="16"><properties><property name="role" value="vendor"/></properties></object>
+  <object id="5" name="Shared Stash" type="npc" x="256" y="352" width="16" height="16"><properties><property name="role" value="stash"/></properties></object>
  </objectgroup>
 </map>

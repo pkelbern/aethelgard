@@ -1,12 +1,12 @@
 {
-  "_comment": "Parâmetros globais de balanceamento. A simulação do Ato 1 (aethelgard.core.simulation) usa estes valores.",
+  "_comment": "Global balance parameters. The Act 1 simulation (aethelgard.core.simulation) uses these values.",
   "xp": {
     "defenseXpPerHit": 0.1,
     "defenseXpCapPerMonster": 0.75,
     "trivialMonsterDelta": -10
   },
   "levelFactor": {
-    "_comment": "Fator de XP por Δ = nível do monstro − nível da proficiência (tabela do D2 abaixo do nível 25). Fora de −10..+10 vale a ponta; ausentes = 1.0.",
+    "_comment": "XP factor by Δ = monster level − proficiency level (D2 table below level 25). Outside −10..+10 the edge value applies; missing = 1.0.",
     "table": {
       "-10": 0.05,
       "-9": 0.24,
@@ -54,13 +54,13 @@
     "minionLeashTiles": 6
   },
   "death": {
-    "_comment": "Penalidade de morte. xpLossPctOfLevel = fração do XP já ganho DENTRO do nível atual que se perde (nunca perde nível). 0 = desligado no MVP.",
+    "_comment": "Death penalty. xpLossPctOfLevel = fraction of the XP already earned INSIDE the current level that is lost (never loses a level). 0 = off in the MVP.",
     "goldLossPct": 0.1,
     "xpLossPctOfLevel": 0.0,
     "dropCorpse": true
   },
   "guard": {
-    "_comment": "Bloqueio ativo (segurar o botão de guarda). Bloqueia golpes físicos dentro do arco frontal; cada bloqueio gasta Energia. Janela perfeita no início da guarda: custo zero e contra-ataque (Aparar). Depois de baixar a guarda, só pode erguer de novo após guardRaiseCooldownSeconds (evita abuso do aparo perfeito).",
+    "_comment": "Active block (hold the guard button). Blocks physical hits inside the front arc; each block costs Energy. Perfect window at the start of the guard: zero cost and counterattack (Parry). After lowering the guard, it can only be raised again after guardRaiseCooldownSeconds (prevents perfect-parry abuse).",
     "arcDegrees": 120,
     "baseEnergyCost": 1.0,
     "energyPerDamage": 0.25,
@@ -71,7 +71,7 @@
     "guardRaiseCooldownSeconds": 0.3
   },
   "timing": {
-    "_comment": "Tempos de ação (GDD 7.7). Todas as durações em segundos. 'faster…' reduz a duração: duração = base / (1 + bônus).",
+    "_comment": "Action timings (GDD 7.7). All durations in seconds. 'faster…' shortens the duration: duration = base / (1 + bonus).",
     "attackSeconds": 0.55,
     "attackHitFraction": 0.45,
     "hitRecoverySeconds": 0.4,

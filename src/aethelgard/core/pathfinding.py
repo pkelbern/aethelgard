@@ -1,4 +1,4 @@
-"""Busca de caminho com o A* do tcod (implementado em C), em 8 direções."""
+"""Pathfinding with tcod's A* (implemented in C), in 8 directions."""
 
 from __future__ import annotations
 
@@ -22,13 +22,13 @@ def nearest_walkable(L: AreaLayout, c: Cell, radius: int = 6) -> Cell | None:
 
 
 def find_path(L: AreaLayout, start: Cell, goal: Cell) -> list[Cell]:
-    """Caminho de ``start`` (exclusive) até ``goal``; se o destino é parede, vai até o chão mais próximo."""
+    """Path from ``start`` (exclusive) to ``goal``; if the goal is a wall, goes to the nearest floor."""
     if not L.is_floor(start):
         return []
     g = nearest_walkable(L, goal)
     if g is None or g == start:
         return []
-    # tcod usa índices (linha, coluna) = (y, x); custo 0 = parede
+    # tcod uses (row, column) = (y, x) indices; cost 0 = wall
     astar = tcod.path.AStar(L.tiles, diagonal=DIAGONAL_COST)
     path = astar.get_path(start[1], start[0], g[1], g[0])
     return [(int(x), int(y)) for y, x in path]

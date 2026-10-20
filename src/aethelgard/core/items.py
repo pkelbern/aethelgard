@@ -1,4 +1,8 @@
-"""Loot (GDD 10.3) e baú compartilhado (GDD 10.5)."""
+"""Loot (GDD 10.3), equipment, backpack and shared stash (GDD 10.5).
+
+Every place that holds items (equipment, backpack, stash, save file) stores them with the same
+``item_to_dict``/``item_from_dict`` pair, so an item survives any trip between them unchanged.
+"""
 
 from __future__ import annotations
 
@@ -31,8 +35,20 @@ class Item:
     affixes: list[RolledAffix] = field(default_factory=list)
     name: str = ""
 
+    @classmethod
+    def plain(cls, base: ItemBaseDef) -> Item:
+        """A normal item with no affixes (starting gear, vendor stock)."""
+        return cls(base, Rarity.NORMAL, base.level, [], base.name)
+
+    @property
+    def slot(self) -> str:
+        return self.base.slot
+
     def stat(self, stat: str) -> float:
         return sum(a.value for a in self.affixes if a.affix.stat == stat)
+
+
+# ---------------------------------------------------------------- drops
 
 
 @dataclass(frozen=True)
@@ -42,12 +58,20 @@ class GoldDrop:
 
 @dataclass(frozen=True)
 class PotionDrop:
-    kind: str
+    kind: str  # life | energy
+
+    @property
+    def consumable_id(self) -> str:
+        return f"{self.kind}_potion"
 
 
 @dataclass(frozen=True)
 class ScrollDrop:
-    kind: str
+    kind: str  # portal
+
+    @property
+    def consumable_id(self) -> str:
+        return f"{self.kind}_scroll"
 
 
 @dataclass(frozen=True)
@@ -55,19 +79,18 @@ class ItemDrop:
     item: Item
 
 
-_RARE_A = ["Ruína", "Fúria", "Sombra", "Morte", "Pesar", "Tormenta", "Corvo", "Lua", "Espinho", "Brasa"]
-_RARE_B = ["Mordida", "Guarda", "Grito", "Véu", "Presa", "Marca", "Coroa", "Lâmina", "Pele", "Juramento"]
+Drop = GoldDrop | PotionDrop | ScrollDrop | ItemDrop
 
 
 class LootGenerator:
     def __init__(self, data: GameData):
         self._d = data
 
-    def roll_drops(self, rank_id: str, item_level: int, magic_find: float, rng: Rng) -> list:
+    def roll_drops(self, rank_id: str, item_level: int, magic_find: float, rng: Rng) -> list[Drop]:
         it = self._d.items
         count = it.drop_count[rank_id]
         rank = self._d.rank(rank_id)
-        drops: list = []
+        drops: list[Drop] = []
         if rng.chance(count.no_drop_chance):
             return drops
         need_magic = rank.guaranteed_magic
@@ -76,7 +99,7 @@ class LootGenerator:
             if kind == "gold":
                 drops.append(GoldDrop(max(1, round(rng.uniform(2.0, 6.0) * item_level))))
             elif kind == "potion":
-                drops.append(PotionDrop("vida" if rng.chance(0.6) else "energia"))
+                drops.append(PotionDrop("life" if rng.chance(0.6) else "energy"))
             elif kind == "scroll":
                 drops.append(ScrollDrop("portal"))
             else:
@@ -100,7 +123,7 @@ class LootGenerator:
         bases = [b for b in self._d.items.bases if b.level <= item_level]
         base = rng.choice(bases)
         rarity = max(self.roll_rarity(quality, magic_find, minimum, rng), minimum)
-        if rarity == Rarity.UNIQUE:  # únicos feitos à mão ainda não existem (backlog M6-06)
+        if rarity == Rarity.UNIQUE:  # hand-made uniques do not exist yet (backlog M6-06)
             rarity = Rarity.RARE
         affixes: list[RolledAffix] = []
         if rarity == Rarity.MAGIC:
@@ -134,18 +157,19 @@ class LootGenerator:
         v = round(v) if tier.min >= 1 else round(v, 2)
         out.append(RolledAffix(aff, v))
 
-    @staticmethod
-    def _name(base: ItemBaseDef, rarity: Rarity, affixes: list[RolledAffix], rng: Rng) -> str:
+    def _name(self, base: ItemBaseDef, rarity: Rarity, affixes: list[RolledAffix], rng: Rng) -> str:
+        """English order: "<prefix> <base> <suffix>", e.g. "Sharp Short Sword of the Bear"."""
         if rarity == Rarity.MAGIC:
             pre = next((a.affix.name for a in affixes if a.affix.kind == "prefix"), "")
             suf = next((a.affix.name for a in affixes if a.affix.kind == "suffix"), "")
-            return " ".join(x for x in (base.name, pre, suf) if x)
+            return " ".join(x for x in (pre, base.name, suf) if x)
         if rarity == Rarity.RARE:
-            return f"{rng.choice(_RARE_A)} {rng.choice(_RARE_B)}"
+            names = self._d.items.rare_names
+            return f"{rng.choice(names.first)} {rng.choice(names.second)}"
         return base.name
 
 
-# ---------------------------------------------------------------- baú compartilhado
+# ---------------------------------------------------------------- serialization
 
 
 def item_to_dict(item: Item) -> dict:
@@ -159,54 +183,141 @@ def item_to_dict(item: Item) -> dict:
 
 
 def item_from_dict(d: GameData, raw: dict) -> Item:
-    affixes = {a.id: a for a in d.items.affixes}
     return Item(
         base=d.base(raw["base"]),
         rarity=Rarity(raw["rarity"]),
         item_level=raw["itemLevel"],
-        affixes=[RolledAffix(affixes[a["id"]], a["value"]) for a in raw["affixes"]],
+        affixes=[RolledAffix(d.affix(a["id"]), a["value"]) for a in raw["affixes"]],
         name=raw["name"],
     )
 
 
-class SharedStash:
-    """Baú comum a todos os personagens, num arquivo próprio e versionado."""
+# ---------------------------------------------------------------- containers
 
-    VERSION = 1
-    DEFAULT_CAPACITY = 100
 
-    def __init__(self, capacity: int = DEFAULT_CAPACITY, gold: int = 0):
+class ItemContainer:
+    """A list of items with a capacity: the backpack and the shared stash are both one of these."""
+
+    def __init__(self, capacity: int):
         self.capacity = capacity
-        self.gold = gold
-        self.items: list[dict] = []
+        self.items: list[Item] = []
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __iter__(self):
+        return iter(self.items)
 
     @property
     def full(self) -> bool:
         return len(self.items) >= self.capacity
 
-    def deposit(self, item: Item) -> bool:
+    def add(self, item: Item) -> bool:
         if self.full:
             return False
-        self.items.append(item_to_dict(item))
+        self.items.append(item)
         return True
 
-    def withdraw(self, index: int, d: GameData) -> Item | None:
-        if not 0 <= index < len(self.items):
-            return None
-        return item_from_dict(d, self.items.pop(index))
+    def take(self, index: int) -> Item | None:
+        return self.items.pop(index) if 0 <= index < len(self.items) else None
+
+    def to_list(self) -> list[dict]:
+        return [item_to_dict(i) for i in self.items]
+
+    def load_list(self, d: GameData, raw: list[dict]) -> None:
+        self.items = [item_from_dict(d, x) for x in raw][: self.capacity]
+
+
+class Inventory(ItemContainer):
+    """One character's backpack. The grid placement arrives with the inventory screen (M6-03);
+    until then the grid size (items.json → inventory) only limits how many items fit."""
+
+    @classmethod
+    def for_data(cls, d: GameData) -> Inventory:
+        return cls(d.items.inventory.capacity)
+
+
+class Loadout:
+    """Equipped items, one per slot (``ItemBaseDef.slot``). Affixes start counting with M6-03."""
+
+    def __init__(self) -> None:
+        self.slots: dict[str, Item] = {}
+
+    @classmethod
+    def starting(cls, d: GameData) -> Loadout:
+        gear = cls()
+        for base_id in d.items.starting_gear:
+            gear.equip(Item.plain(d.base(base_id)))
+        return gear
+
+    def equip(self, item: Item) -> Item | None:
+        """Puts the item in its slot and returns what was there before."""
+        previous = self.slots.get(item.slot)
+        self.slots[item.slot] = item
+        return previous
+
+    def get(self, slot: str) -> Item | None:
+        return self.slots.get(slot)
+
+    @property
+    def main_hand(self) -> Item | None:
+        return self.get("mainhand")
+
+    @property
+    def off_hand(self) -> Item | None:
+        return self.get("offhand")
+
+    @property
+    def body(self) -> Item | None:
+        return self.get("body")
+
+    @property
+    def has_shield(self) -> bool:
+        return self.off_hand is not None and "shield" in self.off_hand.base.tags
+
+    @property
+    def armor(self) -> float:
+        return sum(i.base.armor for i in self.slots.values())
+
+    def to_dict(self) -> dict[str, dict]:
+        return {slot: item_to_dict(i) for slot, i in self.slots.items()}
+
+    @classmethod
+    def from_dict(cls, d: GameData, raw: dict[str, dict]) -> Loadout:
+        gear = cls()
+        for item in raw.values():
+            gear.equip(item_from_dict(d, item))
+        return gear
+
+
+class SharedStash(ItemContainer):
+    """Stash shared by every character, in its own versioned file."""
+
+    VERSION = 2
+    DEFAULT_CAPACITY = 100
+
+    def __init__(self, capacity: int = DEFAULT_CAPACITY, gold: int = 0):
+        super().__init__(capacity)
+        self.gold = gold
+
+    def deposit(self, item: Item) -> bool:
+        return self.add(item)
+
+    def withdraw(self, index: int) -> Item | None:
+        return self.take(index)
 
     def to_json(self) -> str:
         return json.dumps(
-            {"version": self.VERSION, "capacity": self.capacity, "gold": self.gold, "items": self.items},
+            {"version": self.VERSION, "capacity": self.capacity, "gold": self.gold, "items": self.to_list()},
             ensure_ascii=False,
             indent=2,
         )
 
     @classmethod
-    def from_json(cls, text: str) -> SharedStash:
+    def from_json(cls, d: GameData, text: str) -> SharedStash:
         raw = json.loads(text)
         if raw.get("version", 1) > cls.VERSION:
-            raise ValueError(f"Baú da versão {raw['version']} é mais novo que o jogo.")
+            raise ValueError(f"Stash version {raw['version']} is newer than the game.")
         s = cls(raw.get("capacity", cls.DEFAULT_CAPACITY), raw.get("gold", 0))
-        s.items = list(raw.get("items", []))
+        s.load_list(d, raw.get("items", []))
         return s

@@ -14,11 +14,13 @@ core/                   regras, sem pygame
    combat.py            CombatMath (acerto, armadura, guarda ativa), números do jogador e do monstro
    timing.py            Cooldowns, recuperação de golpe e de bloqueio, recarga de habilidade
    monsters.py          MonsterFactory (nível × rank), PackSpawner, nomes de únicos
-   items.py             LootGenerator, SharedStash (baú compartilhado)
+   items.py             LootGenerator, Item, Loadout (equipamento), Inventory (mochila), SharedStash (baú);
+                        ItemContainer e item_to_dict/item_from_dict são o formato único de itens em todo lugar
    world_gen.py         AreaGenerator (áreas abertas, masmorras e mapas do Tiled) + AreaLayout.validate()
    pathfinding.py       A* do tcod
    world.py             mundo em tempo real dirigido por comandos
-   session.py           GameSession: monta tudo, entra em áreas, morte, save
+   session.py           GameSession: monta tudo, entra em áreas, coleta loot, morte, save()/load()
+   saves.py             SaveStore: arquivo do personagem em disco, gravação atômica e backup
    simulation.py        simulação de progressão (mesma conta da planilha)
 ```
 
@@ -56,7 +58,7 @@ clientes só desenham (host autoritativo).
 | `stunned` | guarda quebrada (sem Energia) | `guard_break_stun_seconds` | nada |
 
 Recargas ficam em `PlayerActor.cooldowns` (uma por habilidade + `global` + `guard_raise` + `attack`).
-Monstros também têm `hit_recovery` (≥ 1/8 da vida; único 50%, chefe imune) e `stunned` (Golpe de Escudo).
+Monstros também têm `hit_recovery` (≥ 1/8 da vida; único 50%, chefe imune) e `stunned` (Shield Bash).
 
 ## Fluxo do XP por uso
 
@@ -92,8 +94,19 @@ de visita. Nunca use o módulo `random` em regra de jogo.
 
 ## Save
 
-`GameSession.save()` gera JSON versionado (`SAVE_VERSION`); o mundo não é salvo (é regenerado a
-cada jogo). O baú compartilhado (`SharedStash`) fica num arquivo próprio, lido por todos os personagens.
+`GameSession.save()` gera JSON versionado (`SAVE_VERSION = 2`): nome, ouro, XP das proficiências,
+pontos de árvore, equipamento, mochila e consumíveis. Saves v1 continuam carregando (equipamento inicial,
+mochila vazia). O mundo não é salvo: `load(..., new_world_seed=…)` cria um mundo novo e o cliente
+sempre começa na cidade (`GameData.town_id`). Os pontos de árvore voltam por `SkillTrees.restore()`,
+que passa pelas mesmas regras de `allocate()` (save antigo ou editado não fura camada nem limite).
+
+`SaveStore` (em `core/saves.py`) grava em `<pasta>/<slot>.json` via arquivo temporário + `os.replace`
+e guarda o anterior em `<slot>.bak.json`; se o principal não abrir, usa o backup. No multiplayer, cada
+jogador salva a própria `GameSession` (o save é por personagem, não por mundo).
+
+O loot vai direto para a mochila de quem matou (`GameSession.collect`, evento `LootPicked` com
+`player_id`) até existirem itens no chão (M6-02). O baú compartilhado (`SharedStash`) usa o mesmo
+formato de item e terá arquivo próprio, lido por todos os personagens.
 
 ## Distribuição
 

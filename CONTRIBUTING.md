@@ -28,7 +28,7 @@ pytest && ruff check src tests
 - **Aleatoriedade só com `aethelgard.core.rng.Rng`**, nunca o módulo `random`: o jogo precisa
   ser reproduzível pela seed (e, no futuro, sincronizado no multiplayer).
 - **Eventos de jogador carregam `player_id`.** Nada de estado global fora de `GameSession`/`World`.
-- Textos do jogo em português (PT-BR). Nomes de código em inglês.
+- Código, comentários e textos do jogo em inglês. Nomes exibidos ficam nos JSON (`data/`), não no código.
 
 ## Mapas
 

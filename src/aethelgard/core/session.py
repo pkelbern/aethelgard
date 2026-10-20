@@ -1,14 +1,15 @@
-"""Sessão de um personagem: monta os sistemas, entra em áreas, morte e save."""
+"""One character's session: wires the systems, enters areas, handles death, loot pickup and saving."""
 
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass
 
-from .combat import CombatMath, Loadout
+from .combat import CombatMath
 from .data import GameData
 from .events import EventBus
-from .items import LootGenerator
+from .items import GoldDrop, Inventory, ItemDrop, Loadout, LootGenerator, PotionDrop, ScrollDrop
 from .monsters import MonsterFactory, MonsterPack, PackKind, PackSpawner
 from .progression import (
     CharacterSheet,
@@ -20,7 +21,9 @@ from .progression import (
 from .rng import Rng
 from .world_gen import AreaGenerator, AreaLayout
 
-SAVE_VERSION = 1
+# v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables.
+SAVE_VERSION = 2
+DEFAULT_NAME = "Wanderer"
 
 
 @dataclass(frozen=True)
@@ -31,16 +34,17 @@ class DeathResult:
 
 
 class GameSession:
-    """Ponto único de montagem dos sistemas de um personagem.
+    """Single assembly point for one character's systems.
 
-    ``player_id`` é 0 no single-player; no multiplayer, cada personagem tem a sua sessão
-    ligada ao mesmo barramento, e cada uma só ouve os próprios eventos.
+    ``player_id`` is 0 in single player; in multiplayer each character has its own session
+    attached to the same bus, and each one only listens to its own events.
     """
 
-    def __init__(self, data: GameData, master_seed: int, player_id: int = 0, bus: EventBus | None = None):
+    def __init__(self, data: GameData, master_seed: int, player_id: int = 0, bus: EventBus | None = None, name: str = DEFAULT_NAME):
         self.data = data
         self.master_seed = master_seed
         self.player_id = player_id
+        self.name = name
         self.bus = bus or EventBus()
         self.world_rng = Rng.for_label(master_seed, "world")
         self.combat_rng = Rng.for_label(master_seed, f"combat:{player_id}")
@@ -57,6 +61,8 @@ class GameSession:
         self.loot = LootGenerator(data)
         self.area_gen = AreaGenerator(data)
         self.gear = Loadout.starting(data)
+        self.inventory = Inventory.for_data(data)
+        self.consumables: Counter[str] = Counter()
         self.gold = 0
 
     def enter_area(self, area_id: str, floor: int = 0) -> tuple[AreaLayout, list[MonsterPack]]:
@@ -66,8 +72,20 @@ class GameSession:
         layout = self.area_gen.generate(area, floor, self.master_seed, sum(1 for p in packs if p.kind != PackKind.BOSS))
         return layout, packs
 
+    def collect(self, drop) -> bool:
+        """Puts a drop where it belongs. False when it does not fit (backpack full)."""
+        if isinstance(drop, GoldDrop):
+            self.gold += drop.amount
+            return True
+        if isinstance(drop, PotionDrop | ScrollDrop):
+            self.consumables[drop.consumable_id] += 1
+            return True
+        if isinstance(drop, ItemDrop):
+            return self.inventory.add(drop.item)
+        return False
+
     def apply_death(self) -> DeathResult:
-        """Perde ouro e, se ligado em balance.json, XP dentro do nível (GDD 7.6)."""
+        """Loses gold and, if enabled in balance.json, XP inside the current level (GDD 7.6)."""
         p = self.data.balance.death
         gold = int(self.gold * p.gold_loss_pct)
         self.gold -= gold
@@ -81,29 +99,40 @@ class GameSession:
     # ---------------------------------------------------------------- save
 
     def save(self) -> str:
+        """The character, not the world: the world is regenerated every game (GDD 9.4)."""
         return json.dumps(
             {
                 "version": SAVE_VERSION,
+                "name": self.name,
                 "seed": self.master_seed,
                 "gold": self.gold,
                 "proficiencyXp": {p.id: p.xp for p in self.proficiencies},
                 "skillPoints": dict(self.skills.points),
+                "gear": self.gear.to_dict(),
+                "inventory": self.inventory.to_list(),
+                "consumables": dict(self.consumables),
             },
             ensure_ascii=False,
             indent=2,
         )
 
     @classmethod
-    def load(cls, data: GameData, text: str, new_world_seed: int | None = None) -> GameSession:
-        """O mundo é regenerado a cada jogo (GDD 9.4): passe ``new_world_seed``."""
+    def load(
+        cls, data: GameData, text: str, new_world_seed: int | None = None, player_id: int = 0, bus: EventBus | None = None
+    ) -> GameSession:
+        """Rebuilds a character from ``save()``. Pass ``new_world_seed`` to get a fresh world (GDD 9.4)."""
         raw = json.loads(text)
         if raw.get("version", 1) > SAVE_VERSION:
-            raise ValueError(f"Save da versão {raw['version']} é mais novo que o jogo.")
-        s = cls(data, new_world_seed if new_world_seed is not None else raw["seed"])
+            raise ValueError(f"Save version {raw['version']} is newer than the game.")
+        seed = new_world_seed if new_world_seed is not None else raw["seed"]
+        s = cls(data, seed, player_id, bus, raw.get("name", DEFAULT_NAME))
         s.gold = raw.get("gold", 0)
         for pid, xp in raw.get("proficiencyXp", {}).items():
-            s.proficiencies.set_xp(pid, xp)
-        for node, pts in raw.get("skillPoints", {}).items():
-            for _ in range(pts):
-                s.skills.allocate(node)
+            if pid in s.proficiencies:
+                s.proficiencies.set_xp(pid, xp)
+        s.skills.restore(raw.get("skillPoints", {}))
+        if "gear" in raw:  # v1 saves keep the starting gear
+            s.gear = Loadout.from_dict(data, raw["gear"])
+        s.inventory.load_list(data, raw.get("inventory", []))
+        s.consumables.update(raw.get("consumables", {}))
         return s

@@ -1,7 +1,7 @@
 # Aethelgard
 
 RPG de ação isométrico 2D, open source, feito em Python. **Não há classes**: o personagem
-evolui nas proficiências que usa (Lâminas, Escudo, Couraça…). Mapas gerados por seed, monstros
+evolui nas proficiências que usa (Blades, Shield, Armor…). Mapas gerados por seed, monstros
 em grupos normais, champions e únicos com minions, loot com afixos, guarda ativa com escudo e
 tempos de ação (recarga de habilidades, recuperação de golpe e de bloqueio).
 
@@ -27,7 +27,11 @@ pip install -e ".[dev]"
 aethelgard            # ou: python -m aethelgard
 ```
 
-Opções: `--seed 42` (mundo fixo), `--area planicie` (começar numa área).
+Opções: `--seed 42` (mundo fixo), `--area plains` (começar numa área), `--new` (personagem novo, ignora o save),
+`--save-dir pasta` (onde guardar o save).
+
+O jogo é todo em inglês. Ao reabrir, o personagem volta **na vila** com os mesmos níveis, pontos de
+árvore, equipamento, mochila, ouro e poções; o mundo é gerado de novo (seed nova a cada jogo).
 
 ### Controles
 
@@ -35,17 +39,32 @@ Opções: `--seed 42` (mundo fixo), `--area planicie` (começar numa área).
 |---|---|
 | Andar / atacar | Clique esquerdo no chão / no monstro |
 | Guarda com escudo | Segurar **Espaço** (o escudo aponta para o mouse) |
-| Habilidades | **Q** Golpe Preciso · **W** Golpe de Escudo · **E** Corte Amplo · **R** Muralha |
-| Gastar ponto de árvore | **1** Lâmina Afiada · **2** Golpe Preciso · **3** Postura Defensiva · **4** Golpe de Escudo · **5** Pele de Ferro · **6** Recuperação · **7** Aparar |
+| Habilidades | **Q** Precise Strike · **W** Shield Bash · **E** Wide Slash · **R** Bulwark |
+| Gastar ponto de árvore | **1** Sharp Blade · **2** Precise Strike · **3** Defensive Stance · **4** Shield Bash · **5** Iron Skin · **6** Recovery · **7** Parry |
 | Árvores de habilidade (janela) | **T** |
 | Mapa grande | **Tab** (o mapa pequeno fica no canto) |
-| Console de depuração | **F1** (digite `ajuda`) |
+| Salvar | **F5** ou `save` no console (o jogo também salva ao sair) |
+| Console de depuração | **F1** (digite `help`; `bag` lista mochila e equipamento, `load` recarrega o save) |
 | Sair | Esc |
 
 A névoa de guerra esconde o que você ainda não viu, e monstros fora do campo de visão não
 aparecem. Saídas em amarelo, waypoint em azul. Champions são azuis, únicos dourados, minions marrons e
 o chefe roxo. A barra de habilidades mostra a recarga de cada uma; o centro da tela mostra
 recuperação de golpe, de bloqueio e atordoamento com o tempo restante.
+
+## Save
+
+Um arquivo JSON versionado por personagem, gravado com segurança (arquivo temporário + troca) e com
+backup automático (`character.bak.json`), usado se o principal estiver corrompido:
+
+| Sistema | Pasta |
+|---|---|
+| Windows | `%APPDATA%\Aethelgard\saves` |
+| macOS | `~/Library/Application Support/Aethelgard/saves` |
+| Linux | `~/.local/share/aethelgard/saves` |
+
+A variável de ambiente `AETHELGARD_SAVE_DIR` ou a opção `--save-dir` trocam a pasta. Rodadas com
+`--frames` (testes/CI) nunca gravam.
 
 ## Bibliotecas
 
@@ -60,10 +79,10 @@ recuperação de golpe, de bloqueio e atordoamento com o tempo restante.
 
 ## Editar mapas no Tiled
 
-A Vila (`src/aethelgard/data/maps/vila.tmx`) é feita à mão no editor gratuito **Tiled**. O mapa
+A vila (`src/aethelgard/data/maps/village.tmx`) é feita à mão no editor gratuito **Tiled**. O mapa
 é lógico e ortogonal: cada tile é uma célula do jogo, e o jogo desenha em isométrico.
-- Tiles do conjunto `logica.tsx`: chão e estrada (andáveis), parede e água (bloqueiam). A propriedade `walkable` decide.
-- Camada de objetos `objetos`: `entry` (chegada), `exit` (propriedade `target` = id da área),
+- Tiles do conjunto `logic.tsx`: chão e estrada (andáveis), parede e água (bloqueiam). A propriedade `walkable` decide.
+- Camada de objetos `objects`: `entry` (chegada), `exit` (propriedade `target` = id da área),
   `waypoint` e `npc` (propriedade `role`: `vendor`, `stash`…).
 - Para usar um mapa feito à mão em outra área, ponha `"map": "maps/arquivo.tmx"` em `areas.json`.
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Curvas próprias do Aethelgard, por fórmula. Forma: a × n^p × g^n. Ajustadas para um ritmo parecido com o de ARPGs clássicos (D2 em Normal), sem copiar tabelas de outros jogos. tools/curves.py imprime as tabelas.",
+  "_comment": "Aethelgard's own curves, as formulas. Shape: a × n^p × g^n. Tuned for a pace similar to classic ARPGs (D2 on Normal) without copying other games' tables. tools/curves.py prints the tables.",
   "proficiencyXpToNext": {
     "a": 260,
     "p": 0.86,

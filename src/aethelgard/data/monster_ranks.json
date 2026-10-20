@@ -1,5 +1,5 @@
 {
-  "_comment": "Multiplicadores por tipo de monstro (dificuldade Normal, valores do D2). dmgBonus/accBonus são aditivos (0.9 = +90%).",
+  "_comment": "Multipliers per monster rank (Normal difficulty, D2 values). dmgBonus/accBonus are additive (0.9 = +90%).",
   "ranks": [
     { "id": "normal",    "levelBonus": 0, "hpMult": 1, "xpMult": 1,  "dmgBonus": 0.00, "accBonus": 0.00, "modifiers": 0, "lootQualityMult": 1, "guaranteedMagic": false },
     { "id": "champion",  "levelBonus": 2, "hpMult": 3, "xpMult": 3,  "dmgBonus": 0.90, "accBonus": 0.67, "modifiers": 1, "lootQualityMult": 2, "guaranteedMagic": false },

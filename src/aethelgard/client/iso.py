@@ -1,4 +1,4 @@
-"""Projeção isométrica 2:1, câmera e desenho do mapa em blocos pré-renderizados."""
+"""2:1 isometric projection, camera and map drawing in pre-rendered chunks."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def world_to_grid(wx: float, wy: float) -> tuple[float, float]:
 class Camera:
     def __init__(self, width: int, height: int):
         self.w, self.h = width, height
-        self.x = self.y = 0.0  # centro, em coordenadas de mundo
+        self.x = self.y = 0.0  # center, in world coordinates
 
     def follow(self, gx: float, gy: float, dt: float, snap: bool = False) -> None:
         tx, ty = grid_to_world(gx, gy)
@@ -48,7 +48,7 @@ def diamond(cx: float, cy: float, scale: float = 1.0) -> list[tuple[float, float
 
 
 class MapRenderer:
-    """Pré-renderiza o mapa em blocos de 16×16 tiles e desenha só os blocos visíveis."""
+    """Pre-renders the map in 16×16-tile chunks and only draws the visible chunks."""
 
     def __init__(self, layout: AreaLayout, theme: str):
         self.layout = layout
@@ -62,7 +62,7 @@ class MapRenderer:
             return self._chunks[key]
         L, th = self.layout, self.theme
         x0, y0 = cx * CHUNK, cy * CHUNK
-        # bounding box em mundo: canto (x0, y0+CHUNK) é o mais à esquerda; (x0+CHUNK, y0) o mais à direita
+        # world bounding box: corner (x0, y0+CHUNK) is the leftmost; (x0+CHUNK, y0) the rightmost
         left = grid_to_world(x0, y0 + CHUNK)[0] - HALF_W
         top = grid_to_world(x0, y0)[1] - HALF_H - WALL_H
         width = CHUNK * TILE_W + TILE_W
@@ -99,7 +99,7 @@ class MapRenderer:
 
     def draw(self, screen: pygame.Surface, cam: Camera, explored=None) -> None:
         L = self.layout
-        # cantos da tela em grade → faixa de blocos visíveis
+        # screen corners in grid space → range of visible chunks
         corners = [cam.to_grid(0, 0), cam.to_grid(cam.w, 0), cam.to_grid(0, cam.h), cam.to_grid(cam.w, cam.h)]
         gx0 = max(0, int(min(c[0] for c in corners)) - 2) // CHUNK
         gx1 = min(L.width - 1, int(max(c[0] for c in corners)) + 2) // CHUNK
@@ -116,7 +116,7 @@ class MapRenderer:
                         screen.blit(fog, pos)
 
     def _fog_chunk(self, cx: int, cy: int, explored, size, left: float, top: float):
-        """Névoa de guerra: cobre de preto o que nunca foi visto. Refeita só quando o bloco muda."""
+        """Fog of war: covers in black what was never seen. Rebuilt only when the chunk changes."""
         x0, y0 = cx * CHUNK, cy * CHUNK
         part = explored[y0 : y0 + CHUNK, x0 : x0 + CHUNK]
         seen = int(part.sum())
@@ -139,7 +139,7 @@ class MapRenderer:
         for e in L.exits:
             sx, sy = cam.to_screen(*e.pos)
             pygame.draw.polygon(screen, C.EXIT, diamond(sx, sy, 0.8))
-            label = {ExitKind.STAIRS_DOWN: "Descer", ExitKind.STAIRS_UP: "Subir"}.get(e.kind) or area_names.get(e.target_area or "", "")
+            label = {ExitKind.STAIRS_DOWN: "Down", ExitKind.STAIRS_UP: "Up"}.get(e.kind) or area_names.get(e.target_area or "", "")
             img = font.render(label, True, C.EXIT)
             screen.blit(img, (sx - img.get_width() // 2, sy - 30))
         if L.waypoint:

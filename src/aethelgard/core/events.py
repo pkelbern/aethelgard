@@ -1,8 +1,8 @@
-"""Barramento de eventos e eventos de jogo.
+"""Event bus and game events.
 
-O combate publica; progressão, loot, HUD e conquistas escutam. Todo evento de jogador carrega
-``player_id`` (0 no single-player) — preparação para o multiplayer: cada personagem só ouve os
-próprios eventos, e o host pode retransmiti-los sem mudar as regras.
+Combat publishes; progression, loot, HUD and achievements listen. Every player event carries
+``player_id`` (0 in single player) to prepare for multiplayer: each character only listens to
+its own events, and the host can relay them without changing the rules.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ class EventBus:
 
 @dataclass(frozen=True)
 class MonsterXpInfo:
-    """Dados do monstro para calcular XP. ``xp_base`` já inclui Exp% do tipo e multiplicador do rank."""
+    """Monster data for the XP formulas. ``xp_base`` already includes the type's Exp% and the rank multiplier."""
 
     instance_id: int
     level: int
@@ -84,7 +84,7 @@ class ProficiencyLeveledUp:
     player_id: int = 0
 
 
-# ---- eventos do mundo em tempo real (para HUD, som e efeitos)
+# ---- real-time world events (for HUD, sound and effects)
 
 
 @dataclass(frozen=True)
@@ -111,3 +111,12 @@ class ExitReached:
 class SkillUsed:
     player_id: int
     skill_id: str
+
+
+@dataclass(frozen=True)
+class LootPicked:
+    """A drop went to a player. ``stored`` is False when the backpack was full and the drop was lost."""
+
+    player_id: int
+    drop: Any  # items.Drop (kept as Any so events.py does not import items.py)
+    stored: bool = True

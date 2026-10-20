@@ -1,4 +1,4 @@
-"""Campo de visão, névoa de guerra e mapa automático (GDD 9.5), com o FOV do tcod."""
+"""Field of view, fog of war and automap (GDD 9.5), using tcod's FOV."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ VIEW_RADIUS = 14
 
 
 class Vision:
-    """Guarda o que já foi explorado em cada área/andar e o que está visível agora."""
+    """Remembers what was explored in each area/floor and what is visible right now."""
 
     def __init__(self) -> None:
         self._explored: dict[tuple[str, int], np.ndarray] = {}
@@ -22,7 +22,7 @@ class Vision:
         self._layout: AreaLayout | None = None
 
     def enter(self, key: tuple[str, int], layout: AreaLayout, reveal_all: bool = False) -> None:
-        """Ao trocar de área. O mundo é regenerado a cada jogo, então a memória vale só para esta sessão."""
+        """On area change. The world is regenerated every game, so this memory only lasts for this session."""
         self._layout = layout
         if key not in self._explored or self._explored[key].shape != layout.tiles.shape:
             self._explored[key] = np.zeros(layout.tiles.shape, dtype=bool)
@@ -48,10 +48,10 @@ class Vision:
         return v is not None and 0 <= cy < v.shape[0] and 0 <= cx < v.shape[1] and bool(v[cy, cx])
 
     def draw_automap(self, screen: pygame.Surface, layout: AreaLayout, px: float, py: float, big: bool) -> None:
-        """Mapa automático: pequeno no canto, ou grande sobre a tela (Tab)."""
+        """Automap: small in the corner, or large over the screen (Tab)."""
         h, w = layout.tiles.shape
         scale = max(1, min(6, (min(screen.get_width(), screen.get_height()) - 80) // max(w, h))) if big else 2
-        # imagem do mapa: só o que já foi explorado
+        # map image: only what was already explored
         rgb = np.zeros((h, w, 3), dtype=np.uint8)
         floor = (layout.tiles == FLOOR) & self.explored
         wall = (layout.tiles != FLOOR) & self.explored

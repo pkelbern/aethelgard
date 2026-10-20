@@ -1,11 +1,11 @@
 {
- "_comment": "Árvores por proficiência. Muralha: guarda de 360° sem custo por (3 + durationSeconds×pontos) s. layer = nível de proficiência que libera o nó. perPoint = valor ganho por ponto; após 'diminishingAfter' pontos o ganho cai pela metade. synergies: bônus que ESTE nó recebe por ponto investido em 'from'. cooldown = recarga em segundos (ativas). Recuperação de golpe/bloqueio: Firmeza (fasterHitRecovery) e Postura Defensiva (fasterBlockRecovery).",
+ "_comment": "Trees per proficiency. Bulwark: free 360° guard for (3 + durationSeconds×points) s. layer = proficiency level that unlocks the node. perPoint = value gained per point; after 'diminishingAfter' points the gain is halved. synergies: bonus THIS node gets per point invested in 'from'. cooldown = cooldown in seconds (actives). Hit/block recovery: Steadfast (fasterHitRecovery) and Defensive Stance (fasterBlockRecovery).",
  "diminishingAfter": 8,
  "nodes": [
   {
-   "id": "golpe_preciso",
-   "tree": "laminas",
-   "name": "Golpe Preciso",
+   "id": "precise_strike",
+   "tree": "blades",
+   "name": "Precise Strike",
    "layer": 1,
    "kind": "active",
    "maxPoints": 15,
@@ -17,9 +17,9 @@
    "cooldown": 0.0
   },
   {
-   "id": "lamina_afiada",
-   "tree": "laminas",
-   "name": "Lâmina Afiada",
+   "id": "sharp_blade",
+   "tree": "blades",
+   "name": "Sharp Blade",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -28,9 +28,9 @@
    }
   },
   {
-   "id": "corte_amplo",
-   "tree": "laminas",
-   "name": "Corte Amplo",
+   "id": "wide_slash",
+   "tree": "blades",
+   "name": "Wide Slash",
    "layer": 6,
    "kind": "active",
    "maxPoints": 15,
@@ -42,9 +42,9 @@
    "cooldown": 2.0
   },
   {
-   "id": "sangramento",
-   "tree": "laminas",
-   "name": "Sangramento",
+   "id": "bleed",
+   "tree": "blades",
+   "name": "Bleed",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -54,9 +54,9 @@
    }
   },
   {
-   "id": "investida",
-   "tree": "laminas",
-   "name": "Investida",
+   "id": "charge",
+   "tree": "blades",
+   "name": "Charge",
    "layer": 12,
    "kind": "active",
    "maxPoints": 15,
@@ -68,9 +68,9 @@
    "cooldown": 6.0
   },
   {
-   "id": "ritmo_combate",
-   "tree": "laminas",
-   "name": "Ritmo de Combate",
+   "id": "combat_rhythm",
+   "tree": "blades",
+   "name": "Combat Rhythm",
    "layer": 12,
    "kind": "passive",
    "maxPoints": 10,
@@ -80,9 +80,9 @@
    }
   },
   {
-   "id": "turbilhao",
-   "tree": "laminas",
-   "name": "Turbilhão",
+   "id": "whirlwind",
+   "tree": "blades",
+   "name": "Whirlwind",
    "layer": 18,
    "kind": "active",
    "maxPoints": 15,
@@ -94,9 +94,9 @@
    "cooldown": 0.0
   },
   {
-   "id": "golpe_fatal",
-   "tree": "laminas",
-   "name": "Golpe Fatal",
+   "id": "killing_blow",
+   "tree": "blades",
+   "name": "Killing Blow",
    "layer": 18,
    "kind": "passive",
    "maxPoints": 10,
@@ -106,9 +106,9 @@
    }
   },
   {
-   "id": "postura_defensiva",
-   "tree": "escudo",
-   "name": "Postura Defensiva",
+   "id": "defensive_stance",
+   "tree": "shield",
+   "name": "Defensive Stance",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -118,9 +118,9 @@
    }
   },
   {
-   "id": "golpe_escudo",
-   "tree": "escudo",
-   "name": "Golpe de Escudo",
+   "id": "shield_bash",
+   "tree": "shield",
+   "name": "Shield Bash",
    "layer": 1,
    "kind": "active",
    "maxPoints": 15,
@@ -132,9 +132,9 @@
    "cooldown": 4.0
   },
   {
-   "id": "aparar",
-   "tree": "escudo",
-   "name": "Aparar",
+   "id": "parry",
+   "tree": "shield",
+   "name": "Parry",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -144,9 +144,9 @@
    }
   },
   {
-   "id": "escudo_pesado",
-   "tree": "escudo",
-   "name": "Escudo Pesado",
+   "id": "heavy_shield",
+   "tree": "shield",
+   "name": "Heavy Shield",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -156,9 +156,9 @@
    }
   },
   {
-   "id": "muralha",
-   "tree": "escudo",
-   "name": "Muralha",
+   "id": "bulwark",
+   "tree": "shield",
+   "name": "Bulwark",
    "layer": 12,
    "kind": "active",
    "maxPoints": 15,
@@ -171,9 +171,9 @@
    "cooldown": 20.0
   },
   {
-   "id": "revide",
-   "tree": "escudo",
-   "name": "Revide",
+   "id": "riposte",
+   "tree": "shield",
+   "name": "Riposte",
    "layer": 12,
    "kind": "passive",
    "maxPoints": 10,
@@ -182,9 +182,9 @@
    }
   },
   {
-   "id": "arremesso_escudo",
-   "tree": "escudo",
-   "name": "Arremesso de Escudo",
+   "id": "shield_throw",
+   "tree": "shield",
+   "name": "Shield Throw",
    "layer": 18,
    "kind": "active",
    "maxPoints": 15,
@@ -196,9 +196,9 @@
    "cooldown": 5.0
   },
   {
-   "id": "bastiao",
-   "tree": "escudo",
-   "name": "Bastião",
+   "id": "bastion",
+   "tree": "shield",
+   "name": "Bastion",
    "layer": 18,
    "kind": "passive",
    "maxPoints": 10,
@@ -207,9 +207,9 @@
    }
   },
   {
-   "id": "pele_ferro",
-   "tree": "couraca",
-   "name": "Pele de Ferro",
+   "id": "iron_skin",
+   "tree": "armor",
+   "name": "Iron Skin",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -218,9 +218,9 @@
    }
   },
   {
-   "id": "recuperacao",
-   "tree": "couraca",
-   "name": "Recuperação",
+   "id": "recovery",
+   "tree": "armor",
+   "name": "Recovery",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -229,9 +229,9 @@
    }
   },
   {
-   "id": "firmeza",
-   "tree": "couraca",
-   "name": "Firmeza",
+   "id": "steadfast",
+   "tree": "armor",
+   "name": "Steadfast",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -241,9 +241,9 @@
    }
   },
   {
-   "id": "segundo_folego",
-   "tree": "couraca",
-   "name": "Segundo Fôlego",
+   "id": "second_wind",
+   "tree": "armor",
+   "name": "Second Wind",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -254,9 +254,9 @@
    }
   },
   {
-   "id": "grito_guerra",
-   "tree": "couraca",
-   "name": "Grito de Guerra",
+   "id": "war_cry",
+   "tree": "armor",
+   "name": "War Cry",
    "layer": 12,
    "kind": "active",
    "maxPoints": 15,
@@ -269,9 +269,9 @@
    "cooldown": 15.0
   },
   {
-   "id": "resist_elemental",
-   "tree": "couraca",
-   "name": "Resistência Elemental",
+   "id": "elemental_resistance",
+   "tree": "armor",
+   "name": "Elemental Resistance",
    "layer": 12,
    "kind": "passive",
    "maxPoints": 10,
@@ -280,9 +280,9 @@
    }
   },
   {
-   "id": "inabalavel",
-   "tree": "couraca",
-   "name": "Inabalável",
+   "id": "unshakable",
+   "tree": "armor",
+   "name": "Unshakable",
    "layer": 18,
    "kind": "passive",
    "maxPoints": 10,
@@ -292,9 +292,9 @@
    }
   },
   {
-   "id": "colosso",
-   "tree": "couraca",
-   "name": "Colosso",
+   "id": "colossus",
+   "tree": "armor",
+   "name": "Colossus",
    "layer": 18,
    "kind": "passive",
    "maxPoints": 10,
@@ -306,44 +306,44 @@
  ],
  "synergies": [
   {
-   "target": "golpe_escudo",
-   "from": "lamina_afiada",
+   "target": "shield_bash",
+   "from": "sharp_blade",
    "stat": "damagePct",
    "perPoint": 0.06
   },
   {
-   "target": "investida",
-   "from": "golpe_escudo",
+   "target": "charge",
+   "from": "shield_bash",
    "stat": "stunChance",
    "perPoint": 0.01
   },
   {
-   "target": "turbilhao",
-   "from": "corte_amplo",
+   "target": "whirlwind",
+   "from": "wide_slash",
    "stat": "damagePct",
    "perPoint": 0.04
   },
   {
-   "target": "revide",
-   "from": "aparar",
+   "target": "riposte",
+   "from": "parry",
    "stat": "counterDamagePct",
    "perPoint": 0.05
   },
   {
-   "target": "arremesso_escudo",
-   "from": "golpe_escudo",
+   "target": "shield_throw",
+   "from": "shield_bash",
    "stat": "damagePct",
    "perPoint": 0.08
   },
   {
-   "target": "arremesso_escudo",
-   "from": "escudo_pesado",
+   "target": "shield_throw",
+   "from": "heavy_shield",
    "stat": "bounces",
    "perPoint": 0.2
   },
   {
-   "target": "segundo_folego",
-   "from": "recuperacao",
+   "target": "second_wind",
+   "from": "recovery",
    "stat": "healPctOfMax",
    "perPoint": 0.02
   }

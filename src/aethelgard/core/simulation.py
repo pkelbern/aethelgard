@@ -1,6 +1,6 @@
-"""Simulação por valor esperado de quem limpa o ato inteiro (GDD 5.8).
+"""Expected-value simulation of a player who clears the whole act (GDD 5.8).
 
-Use sempre que mudar curvas, multiplicadores ou áreas: ``python -m aethelgard.tools.simulate``.
+Run it whenever curves, multipliers or areas change: ``python -m aethelgard.tools.simulate``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class SimulationStep:
     armor_level: int
 
 
-def run_act(d: GameData, act_id: str = "ato1", o: SimulationOptions = SimulationOptions()) -> list[SimulationStep]:
+def run_act(d: GameData, act_id: str = "act1", o: SimulationOptions = SimulationOptions()) -> list[SimulationStep]:
     curve = XpCurve(d.xp_total_by_level)
     f = LevelFactor(d.balance.level_factor.table)
     s = d.balance.spawn
@@ -65,7 +65,7 @@ def run_act(d: GameData, act_id: str = "ato1", o: SimulationOptions = Simulation
         for fl in range(floors):
             lv = area.level_for_floor(fl)
             normals = area.normal_packs * avg_normal
-            label = f"{area.name} – andar {fl + 1}" if floors > 1 else area.name
+            label = f"{area.name} – floor {fl + 1}" if floors > 1 else area.name
 
             def kill_xp(p: int, lv: int = lv, normals: float = normals) -> float:
                 total = normals * xp_at(lv) * f(lv - p)

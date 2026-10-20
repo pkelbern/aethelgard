@@ -1,4 +1,4 @@
-"""Cores do protótipo (placeholders até a arte do M7)."""
+"""Prototype colors (placeholders until the M7 art)."""
 
 BG = (12, 13, 16)
 TEXT = (226, 222, 214)

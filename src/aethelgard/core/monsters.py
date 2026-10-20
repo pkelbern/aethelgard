@@ -1,4 +1,4 @@
-"""Monstros: escala por nível × rank (GDD 8.1), pacotes por área (8.2) e nomes de únicos."""
+"""Monsters: scaling by level × rank (GDD 8.1), packs per area (8.2) and unique names."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class MonsterInstance:
         return sum(m.stats.get(name, 0.0) for m in self.modifiers)
 
     def take_damage(self, amount: float) -> float:
-        """Aplica dano e devolve o dano efetivo (sem overkill), base do XP ofensivo."""
+        """Applies damage and returns the effective damage (no overkill), the base of offensive XP."""
         if not self.alive or amount <= 0:
             return 0.0
         eff = min(self.hp, amount)
@@ -137,13 +137,10 @@ class MonsterPack:
         return self.members[0] if self.kind in (PackKind.UNIQUE, PackKind.BOSS) and self.members else None
 
 
-_A = ["Garra", "Osso", "Sangue", "Cinza", "Presa", "Sombra", "Ferro", "Brasa", "Gelo", "Podre"]
-_B = ["Rubra", "Negra", "Torta", "Funda", "Velha", "Seca", "Rota", "Fria", "Muda", "Cega"]
-_C = ["a Faminta", "o Impiedoso", "a Maldita", "o Sem-Olhos", "a Uivante", "o Carniceiro", "a Silenciosa", "o Profanador"]
-
-
-def unique_name(rng: Rng) -> str:
-    return f"{rng.choice(_A)}-{rng.choice(_B)}, {rng.choice(_C)}"
+def unique_name(data: GameData, rng: Rng) -> str:
+    """Names like "Bonemaw the Hungry"; the parts come from monsters.json → uniqueNames."""
+    n = data.monsters.unique_names
+    return f"{rng.choice(n.prefixes)}{rng.choice(n.suffixes)} {rng.choice(n.epithets)}".strip()
 
 
 class PackSpawner:
@@ -193,7 +190,7 @@ class PackSpawner:
         s = self._d.balance.spawn
         mtype = rng.choice(types)
         mods = self._pick_modifiers(self._d.rank("unique").modifiers, True, rng)
-        leader = self._f.create(mtype, level, "unique", rng, mods, unique_name(rng))
+        leader = self._f.create(mtype, level, "unique", rng, mods, unique_name(self._d, rng))
         pack = MonsterPack(PackKind.UNIQUE, [leader])
         for _ in range(rng.randint(s.minions_min, s.minions_max)):
             pack.members.append(self._f.create(mtype, level, "minion", rng, leader_id=leader.instance_id))

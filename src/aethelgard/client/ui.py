@@ -1,4 +1,4 @@
-"""Janelas com pygame_gui: árvore de habilidades (T) e console de depuração (F1)."""
+"""pygame_gui windows: skill trees (T) and debug console (F1)."""
 
 from __future__ import annotations
 
@@ -15,21 +15,21 @@ from ..core.progression import Allocate
 if TYPE_CHECKING:
     from .app import Game
 
-TREE_ORDER = ["laminas", "escudo", "couraca"]
+TREE_ORDER = ["blades", "shield", "armor"]
 EFFECT_LABEL = {
-    "damagePct": "dano",
-    "accuracyPct": "precisão",
-    "swordDamagePct": "dano com espada",
-    "guardEfficiency": "eficiência da guarda",
-    "fasterBlockRecovery": "recuperação de bloqueio",
-    "fasterHitRecovery": "recuperação de golpe",
-    "armorPct": "armadura",
-    "lifeRegenPerSecond": "vida/s",
-    "stunSeconds": "atordoamento (s)",
-    "perfectWindowSeconds": "janela perfeita (s)",
-    "counterDamagePct": "contra-ataque",
-    "guardArcDegrees": "arco da guarda (°)",
-    "shieldArmorPct": "armadura do escudo",
+    "damagePct": "damage",
+    "accuracyPct": "accuracy",
+    "swordDamagePct": "sword damage",
+    "guardEfficiency": "guard efficiency",
+    "fasterBlockRecovery": "faster block recovery",
+    "fasterHitRecovery": "faster hit recovery",
+    "armorPct": "armor",
+    "lifeRegenPerSecond": "life/s",
+    "stunSeconds": "stun (s)",
+    "perfectWindowSeconds": "perfect window (s)",
+    "counterDamagePct": "counterattack",
+    "guardArcDegrees": "guard arc (°)",
+    "shieldArmorPct": "shield armor",
 }
 
 
@@ -47,10 +47,10 @@ class GameUI:
         self.console: UIWindow | None = None
         self._console_out: UITextBox | None = None
         self._console_in: UITextEntryLine | None = None
-        self._console_log: list[str] = ["Digite <b>ajuda</b> para ver os comandos."]
+        self._console_log: list[str] = ["Type <b>help</b> to list the commands."]
         self._node_buttons: dict[UIButton, str] = {}
 
-    # ------------------------------------------------------------ estado
+    # ------------------------------------------------------------ state
 
     @property
     def typing(self) -> bool:
@@ -60,10 +60,10 @@ class GameUI:
     def any_open(self) -> bool:
         return bool((self.tree and self.tree.alive()) or (self.console and self.console.alive()))
 
-    # ------------------------------------------------------------ eventos
+    # ------------------------------------------------------------ events
 
     def process(self, event: pygame.event.Event) -> bool:
-        """Repassa o evento ao pygame_gui. True se a interface consumiu o evento."""
+        """Hands the event to pygame_gui. True if the interface consumed it."""
         consumed = self.manager.process_events(event)
         if event.type == pygame_gui.UI_BUTTON_PRESSED and event.ui_element in self._node_buttons:
             node = self._node_buttons[event.ui_element]
@@ -79,8 +79,8 @@ class GameUI:
                 parts = text.split()
                 try:
                     out = self.g.command(parts[0].lower(), parts[1:])
-                except Exception as ex:  # o console nunca derruba o jogo
-                    out = f"erro: {ex}"
+                except Exception as ex:  # the console never crashes the game
+                    out = f"error: {ex}"
                 self._console_log.append(f"<font color='#e8c452'>&gt; {escape(text)}</font><br>{escape(out).replace(chr(10), '<br>')}")
                 self._console_out.set_text("<br>".join(self._console_log[-30:]))
             self._console_in.focus()
@@ -98,7 +98,7 @@ class GameUI:
     def draw(self, screen: pygame.Surface) -> None:
         self.manager.draw_ui(screen)
 
-    # ------------------------------------------------------------ árvore de habilidades
+    # ------------------------------------------------------------ skill trees
 
     def toggle_tree(self) -> None:
         if self.tree and self.tree.alive():
@@ -116,13 +116,13 @@ class GameUI:
             pos = ((W - 960) // 2, (H - 520) // 2)
         self._node_buttons.clear()
         s = self.g.session
-        win = UIWindow(pygame.Rect(pos, (960, 520)), self.manager, window_display_title="Árvores de habilidade  (T fecha)",
+        win = UIWindow(pygame.Rect(pos, (960, 520)), self.manager, window_display_title="Skill trees  (T closes)",
                        object_id="#tree_window")
         col_w = 310
         for i, tree in enumerate(TREE_ORDER):
             prof = s.proficiencies[tree]
             x = 10 + i * col_w
-            UILabel(pygame.Rect(x, 6, col_w - 10, 26), f"{prof.name} {prof.level}  ·  {s.skills.available(tree)} ponto(s)",
+            UILabel(pygame.Rect(x, 6, col_w - 10, 26), f"{prof.name} {prof.level}  ·  {s.skills.available(tree)} point(s)",
                     self.manager, container=win, object_id="#tree_header")
             for j, node in enumerate(sorted(s.skills.nodes_of(tree), key=lambda n: (n.layer, n.kind != "active", n.name))):
                 y = 40 + j * 54
@@ -132,10 +132,10 @@ class GameUI:
                 if s.skills.can_allocate(node.id) is not Allocate.OK:
                     btn.disable()
                 self._node_buttons[btn] = node.id
-                kind = "ativa" if node.kind == "active" else "passiva"
+                kind = "active" if node.kind == "active" else "passive"
                 line1 = f"{node.name}  {pts}/{node.max_points}"
                 locked = prof.level < node.layer
-                line2 = f"nível {node.layer} · {kind}" + (f" · recarga {node.cooldown:g}s" if node.kind == "active" else "")
+                line2 = f"level {node.layer} · {kind}" + (f" · cooldown {node.cooldown:g}s" if node.kind == "active" else "")
                 UILabel(pygame.Rect(x + 36, y, col_w - 50, 22), line1, self.manager, container=win,
                         object_id="#node_locked" if locked else ("#node_on" if pts else "#node"))
                 UILabel(pygame.Rect(x + 36, y + 20, col_w - 50, 20), line2, self.manager, container=win, object_id="#node_info")
@@ -147,13 +147,13 @@ class GameUI:
         for stat, per_point in node.effects.items():
             label = EFFECT_LABEL.get(stat, stat)
             now = s.skills.effect(node.id, stat)
-            parts.append(f"{label}: {per_point:g} por ponto (atual {now:.2f})")
-        syn = [f"+{x.per_point:g} {EFFECT_LABEL.get(x.stat, x.stat)} por ponto em {self.g.data.node(x.from_).name}"
+            parts.append(f"{label}: {per_point:g} per point (now {now:.2f})")
+        syn = [f"+{x.per_point:g} {EFFECT_LABEL.get(x.stat, x.stat)} per point in {self.g.data.node(x.from_).name}"
                for x in self.g.data.skills.synergies if x.target == node.id]
         if syn:
-            parts.append("Sinergias: " + "; ".join(syn))
+            parts.append("Synergies: " + "; ".join(syn))
         if node.kind == "active":
-            parts.append(f"Energia {node.energy_cost:g} · recarga {node.cooldown:g}s")
+            parts.append(f"Energy {node.energy_cost:g} · cooldown {node.cooldown:g}s")
         return "<br>".join(escape(p) for p in parts) or escape(node.name)
 
     # ------------------------------------------------------------ console
@@ -164,7 +164,7 @@ class GameUI:
             self.console = None
             return
         W, H = self.manager.window_resolution
-        win = UIWindow(pygame.Rect(20, H - 300, 700, 280), self.manager, window_display_title="Console de depuração  (F1 fecha)",
+        win = UIWindow(pygame.Rect(20, H - 300, 700, 280), self.manager, window_display_title="Debug console  (F1 closes)",
                        object_id="#console_window")
         self._console_out = UITextBox("<br>".join(self._console_log[-30:]), pygame.Rect(0, 0, 664, 190), self.manager, container=win)
         self._console_in = UITextEntryLine(pygame.Rect(0, 196, 664, 32), self.manager, container=win)

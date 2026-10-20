@@ -13,7 +13,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M3 – Árvores | 2 | 0 | 7 | 8.5 |
 | M4 – Monstros | 2 | 0 | 6 | 9.5 |
 | M5 – Mundo | 4 | 0 | 8 | 8.5 |
-| M6 – Loot | 2 | 0 | 8 | 12.5 |
+| M6 – Loot | 2 | 0 | 8 | 11 |
 | M7 – Vertical slice | 0 | 0 | 8 | 31.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
@@ -93,7 +93,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M3-03** Barra de habilidades com contagem regressiva _(UI, ~1 d)_  
   Feito: Q W E R com setor de recarga e segundos restantes. Falta: arrastar habilidades para a barra e mostrar custo de Energia.
 - [ ] **M3-04** Implementar as ativas que faltam _(código, ~3 d)_  
-  Feitas: Golpe Preciso, Golpe de Escudo (atordoa), Corte Amplo (arco), Muralha (guarda 360°). Faltam: Investida, Turbilhão, Arremesso de Escudo, Grito de Guerra.
+  Feitas: Precise Strike, Shield Bash (atordoa), Wide Slash (arco), Bulwark (guarda 360°). Faltam: Charge, Whirlwind, Shield Throw, War Cry.
 - [ ] **M3-05** Implementar os passivos do MVP _(código, ~3 d)_  
   Ligar efeitos de skills.json a PlayerCombat e às regras (sangramento, ritmo, segundo fôlego…).
 - [ ] **M3-06** Pergaminho do Esquecimento (respec) _(código, ~0.5 d)_  
@@ -137,7 +137,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [x] **M5-07** Névoa de guerra e mapa automático (Tab) _(UI, ~2 d)_  
   Feito: campo de visão do tcod revela o mapa, monstros fora da visão somem, mapa pequeno no canto e grande com Tab.
 - [x] **M5-08** Cidade feita à mão no Tiled _(conteúdo, ~2 d)_  
-  Feito: data/maps/vila.tmx com entrada, saída, waypoint, vendedora e baú (marcadores). Falta: lógica do vendedor e do baú.
+  Feito: data/maps/village.tmx com entrada, saída, waypoint, vendedora e baú (marcadores). Falta: lógica do vendedor e do baú.
 
 ## M6 – Loot
 
@@ -156,7 +156,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M6-06** 5 itens únicos do MVP _(conteúdo, ~1 d)_  
   Tabela de únicos com propriedades fixas e faixas; tirar o 'único vira raro'.
 - [ ] **M6-07** Save completo _(código, ~2 d)_  
-  Inventário, equipamento, baú, waypoints; arquivo versionado com backup.
+  Feito: save v2 do personagem (níveis, pontos, equipamento, mochila, ouro, consumíveis) em arquivo versionado com backup (core/saves.py), F5/`save`, salva ao sair e reabre na vila. Falta: waypoints ativados e gravar o baú compartilhado em disco.
 - [x] **M6-08** Baú compartilhado no núcleo _(código, ~0.5 d)_  
   SharedStash: arquivo próprio, versionado, lido por todos os personagens; testes de ida e volta.
 
@@ -174,8 +174,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Prioridade nos sons de feedback de combate.
 - [ ] **M7-05** Menus: título, opções, novo jogo/continuar _(UI, ~2 d)_  
   Volume, resolução, idioma, teclas.
-- [ ] **M7-06** Localização PT-BR / EN _(código, ~2 d)_  
-  Todos os textos em arquivos de strings (TranslationServer).
+- [ ] **M7-06** Localização _(código, ~2 d)_  
+  Jogo todo em inglês desde out/2026 (nomes nos JSON, mensagens no código). Falta: mover as mensagens do cliente para um arquivo de strings e decidir se PT-BR entra no lançamento.
 - [ ] **M7-07** Playtest com 5 pessoas de fora _(produção, ~3 d)_  
   Roteiro, gravação, questionário; consolidar feedback.
 - [ ] **M7-08** Planilha de licenças de assets _(jurídico, ~0.5 d)_  

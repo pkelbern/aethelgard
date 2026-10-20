@@ -1,8 +1,8 @@
-"""Tempos de ação (GDD 7.7): recargas de habilidade, recuperação de golpe e de bloqueio.
+"""Action timings (GDD 7.7): skill cooldowns, hit recovery and block recovery.
 
-Tudo em segundos. Bônus do tipo "faster…" reduzem a duração como no D2, mas de forma contínua:
-``duração = base / (1 + bônus)``. Recarga de habilidade: ``recarga × (1 − redução)``, com teto
-de redução de 50%.
+Everything in seconds. "faster…" bonuses shorten the duration like in D2, but continuously:
+``duration = base / (1 + bonus)``. Skill cooldown: ``cooldown × (1 − reduction)``, with the
+reduction capped at 50%.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ MAX_COOLDOWN_REDUCTION = 0.5
 
 
 class Cooldowns:
-    """Contagem regressiva por chave (id da habilidade, 'guard', 'global'...)."""
+    """Countdown per key (skill id, 'guard', 'global'...)."""
 
     def __init__(self) -> None:
         self._left: dict[str, float] = {}
@@ -30,7 +30,7 @@ class Cooldowns:
         return self._left.get(key, 0.0)
 
     def fraction(self, key: str) -> float:
-        """Fração restante (1 = acabou de começar, 0 = pronta) — para a animação no HUD."""
+        """Fraction left (1 = just started, 0 = ready) — for the HUD animation."""
         left = self._left.get(key, 0.0)
         total = self._total.get(key, 0.0)
         return left / total if total > 0 else 0.0
@@ -60,7 +60,7 @@ def skill_cooldown(base: float, reduction: float) -> float:
 
 
 def player_hit_recovery(t: TimingParams, damage: float, max_life: float, faster: float) -> float:
-    """Recuperação de golpe do jogador: só quando o golpe tira ≥ 1/12 da vida máxima (como no D2)."""
+    """Player hit recovery: only when the hit takes ≥ 1/12 of max life (as in D2)."""
     if max_life <= 0 or damage < max_life * t.hit_recovery_threshold_pct_life:
         return 0.0
     return scaled(t.hit_recovery_seconds, faster)

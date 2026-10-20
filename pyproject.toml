@@ -5,22 +5,22 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aethelgard"
 version = "0.1.0"
-description = "RPG de ação isométrico 2D, sem classes: o personagem evolui nas proficiências que usa."
+description = "Classless 2D isometric action RPG: your character grows in the proficiencies they use."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
 authors = [{ name = "Peter" }]
 dependencies = [
-    "pygame-ce>=2.5,<3",   # janela, desenho, entrada, som (LGPL)
-    "pygame_gui>=0.6.12",  # janelas e widgets: árvore de habilidades, console (MIT)
-    "numpy>=1.26",         # geração de mapas vetorizada (BSD)
-    "tcod>=16",            # A*, distâncias e campo de visão em C (BSD)
-    "pytmx>=3.32",         # mapas feitos à mão no editor Tiled (LGPL)
+    "pygame-ce>=2.5,<3",   # window, drawing, input, sound (LGPL)
+    "pygame_gui>=0.6.12",  # windows and widgets: skill trees, console (MIT)
+    "numpy>=1.26",         # vectorized map generation (BSD)
+    "tcod>=16",            # A*, distances and field of view in C (BSD)
+    "pytmx>=3.32",         # hand-made maps from the Tiled editor (LGPL)
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Games/Entertainment :: Role-Playing",
-    "Natural Language :: Portuguese (Brazilian)",
+    "Natural Language :: English",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +41,7 @@ aethelgard = ["data/*.json", "data/maps/*.tmx", "data/maps/*.tsx", "data/maps/*.
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: testes demorados (rode com -m slow)"]
+markers = ["slow: long tests (run with -m slow)"]
 addopts = "-m 'not slow'"
 
 [tool.ruff]

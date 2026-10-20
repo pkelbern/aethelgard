@@ -1,6 +1,6 @@
-"""Modelos dos arquivos em ``aethelgard/data/*.json`` e carregamento com validação.
+"""Models for the files in ``aethelgard/data/*.json``, plus loading with validation.
 
-Os campos ``_comment`` dos JSON são ignorados. Nomes em camelCase do JSON viram snake_case.
+``_comment`` fields in the JSON are ignored. camelCase JSON names become snake_case.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ def _snake(name: str) -> str:
 
 
 def from_dict(cls: type, raw: dict[str, Any]):
-    """Constrói uma dataclass a partir de um dict do JSON (camelCase → snake_case, recursivo)."""
+    """Builds a dataclass from a JSON dict (camelCase → snake_case, recursive)."""
     hints = get_type_hints(cls)
     names = {f.name for f in fields(cls)}
     kwargs: dict[str, Any] = {}
@@ -51,7 +51,7 @@ def _convert(tp: Any, value: Any):
     return value
 
 
-# ---------------------------------------------------------------- curvas
+# ---------------------------------------------------------------- curves
 
 
 @dataclass
@@ -200,7 +200,7 @@ class BalanceData:
     timing: TimingParams = field(default_factory=TimingParams)
 
 
-# ---------------------------------------------------------------- monstros
+# ---------------------------------------------------------------- monsters
 
 
 @dataclass
@@ -273,13 +273,23 @@ class BossDef:
 
 
 @dataclass
+class UniqueNameParts:
+    """Unique monster names: ``<prefix><suffix> <epithet>`` (e.g. "Bonemaw the Hungry")."""
+
+    prefixes: list[str] = field(default_factory=lambda: ["Nameless"])
+    suffixes: list[str] = field(default_factory=lambda: [""])
+    epithets: list[str] = field(default_factory=lambda: [""])
+
+
+@dataclass
 class MonstersData:
+    unique_names: UniqueNameParts = field(default_factory=UniqueNameParts)
     families: list[FamilyDef] = field(default_factory=list)
     types: list[MonsterTypeDef] = field(default_factory=list)
     bosses: list[BossDef] = field(default_factory=list)
 
 
-# ---------------------------------------------------------------- mundo
+# ---------------------------------------------------------------- world
 
 
 @dataclass
@@ -297,7 +307,7 @@ class AreaDef:
     size_chunks: list[int] | None = None
     boss: str | None = None
     waypoint: bool = False
-    map: str | None = None  # mapa feito à mão no Tiled (relativo a aethelgard/data)
+    map: str | None = None  # hand-made Tiled map (relative to aethelgard/data)
 
     def level_for_floor(self, floor: int) -> int:
         if self.kind != "dungeon":
@@ -320,7 +330,7 @@ class AreasData:
     acts: list[ActDef] = field(default_factory=list)
 
 
-# ---------------------------------------------------------------- personagem
+# ---------------------------------------------------------------- character
 
 
 @dataclass
@@ -375,7 +385,7 @@ class SkillsData:
     synergies: list[SynergyDef] = field(default_factory=list)
 
 
-# ---------------------------------------------------------------- itens
+# ---------------------------------------------------------------- items
 
 
 @dataclass
@@ -432,7 +442,26 @@ class MinMax:
 
 
 @dataclass
+class InventorySize:
+    columns: int = 10
+    rows: int = 6
+
+    @property
+    def capacity(self) -> int:
+        return self.columns * self.rows
+
+
+@dataclass
+class RareNameParts:
+    first: list[str] = field(default_factory=lambda: ["Rare"])
+    second: list[str] = field(default_factory=lambda: ["Item"])
+
+
+@dataclass
 class ItemsData:
+    inventory: InventorySize = field(default_factory=InventorySize)
+    starting_gear: list[str] = field(default_factory=list)
+    rare_names: RareNameParts = field(default_factory=RareNameParts)
     rarity_chances: RarityChances = field(default_factory=RarityChances)
     drop_count: dict[str, DropCountDef] = field(default_factory=dict)
     drop_kind: dict[str, float] = field(default_factory=dict)
@@ -441,11 +470,19 @@ class ItemsData:
     rare_affix_count: MinMax = field(default_factory=MinMax)
 
 
-# ---------------------------------------------------------------- tudo junto
+# ---------------------------------------------------------------- everything together
 
 
 class DataError(ValueError):
     pass
+
+
+def _find(items, item_id: str, what: str):
+    """Looks up a definition by id; one helper for every ``GameData`` query."""
+    for x in items:
+        if x.id == item_id:
+            return x
+    raise KeyError(f"{what} '{item_id}'")
 
 
 @dataclass
@@ -474,11 +511,11 @@ class GameData:
         "items": ("items.json", ItemsData),
     }
 
-    # ---- carregamento
+    # ---- loading
 
     @classmethod
     def load(cls, read: Callable[[str], str] | None = None) -> GameData:
-        """Carrega os JSON. Sem ``read``, usa os arquivos empacotados em ``aethelgard/data``."""
+        """Loads the JSON files. Without ``read``, uses the files packaged in ``aethelgard/data``."""
         if read is None:
             base = resources.files("aethelgard") / "data"
 
@@ -488,7 +525,7 @@ class GameData:
         parts = {}
         for key, (fname, model) in cls.FILES.items():
             raw = json.loads(read(fname))
-            # "from" é palavra reservada em Python
+            # "from" is a reserved word in Python
             if model is SkillsData:
                 for s in raw.get("synergies", []):
                     s["from_"] = s.pop("from")
@@ -497,7 +534,7 @@ class GameData:
         data._build_tables()
         errors = validate(data)
         if errors:
-            raise DataError("Dados de jogo inválidos:\n - " + "\n - ".join(errors))
+            raise DataError("Invalid game data:\n - " + "\n - ".join(errors))
         return data
 
     @classmethod
@@ -512,7 +549,7 @@ class GameData:
             step = round(c.at(n) / c.round_to) * c.round_to
             acc += max(c.round_to, step)
             total.append(acc)
-        self.xp_total_by_level = total  # [n-1] = XP total para estar no nível n
+        self.xp_total_by_level = total  # [n-1] = total XP to be at level n
 
         m = self.curves.monster
         self.monster_levels = [
@@ -527,19 +564,13 @@ class GameData:
             for lv in range(1, m.max_level + 1)
         ]
 
-    # ---- consultas
+    # ---- queries
 
     def rank(self, rank_id: str) -> MonsterRankDef:
-        for r in self.ranks.ranks:
-            if r.id == rank_id:
-                return r
-        raise KeyError(f"rank '{rank_id}'")
+        return _find(self.ranks.ranks, rank_id, "rank")
 
     def monster_type(self, type_id: str) -> MonsterTypeDef:
-        for t in self.monsters.types:
-            if t.id == type_id:
-                return t
-        raise KeyError(f"monstro '{type_id}'")
+        return _find(self.monsters.types, type_id, "monster")
 
     def monster_level(self, level: int) -> MonsterLevelRow:
         rows = self.monster_levels
@@ -550,74 +581,79 @@ class GameData:
     def all_areas(self) -> list[AreaDef]:
         return [a for act in self.areas.acts for a in act.areas]
 
+    @property
+    def town_id(self) -> str:
+        """The first town of the first act: where new and loaded characters start."""
+        return next(a.id for a in self.all_areas if a.kind == "town")
+
     def area(self, area_id: str) -> AreaDef:
-        for a in self.all_areas:
-            if a.id == area_id:
-                return a
-        raise KeyError(f"área '{area_id}'")
+        return _find(self.all_areas, area_id, "area")
 
     def node(self, node_id: str) -> SkillNodeDef:
-        for n in self.skills.nodes:
-            if n.id == node_id:
-                return n
-        raise KeyError(f"nó '{node_id}'")
+        return _find(self.skills.nodes, node_id, "node")
 
     def base(self, base_id: str) -> ItemBaseDef:
-        for b in self.items.bases:
-            if b.id == base_id:
-                return b
-        raise KeyError(f"base '{base_id}'")
+        return _find(self.items.bases, base_id, "base")
+
+    def affix(self, affix_id: str) -> AffixDef:
+        return _find(self.items.affixes, affix_id, "affix")
 
 
 def validate(d: GameData) -> list[str]:
-    """Consistência dos dados: falha cedo, ao carregar, em vez de no meio do jogo."""
+    """Data consistency: fail early, on load, instead of in the middle of a game."""
     errors: list[str] = []
     xt = d.xp_total_by_level
     if any(b <= a for a, b in zip(xt, xt[1:], strict=False)):
-        errors.append("curva de XP não é crescente")
+        errors.append("XP curve is not increasing")
 
     for r in ("normal", "champion", "berserker", "unique", "minion", "boss"):
         if all(x.id != r for x in d.ranks.ranks):
-            errors.append(f"monster_ranks: falta '{r}'")
+            errors.append(f"monster_ranks: missing '{r}'")
 
     families = {f.id for f in d.monsters.families}
     for t in d.monsters.types:
         if t.family not in families:
-            errors.append(f"monsters: '{t.id}' com família desconhecida '{t.family}'")
+            errors.append(f"monsters: '{t.id}' has unknown family '{t.family}'")
         if t.dmg_min > t.dmg_max:
             errors.append(f"monsters: '{t.id}' dmgMin > dmgMax")
     boss_ids = {b.id for b in d.monsters.bosses}
     type_ids = {t.id for t in d.monsters.types}
     for b in d.monsters.bosses:
         if b.base_type not in type_ids:
-            errors.append(f"monsters: chefe '{b.id}' com tipo base inexistente")
+            errors.append(f"monsters: boss '{b.id}' has a missing base type")
 
     area_ids = {a.id for a in d.all_areas}
     for a in d.all_areas:
-        errors += [f"areas: '{a.id}' liga para '{lk}' inexistente" for lk in a.links if lk not in area_ids]
-        errors += [f"areas: '{a.id}' usa família '{f}' inexistente" for f in a.families if f not in families]
+        errors += [f"areas: '{a.id}' links to missing '{lk}'" for lk in a.links if lk not in area_ids]
+        errors += [f"areas: '{a.id}' uses missing family '{f}'" for f in a.families if f not in families]
         if a.boss and a.boss not in boss_ids:
-            errors.append(f"areas: '{a.id}' com chefe inexistente '{a.boss}'")
+            errors.append(f"areas: '{a.id}' has missing boss '{a.boss}'")
+    if all(a.kind != "town" for a in d.all_areas):
+        errors.append("areas: no town to start in")
 
     pts = d.balance.attributes.points_per_proficiency_level
     for p in d.proficiencies.proficiencies:
         if sum(p.attributes.values()) != pts:
-            errors.append(f"proficiencies: '{p.id}' distribui {sum(p.attributes.values())} pontos (esperado {pts})")
+            errors.append(f"proficiencies: '{p.id}' hands out {sum(p.attributes.values())} points (expected {pts})")
 
     prof_ids = {p.id for p in d.proficiencies.proficiencies}
     node_ids = {n.id for n in d.skills.nodes}
     for n in d.skills.nodes:
         if n.tree not in prof_ids:
-            errors.append(f"skills: nó '{n.id}' em árvore inexistente '{n.tree}'")
+            errors.append(f"skills: node '{n.id}' in missing tree '{n.tree}'")
         if n.kind == "active" and n.cooldown < 0:
-            errors.append(f"skills: nó '{n.id}' com recarga negativa")
+            errors.append(f"skills: node '{n.id}' has a negative cooldown")
     for s in d.skills.synergies:
         if s.target not in node_ids or s.from_ not in node_ids:
-            errors.append(f"skills: sinergia {s.from_} → {s.target} referencia nó inexistente")
+            errors.append(f"skills: synergy {s.from_} → {s.target} references a missing node")
 
     for a in d.items.affixes:
         if not a.tiers:
-            errors.append(f"items: afixo '{a.id}' sem faixas")
+            errors.append(f"items: affix '{a.id}' has no tiers")
     if len({a.id for a in d.items.affixes}) != len(d.items.affixes):
-        errors.append("items: ids de afixo repetidos")
+        errors.append("items: duplicate affix ids")
+    base_ids = {b.id for b in d.items.bases}
+    errors += [f"items: starting gear '{b}' is not a base" for b in d.items.starting_gear if b not in base_ids]
+    if d.items.inventory.capacity <= 0:
+        errors.append("items: inventory has no room")
     return errors

@@ -1,4 +1,4 @@
-"""HUD: vida, Energia, proficiências, barra de habilidades com contagem regressiva e log."""
+"""HUD: life, Energy, proficiencies, skill bar with countdowns, and the message log."""
 
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ import pygame
 from ..core.world import IMPLEMENTED_SKILLS, PlayerActor, World
 from . import palette as C
 
-SKILL_BAR = [("Q", "golpe_preciso"), ("W", "golpe_escudo"), ("E", "corte_amplo"), ("R", "muralha")]
-SHORT = {"golpe_preciso": "Preciso", "golpe_escudo": "G. Esc.", "corte_amplo": "Corte", "muralha": "Muralha"}
+SKILL_BAR = [("Q", "precise_strike"), ("W", "shield_bash"), ("E", "wide_slash"), ("R", "bulwark")]
+SHORT = {"precise_strike": "Precise", "shield_bash": "Bash", "wide_slash": "Slash", "bulwark": "Bulwark"}
 STATE_LABEL = {
-    "hit_recovery": "Recuperando do golpe",
-    "block_recovery": "Recuperando do bloqueio",
-    "stunned": "Atordoado",
-    "attacking": "Atacando",
+    "hit_recovery": "Recovering from hit",
+    "block_recovery": "Recovering from block",
+    "stunned": "Stunned",
+    "attacking": "Attacking",
 }
 
 
@@ -29,34 +29,35 @@ class Hud:
     def add(self, text: str, color=C.TEXT) -> None:
         self.log.append((text, color))
 
-    # ------------------------------------------------------------ desenho
+    # ------------------------------------------------------------ drawing
 
     def draw(self, screen: pygame.Surface, world: World, p: PlayerActor) -> None:
         s = p.session
         W, H = screen.get_size()
         self._text(screen, self.area_title, (16, 12), self.f["title"], C.TEXT)
-        self._text(screen, f"{s.character.title}  ·  Nível {s.character.level}  ·  Ouro {s.gold}", (16, 44), self.f["small"], C.MUTED)
+        info = f"{s.name}  ·  {s.character.title}  ·  Level {s.character.level}  ·  Gold {s.gold}  ·  Backpack {len(s.inventory)}/{s.inventory.capacity}"
+        self._text(screen, info, (16, 44), self.f["small"], C.MUTED)
 
-        self._bar(screen, (16, 68, 260, 14), p.life / max(1, p.max_life), C.LIFE, f"Vida {p.life:.0f}/{p.max_life:.0f}")
-        self._bar(screen, (16, 86, 260, 14), p.energy / max(1, p.max_energy), C.ENERGY, f"Energia {p.energy:.0f}/{p.max_energy:.0f}")
+        self._bar(screen, (16, 68, 260, 14), p.life / max(1, p.max_life), C.LIFE, f"Life {p.life:.0f}/{p.max_life:.0f}")
+        self._bar(screen, (16, 86, 260, 14), p.energy / max(1, p.max_energy), C.ENERGY, f"Energy {p.energy:.0f}/{p.max_energy:.0f}")
 
         y = 110
         for prof in s.proficiencies:
             free = s.skills.available(prof.id)
-            label = f"{prof.name} {prof.level}" + (f"   [{free} ponto(s)]" if free else "")
+            label = f"{prof.name} {prof.level}" + (f"   [{free} point{'s' if free > 1 else ''}]" if free else "")
             self._text(screen, label, (16, y), self.f["small"], C.GOLD if free else C.TEXT)
             self._bar(screen, (16, y + 18, 200, 5), prof.progress, C.XP, None)
             y += 30
 
-        # estado atual (recuperação, bloqueio, atordoado) com tempo restante
+        # current state (hit recovery, block recovery, stunned) with time left
         if p.state in STATE_LABEL and p.state != "attacking":
             t = f"{STATE_LABEL[p.state]} {p.state_left:.2f}s"
             self._text(screen, t, (W // 2 - self.f["body"].size(t)[0] // 2, H - 150), self.f["body"], C.FLOAT["info"])
         if p.guarding:
-            g = "Guarda erguida" + ("  ·  Muralha" if p.muralha_left > 0 else "")
+            g = "Guard up" + ("  ·  Bulwark" if p.bulwark_left > 0 else "")
             self._text(screen, g, (W // 2 - self.f["small"].size(g)[0] // 2, H - 128), self.f["small"], C.GUARD)
         elif not p.cooldowns.ready("guard_raise"):
-            g = f"Guarda em recarga {p.cooldowns.remaining('guard_raise'):.1f}s"
+            g = f"Guard cooldown {p.cooldowns.remaining('guard_raise'):.1f}s"
             self._text(screen, g, (W // 2 - self.f["small"].size(g)[0] // 2, H - 128), self.f["small"], C.MUTED)
 
         self._skill_bar(screen, p, W, H)
@@ -65,7 +66,7 @@ class Hud:
         for text, color in self.log:
             self._text(screen, text, (16, ly), self.f["small"], color)
             ly += 18
-        help_ = "Clique: andar/atacar · Espaço: guarda · Q W E R: habilidades · T: árvores · Tab: mapa · F1: console"
+        help_ = "Click: move/attack · Space: guard · Q W E R: skills · T: trees · Tab: map · F5: save · F1: console"
         self._text(screen, help_, (W - self.f["tiny"].size(help_)[0] - 16, H - 20), self.f["tiny"], C.MUTED)
 
     def _skill_bar(self, screen, p: PlayerActor, W: int, H: int) -> None:
@@ -83,8 +84,8 @@ class Hud:
             self._text(screen, name, (r.x + 5, r.y + 6), self.f["tiny"], C.TEXT if has else C.MUTED)
             self._text(screen, key, (r.right - 14, r.bottom - 18), self.f["small"], C.MUTED)
             if has and skill not in IMPLEMENTED_SKILLS:
-                self._text(screen, "em breve", (r.x + 5, r.y + 22), self.f["tiny"], C.MUTED)
-            # contagem regressiva: setor escuro que esvazia + segundos restantes
+                self._text(screen, "soon", (r.x + 5, r.y + 22), self.f["tiny"], C.MUTED)
+            # countdown: dark sector that empties + seconds left
             frac = max(p.cooldowns.fraction(skill), p.cooldowns.fraction("global") if has else 0)
             if has and frac > 0:
                 self._sweep(screen, r, frac)

@@ -1,6 +1,6 @@
-"""Geração determinística de áreas abertas e andares de masmorra (GDD 9).
+"""Deterministic generation of open areas and dungeon floors (GDD 9).
 
-Mesma seed mestre + mesma área + mesmo andar = mesmo mapa, independente da ordem de visita.
+Same master seed + same area + same floor = same map, whatever the order of visits.
 """
 
 from __future__ import annotations
@@ -34,14 +34,14 @@ Cell = tuple[int, int]
 class Exit:
     pos: Cell
     kind: ExitKind
-    target_area: str | None  # None + escada = andar seguinte/anterior da mesma masmorra
+    target_area: str | None  # None + stairs = next/previous floor of the same dungeon
 
 
 @dataclass
 class AreaLayout:
     width: int
     height: int
-    tiles: np.ndarray  # uint8, tiles[y, x] (também aceita tiles[y][x])
+    tiles: np.ndarray  # uint8, tiles[y, x] (tiles[y][x] also works)
     entry: Cell = (0, 0)
     exits: list[Exit] = field(default_factory=list)
     spawn_points: list[Cell] = field(default_factory=list)
@@ -49,7 +49,7 @@ class AreaLayout:
     boss_spot: Cell | None = None
     seed: int = 0
     attempts: int = 1
-    markers: dict[str, tuple[Cell, dict]] = field(default_factory=dict)  # NPCs e pontos nomeados (mapas do Tiled)
+    markers: dict[str, tuple[Cell, dict]] = field(default_factory=dict)  # NPCs and named points (Tiled maps)
 
     @classmethod
     def filled(cls, w: int, h: int, tile: int = WALL) -> AreaLayout:
@@ -67,7 +67,7 @@ class AreaLayout:
             self.tiles[c[1], c[0]] = tile
 
     def distances_from(self, start: Cell) -> np.ndarray:
-        """Passos (BFS, 4 direções) a partir de ``start``; -1 = inalcançável. Array [y, x], calculado em C pelo tcod."""
+        """Steps (BFS, 4 directions) from ``start``; -1 = unreachable. Array [y, x], computed in C by tcod."""
         dist = tcod.path.maxarray((self.height, self.width), dtype=np.int32, order="C")
         if self.is_floor(start):
             dist[start[1], start[0]] = 0
@@ -76,19 +76,19 @@ class AreaLayout:
         return dist
 
     def validate(self) -> str | None:
-        """Tudo alcançável a partir da entrada? Devolve o motivo da falha ou None."""
+        """Is everything reachable from the entry? Returns the reason for the failure, or None."""
         if not self.is_floor(self.entry):
-            return "entrada não é chão"
+            return "entry is not floor"
         dist = self.distances_from(self.entry)
         for e in self.exits:
             if not self.is_floor(e.pos) or dist[e.pos[1], e.pos[0]] < 0:
-                return f"saída {e.kind.value} em {e.pos} inalcançável"
+                return f"exit {e.kind.value} at {e.pos} unreachable"
         for s in self.spawn_points:
             if dist[s[1], s[0]] < 0:
-                return f"spawn {s} inalcançável"
-        for label, c in (("waypoint", self.waypoint), ("chefe", self.boss_spot)):
+                return f"spawn {s} unreachable"
+        for label, c in (("waypoint", self.waypoint), ("boss", self.boss_spot)):
             if c is not None and dist[c[1], c[0]] < 0:
-                return f"{label} inalcançável"
+                return f"{label} unreachable"
         return None
 
     def floor_count(self) -> int:
@@ -104,7 +104,7 @@ class AreaGenerator:
             layout = load_tiled_map(area.map)
             reason = layout.validate()
             if reason:
-                raise RuntimeError(f"mapa '{area.map}' inválido: {reason}")
+                raise RuntimeError(f"map '{area.map}' is invalid: {reason}")
             return layout
         base = Rng.for_label(master_seed, f"area:{area.id}:{floor}")
         reason = ""
@@ -118,9 +118,9 @@ class AreaGenerator:
             reason = layout.validate() or ""
             if not reason:
                 return layout
-        raise RuntimeError(f"falha ao gerar '{area.id}' andar {floor}: {reason}")
+        raise RuntimeError(f"failed to generate '{area.id}' floor {floor}: {reason}")
 
-    # ------------------------------------------------------------ área aberta
+    # ------------------------------------------------------------ open area
 
     def _open(self, area: AreaDef, rng: Rng, spawn_count: int) -> AreaLayout:
         cw, ch = area.size_chunks or (6, 6)
@@ -162,7 +162,7 @@ class AreaGenerator:
         _place_spawns(L, spawn_count, 14, 7, rng)
         return L
 
-    # ------------------------------------------------------------ masmorra
+    # ------------------------------------------------------------ dungeon
 
     def _dungeon(self, area: AreaDef, floor: int, rng: Rng, spawn_count: int) -> AreaLayout:
         L = AreaLayout.filled(72, 72)
@@ -213,11 +213,11 @@ class AreaGenerator:
         return L
 
 
-# ---------------------------------------------------------------- utilitários
+# ---------------------------------------------------------------- helpers
 
 
 def _smooth(L: AreaLayout) -> None:
-    """Autômato celular (vizinhança de 8), vetorizado com numpy."""
+    """Cellular automaton (8-neighborhood), vectorized with numpy."""
     t = L.tiles
     walls = (t == WALL).astype(np.int8)
     n = np.zeros_like(walls)
@@ -252,7 +252,7 @@ def _carve_room(L: AreaLayout, c: Cell, radius: int) -> None:
 
 
 def _carve_path(L: AreaLayout, start: Cell, goal: Cell, half: int, rng: Rng) -> None:
-    """Caminho sinuoso em direção ao alvo, com desvios aleatórios."""
+    """Winding path toward the goal, with random detours."""
     x, y = start
     guard = (L.width + L.height) * 8
     while (x, y) != goal and guard > 0:
@@ -298,7 +298,7 @@ def _carve_line(L: AreaLayout, a: Cell, b: Cell) -> None:
     while (x, y) != b:
         x, y = x + dx, y + dy
         L.set((x, y), FLOOR)
-        L.set((x + (1 if dy else 0), y + (1 if dx else 0)), FLOOR)  # corredor com 2 de largura
+        L.set((x + (1 if dy else 0), y + (1 if dx else 0)), FLOOR)  # corridor 2 tiles wide
 
 
 def _remove_unreachable(L: AreaLayout) -> None:
@@ -329,15 +329,15 @@ def _place_spawns(L: AreaLayout, count: int, min_dist: int, spacing: int, rng: R
                 L.spawn_points.append(c)
 
 
-# ---------------------------------------------------------------- mapas feitos à mão (Tiled)
+# ---------------------------------------------------------------- hand-made maps (Tiled)
 
 
 def load_tiled_map(relative_path: str) -> AreaLayout:
-    """Carrega um mapa do editor Tiled (https://www.mapeditor.org) com pytmx.
+    """Loads a map from the Tiled editor (https://www.mapeditor.org) with pytmx.
 
-    Convenção: mapa ortogonal em que cada tile é uma célula lógica; a propriedade ``walkable``
-    do tile diz se é chão. Objetos: ``entry`` (chegada), ``exit`` (propriedade ``target`` = área),
-    ``waypoint`` e ``npc`` (propriedade ``role``). O jogo desenha o resultado em isométrico.
+    Convention: orthogonal map where each tile is one logic cell; the tile's ``walkable``
+    property says whether it is floor. Objects: ``entry`` (arrival), ``exit`` (property
+    ``target`` = area), ``waypoint`` and ``npc`` (property ``role``). The game draws it isometric.
     """
     from importlib import resources
 

@@ -1,9 +1,9 @@
 {
-  "_comment": "Proficiências. attributes = pontos ganhos por nível (somam balance.attributes.pointsPerProficiencyLevel). xpSource: offense (dano causado), block (golpes bloqueados), armor (dano mitigado). defaultTitle: título enquanto todas as proficiências estão no nível 1.",
+  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1.",
   "proficiencies": [
     {
-      "id": "laminas",
-      "name": "Lâminas",
+      "id": "blades",
+      "name": "Blades",
       "xpSource": "offense",
       "attributes": {
         "str": 2,
@@ -16,8 +16,8 @@
       ]
     },
     {
-      "id": "escudo",
-      "name": "Escudo",
+      "id": "shield",
+      "name": "Shield",
       "xpSource": "block",
       "attributes": {
         "str": 1,
@@ -30,8 +30,8 @@
       ]
     },
     {
-      "id": "couraca",
-      "name": "Couraça",
+      "id": "armor",
+      "name": "Armor",
       "xpSource": "armor",
       "attributes": {
         "str": 1,
@@ -45,44 +45,44 @@
   "titles": [
     {
       "ids": [
-        "laminas"
+        "blades"
       ],
-      "title": "Duelista"
+      "title": "Duelist"
     },
     {
       "ids": [
-        "escudo"
+        "shield"
       ],
-      "title": "Protetor"
+      "title": "Protector"
     },
     {
       "ids": [
-        "couraca"
+        "armor"
       ],
-      "title": "Colosso"
+      "title": "Colossus"
     },
     {
       "ids": [
-        "laminas",
-        "escudo"
+        "blades",
+        "shield"
       ],
-      "title": "Guardião"
+      "title": "Guardian"
     },
     {
       "ids": [
-        "laminas",
-        "couraca"
+        "blades",
+        "armor"
       ],
-      "title": "Gladiador"
+      "title": "Gladiator"
     },
     {
       "ids": [
-        "escudo",
-        "couraca"
+        "shield",
+        "armor"
       ],
-      "title": "Bastião"
+      "title": "Bastion"
     }
   ],
   "titleSecondaryThreshold": 0.5,
-  "defaultTitle": "Recruta"
+  "defaultTitle": "Recruit"
 }

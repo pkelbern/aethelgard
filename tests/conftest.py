@@ -10,5 +10,5 @@ def data() -> GameData:
 
 @pytest.fixture
 def fresh_data() -> GameData:
-    """Cópia própria, para testes que alteram parâmetros."""
+    """A private copy, for tests that change parameters."""
     return GameData.load()

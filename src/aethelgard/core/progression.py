@@ -1,4 +1,4 @@
-"""XP por uso, proficiências, ficha do personagem e árvores de habilidade (GDD seções 4 a 6)."""
+"""XP by use, proficiencies, character sheet and skill trees (GDD sections 4 to 6)."""
 
 from __future__ import annotations
 
@@ -18,11 +18,11 @@ from .events import (
     XpGained,
 )
 
-# ---------------------------------------------------------------- curvas e fórmulas
+# ---------------------------------------------------------------- curves and formulas
 
 
 class XpCurve:
-    """Curva de XP das proficiências (GDD 5.7). ``total[n-1]`` = XP para estar no nível n."""
+    """Proficiency XP curve (GDD 5.7). ``total[n-1]`` = XP needed to be at level n."""
 
     def __init__(self, total_by_level: list[int]):
         self._total = total_by_level
@@ -46,7 +46,7 @@ class XpCurve:
 
 
 class LevelFactor:
-    """Fator de XP pela diferença de nível (GDD 5.3)."""
+    """XP factor from the level difference (GDD 5.3)."""
 
     def __init__(self, table: dict[str, float]):
         self._t = {int(k): v for k, v in table.items()}
@@ -58,7 +58,7 @@ class LevelFactor:
 
 
 class XpCalculator:
-    """Fórmulas de XP por uso (GDD 5.4 e 5.5)."""
+    """XP-by-use formulas (GDD 5.4 and 5.5)."""
 
     def __init__(self, factor: LevelFactor, params: XpParams):
         self._f = factor
@@ -89,7 +89,7 @@ class XpCalculator:
         return monster_level - prof_level <= self._p.trivial_monster_delta
 
 
-# ---------------------------------------------------------------- proficiências
+# ---------------------------------------------------------------- proficiencies
 
 
 class Proficiency:
@@ -112,7 +112,7 @@ class Proficiency:
         return self._curve.progress(self.xp)
 
     def add_xp(self, amount: float) -> int:
-        """Soma XP e devolve quantos níveis foram ganhos."""
+        """Adds XP and returns how many levels were gained."""
         if amount <= 0 or self.level >= self._curve.max_level:
             return 0
         before = self.level
@@ -125,7 +125,7 @@ class Proficiency:
         self.level = self._curve.level_for_xp(self.xp)
 
     def lose_xp_within_level(self, fraction: float) -> float:
-        """Perde uma fração do XP ganho dentro do nível atual; nunca desce de nível."""
+        """Loses a fraction of the XP earned inside the current level; never drops a level."""
         if fraction <= 0:
             return 0.0
         floor = self._curve.total_for_level(self.level)
@@ -135,10 +135,10 @@ class Proficiency:
 
 
 class ProficiencySet:
-    """Proficiências de UM personagem. Escuta eventos de combate e distribui o XP (GDD 5)."""
+    """Proficiencies of ONE character. Listens to combat events and hands out XP (GDD 5)."""
 
-    SHIELD = "escudo"
-    ARMOR = "couraca"
+    SHIELD = "shield"
+    ARMOR = "armor"
 
     def __init__(self, data: GameData, calc: XpCalculator, bus: EventBus | None = None, player_id: int = 0):
         self._calc = calc
@@ -156,6 +156,9 @@ class ProficiencySet:
     def __getitem__(self, prof_id: str) -> Proficiency:
         return self._profs[prof_id]
 
+    def __contains__(self, prof_id: str) -> bool:
+        return prof_id in self._profs
+
     def __iter__(self):
         return iter(self._profs.values())
 
@@ -166,20 +169,20 @@ class ProficiencySet:
         if e.player_id != self.player_id or e.proficiency_id not in self._profs:
             return
         p = self._profs[e.proficiency_id]
-        self._give(p, self._calc.offense(e.target, e.effective_damage, p.level), "ofensivo")
+        self._give(p, self._calc.offense(e.target, e.effective_damage, p.level), "offense")
 
     def on_hit_blocked(self, e: HitBlocked) -> None:
         if e.player_id != self.player_id:
             return
         p = self._profs[self.SHIELD]
-        self._give_defensive(p, e.attacker, self._calc.block(e.attacker, p.level), "bloqueio")
+        self._give_defensive(p, e.attacker, self._calc.block(e.attacker, p.level), "block")
 
     def on_damage_mitigated(self, e: DamageMitigated) -> None:
         if e.player_id != self.player_id:
             return
         p = self._profs[self.ARMOR]
         amount = self._calc.armor(e.attacker, e.raw_damage, e.mitigated_damage, p.level)
-        self._give_defensive(p, e.attacker, amount, "armadura")
+        self._give_defensive(p, e.attacker, amount, "armor")
 
     def defense_xp_from(self, monster_id: int) -> float:
         return self._defense_xp_by_monster.get(monster_id, 0.0)
@@ -204,7 +207,7 @@ class ProficiencySet:
                 self._bus.publish(ProficiencyLeveledUp(p.id, p.level, self.player_id))
 
 
-# ---------------------------------------------------------------- ficha do personagem
+# ---------------------------------------------------------------- character sheet
 
 
 @dataclass(frozen=True)
@@ -219,7 +222,7 @@ class Attributes:
 
 
 class CharacterSheet:
-    """Valores derivados das proficiências (GDD 4). Não guarda estado próprio."""
+    """Values derived from the proficiencies (GDD 4). Keeps no state of its own."""
 
     def __init__(self, data: GameData, profs: ProficiencySet):
         self._d = data
@@ -284,19 +287,19 @@ def compute_title(levels: list[tuple[str, int]], pd: ProficienciesData) -> str:
     return ""
 
 
-# ---------------------------------------------------------------- árvores
+# ---------------------------------------------------------------- trees
 
 
 class Allocate(Enum):
     OK = "ok"
-    NO_POINTS = "sem pontos nessa árvore"
-    LAYER_LOCKED = "camada ainda bloqueada"
-    MAXED_OUT = "já está no máximo"
-    UNKNOWN = "nó desconhecido"
+    NO_POINTS = "no points left in this tree"
+    LAYER_LOCKED = "layer still locked"
+    MAXED_OUT = "already maxed out"
+    UNKNOWN = "unknown node"
 
 
 class SkillTrees:
-    """1 ponto por nível da proficiência na árvore dela, incluindo o nível 1 (GDD 6.1)."""
+    """1 point per proficiency level in its own tree, level 1 included (GDD 6.1)."""
 
     def __init__(self, data: SkillsData, profs: ProficiencySet):
         self._d = data
@@ -337,6 +340,16 @@ class SkillTrees:
             self.points[node_id] = self.points_in(node_id) + 1
         return r
 
+    def restore(self, points: dict[str, int]) -> list[str]:
+        """Re-applies saved points through the normal rules. Returns the nodes that did not fit (bad or old save)."""
+        rejected = []
+        for node_id, pts in points.items():
+            for _ in range(pts):
+                if self.allocate(node_id) is not Allocate.OK:
+                    rejected.append(node_id)
+                    break
+        return rejected
+
     def respec(self, tree: str) -> None:
         for n in self.nodes_of(tree):
             self.points.pop(n.id, None)
@@ -346,7 +359,7 @@ class SkillTrees:
         return points if points <= n else n + (points - n) * 0.5
 
     def effect(self, node_id: str, stat: str) -> float:
-        """Valor do efeito com retorno decrescente e sinergias."""
+        """Effect value with diminishing returns and synergies."""
         n = self._nodes[node_id]
         value = n.effects.get(stat, 0.0) * self.effective_points(self.points_in(node_id))
         for s in self._d.synergies:
@@ -355,5 +368,5 @@ class SkillTrees:
         return value
 
     def stat_total(self, stat: str) -> float:
-        """Soma de um efeito em todos os nós com pontos (para bônus genéricos como fasterHitRecovery)."""
+        """Sum of one effect over every node with points (for generic bonuses such as fasterHitRecovery)."""
         return sum(self.effect(nid, stat) for nid in self.points if stat in self._nodes[nid].effects)

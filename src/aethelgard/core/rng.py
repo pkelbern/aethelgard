@@ -1,8 +1,8 @@
-"""Gerador pseudoaleatório determinístico (xoshiro256**).
+"""Deterministic pseudo-random generator (xoshiro256**).
 
-Mesma seed → mesma sequência, em qualquer máquina e versão do Python. Use um gerador por
-sistema (mundo, combate, loot, spawn) com :meth:`Rng.fork`, para que mudar um sistema não
-altere o resultado dos outros. Nunca use o módulo ``random`` em regra de jogo.
+Same seed → same sequence, on any machine and Python version. Use one generator per system
+(world, combat, loot, spawn) with :meth:`Rng.fork`, so that changing one system does not alter
+the results of the others. Never use the ``random`` module in game rules.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def _splitmix64(state: int) -> tuple[int, int]:
 
 
 def stable_hash(text: str) -> int:
-    """FNV-1a 64 bits — estável entre execuções (``hash()`` do Python não é)."""
+    """FNV-1a 64-bit — stable across runs (Python's ``hash()`` is not)."""
     h = 14695981039346656037
     for ch in text.encode("utf-8"):
         h ^= ch
@@ -76,7 +76,7 @@ class Rng:
         return (self.next_u64() >> 11) * (1.0 / (1 << 53))
 
     def randint(self, lo: int, hi: int) -> int:
-        """Inteiro em [lo, hi], inclusivo."""
+        """Integer in [lo, hi], inclusive."""
         if hi < lo:
             raise ValueError("hi < lo")
         return lo + self.next_u64() % (hi - lo + 1)
@@ -89,7 +89,7 @@ class Rng:
 
     def choice(self, seq: Sequence[T]) -> T:
         if not seq:
-            raise ValueError("sequência vazia")
+            raise ValueError("empty sequence")
         return seq[self.randint(0, len(seq) - 1)]
 
     def weighted(self, weights: Mapping[str, float]) -> str:

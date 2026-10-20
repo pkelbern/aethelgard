@@ -1,7 +1,16 @@
 {
- "_comment": "Bases, afixos e regras de drop. guardEfficiency (escudos) reduz a Energia gasta por bloqueio. level = nível mínimo do item (iLvl) para a base/afixo aparecer. size = células no inventário [largura, altura].",
+ "_comment": "Bases, affixes and drop rules. guardEfficiency (shields) reduces the Energy spent per block. level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears. rareNames = parts of rare item names: '<first> <second>'.",
+ "inventory": {
+  "columns": 10,
+  "rows": 6
+ },
+ "startingGear": ["short_sword", "buckler", "leather_armor"],
+ "rareNames": {
+  "first": ["Ruin", "Fury", "Shadow", "Death", "Sorrow", "Storm", "Raven", "Moon", "Thorn", "Ember"],
+  "second": ["Bite", "Ward", "Cry", "Veil", "Fang", "Mark", "Crown", "Edge", "Hide", "Oath"]
+ },
  "rarityChances": {
-  "_comment": "Chance base por item de equipamento, testada em ordem unique → rare → magic. Multiplicada pelo lootQualityMult do tipo de monstro e por (1 + achar itens mágicos).",
+  "_comment": "Base chance per equipment item, tested in order unique → rare → magic. Multiplied by the monster rank's lootQualityMult and by (1 + magic find).",
   "unique": 0.004,
   "rare": 0.03,
   "magic": 0.18
@@ -46,8 +55,8 @@
  },
  "bases": [
   {
-   "id": "adaga_longa",
-   "name": "Adaga Longa",
+   "id": "long_dagger",
+   "name": "Long Dagger",
    "slot": "mainhand",
    "tags": [
     "sword"
@@ -65,8 +74,8 @@
    }
   },
   {
-   "id": "espada_curta",
-   "name": "Espada Curta",
+   "id": "short_sword",
+   "name": "Short Sword",
    "slot": "mainhand",
    "tags": [
     "sword"
@@ -84,8 +93,8 @@
    }
   },
   {
-   "id": "gladio",
-   "name": "Gládio",
+   "id": "gladius",
+   "name": "Gladius",
    "slot": "mainhand",
    "tags": [
     "sword"
@@ -122,8 +131,8 @@
    }
   },
   {
-   "id": "espada_longa",
-   "name": "Espada Longa",
+   "id": "long_sword",
+   "name": "Long Sword",
    "slot": "mainhand",
    "tags": [
     "sword"
@@ -141,8 +150,8 @@
    }
   },
   {
-   "id": "espada_bastarda",
-   "name": "Espada Bastarda",
+   "id": "bastard_sword",
+   "name": "Bastard Sword",
    "slot": "mainhand",
    "tags": [
     "sword"
@@ -160,8 +169,8 @@
    }
   },
   {
-   "id": "broquel",
-   "name": "Broquel",
+   "id": "buckler",
+   "name": "Buckler",
    "slot": "offhand",
    "tags": [
     "shield"
@@ -178,8 +187,8 @@
    }
   },
   {
-   "id": "escudo_redondo",
-   "name": "Escudo Redondo",
+   "id": "round_shield",
+   "name": "Round Shield",
    "slot": "offhand",
    "tags": [
     "shield"
@@ -196,8 +205,8 @@
    }
   },
   {
-   "id": "escudo_pipa",
-   "name": "Escudo de Pipa",
+   "id": "kite_shield",
+   "name": "Kite Shield",
    "slot": "offhand",
    "tags": [
     "shield"
@@ -214,8 +223,8 @@
    }
   },
   {
-   "id": "escudo_torre",
-   "name": "Escudo de Torre",
+   "id": "tower_shield",
+   "name": "Tower Shield",
    "slot": "offhand",
    "tags": [
     "shield"
@@ -232,8 +241,8 @@
    }
   },
   {
-   "id": "couro",
-   "name": "Armadura de Couro",
+   "id": "leather_armor",
+   "name": "Leather Armor",
    "slot": "body",
    "tags": [
     "armor"
@@ -249,8 +258,8 @@
    }
   },
   {
-   "id": "couro_batido",
-   "name": "Couro Batido",
+   "id": "studded_leather",
+   "name": "Studded Leather",
    "slot": "body",
    "tags": [
     "armor"
@@ -266,8 +275,8 @@
    }
   },
   {
-   "id": "cota_malha",
-   "name": "Cota de Malha",
+   "id": "chain_mail",
+   "name": "Chain Mail",
    "slot": "body",
    "tags": [
     "armor"
@@ -283,8 +292,8 @@
    }
   },
   {
-   "id": "cota_escamas",
-   "name": "Cota de Escamas",
+   "id": "scale_mail",
+   "name": "Scale Mail",
    "slot": "body",
    "tags": [
     "armor"
@@ -300,8 +309,8 @@
    }
   },
   {
-   "id": "placas",
-   "name": "Armadura de Placas",
+   "id": "plate_mail",
+   "name": "Plate Mail",
    "slot": "body",
    "tags": [
     "armor"
@@ -317,8 +326,8 @@
    }
   },
   {
-   "id": "elmo",
-   "name": "Elmo",
+   "id": "helm",
+   "name": "Helm",
    "slot": "head",
    "tags": [
     "armor"
@@ -334,8 +343,8 @@
    }
   },
   {
-   "id": "luvas",
-   "name": "Luvas",
+   "id": "gloves",
+   "name": "Gloves",
    "slot": "hands",
    "tags": [
     "armor"
@@ -351,8 +360,8 @@
    }
   },
   {
-   "id": "botas",
-   "name": "Botas",
+   "id": "boots",
+   "name": "Boots",
    "slot": "feet",
    "tags": [
     "armor"
@@ -368,8 +377,8 @@
    }
   },
   {
-   "id": "cinto",
-   "name": "Cinto",
+   "id": "belt",
+   "name": "Belt",
    "slot": "waist",
    "tags": [
     "armor"
@@ -385,8 +394,8 @@
    }
   },
   {
-   "id": "anel",
-   "name": "Anel",
+   "id": "ring",
+   "name": "Ring",
    "slot": "ring",
    "tags": [
     "jewelry"
@@ -399,8 +408,8 @@
    "req": {}
   },
   {
-   "id": "amuleto",
-   "name": "Amuleto",
+   "id": "amulet",
+   "name": "Amulet",
    "slot": "neck",
    "tags": [
     "jewelry"
@@ -415,9 +424,9 @@
  ],
  "affixes": [
   {
-   "id": "afiado",
+   "id": "sharp",
    "kind": "prefix",
-   "name": "Afiado",
+   "name": "Sharp",
    "group": "dmg_pct",
    "stat": "damagePct",
    "tiers": [
@@ -437,9 +446,9 @@
    ]
   },
   {
-   "id": "robusto",
+   "id": "sturdy",
    "kind": "prefix",
-   "name": "Robusto",
+   "name": "Sturdy",
    "group": "arm_pct",
    "stat": "armorPct",
    "tiers": [
@@ -460,9 +469,9 @@
    ]
   },
   {
-   "id": "preciso",
+   "id": "accurate",
    "kind": "prefix",
-   "name": "Preciso",
+   "name": "Accurate",
    "group": "acc",
    "stat": "accuracy",
    "tiers": [
@@ -484,9 +493,9 @@
    ]
   },
   {
-   "id": "flamejante",
+   "id": "flaming",
    "kind": "prefix",
-   "name": "Flamejante",
+   "name": "Flaming",
    "group": "fire_dmg",
    "stat": "fireDamage",
    "tiers": [
@@ -507,9 +516,9 @@
    ]
   },
   {
-   "id": "agil",
+   "id": "nimble",
    "kind": "prefix",
-   "name": "Ágil",
+   "name": "Nimble",
    "group": "ias",
    "stat": "attackSpeedPct",
    "tiers": [
@@ -525,11 +534,11 @@
    ]
   },
   {
-   "id": "do_mestre",
+   "id": "masters",
    "kind": "prefix",
-   "name": "do Mestre",
+   "name": "Master's",
    "group": "skill",
-   "stat": "laminasSkills",
+   "stat": "bladesSkills",
    "tiers": [
     {
      "level": 12,
@@ -543,9 +552,9 @@
    ]
   },
   {
-   "id": "do_urso",
+   "id": "of_the_bear",
    "kind": "suffix",
-   "name": "do Urso",
+   "name": "of the Bear",
    "group": "vit",
    "stat": "vit",
    "tiers": [
@@ -567,9 +576,9 @@
    ]
   },
   {
-   "id": "da_raposa",
+   "id": "of_the_fox",
    "kind": "suffix",
-   "name": "da Raposa",
+   "name": "of the Fox",
    "group": "dex",
    "stat": "dex",
    "tiers": [
@@ -591,9 +600,9 @@
    ]
   },
   {
-   "id": "do_touro",
+   "id": "of_the_bull",
    "kind": "suffix",
-   "name": "do Touro",
+   "name": "of the Bull",
    "group": "str",
    "stat": "str",
    "tiers": [
@@ -616,9 +625,9 @@
    ]
   },
   {
-   "id": "da_vida",
+   "id": "of_life",
    "kind": "suffix",
-   "name": "da Vida",
+   "name": "of Life",
    "group": "life",
    "stat": "maxLife",
    "tiers": [
@@ -640,9 +649,9 @@
    ]
   },
   {
-   "id": "da_sorte",
+   "id": "of_luck",
    "kind": "suffix",
-   "name": "da Sorte",
+   "name": "of Luck",
    "group": "mf",
    "stat": "magicFind",
    "tiers": [
@@ -658,9 +667,9 @@
    ]
   },
   {
-   "id": "do_escudeiro",
+   "id": "of_the_squire",
    "kind": "suffix",
-   "name": "do Escudeiro",
+   "name": "of the Squire",
    "group": "block",
    "stat": "guardEfficiency",
    "tiers": [
@@ -675,9 +684,9 @@
    ]
   },
   {
-   "id": "da_firmeza",
+   "id": "of_steadiness",
    "kind": "suffix",
-   "name": "da Firmeza",
+   "name": "of Steadiness",
    "group": "fhr",
    "stat": "fasterHitRecovery",
    "tiers": [
@@ -698,9 +707,9 @@
    ]
   },
   {
-   "id": "do_reflexo",
+   "id": "of_reflexes",
    "kind": "suffix",
-   "name": "do Reflexo",
+   "name": "of Reflexes",
    "group": "fbr",
    "stat": "fasterBlockRecovery",
    "tiers": [
@@ -716,9 +725,9 @@
    ]
   },
   {
-   "id": "expedito",
+   "id": "hasty",
    "kind": "prefix",
-   "name": "Expedito",
+   "name": "Hasty",
    "group": "cdr",
    "stat": "cooldownReduction",
    "tiers": [

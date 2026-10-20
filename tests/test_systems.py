@@ -12,8 +12,8 @@ from aethelgard.core.combat import (
     player_defense,
     player_guard,
 )
-from aethelgard.core.items import ItemDrop, LootGenerator, Rarity, SharedStash
-from aethelgard.core.monsters import MonsterFactory, PackKind, PackSpawner
+from aethelgard.core.items import Item, ItemDrop, LootGenerator, Rarity, RolledAffix, SharedStash
+from aethelgard.core.monsters import MonsterFactory, PackKind, PackSpawner, unique_name
 from aethelgard.core.rng import Rng
 from aethelgard.core.session import GameSession
 from aethelgard.core.world_gen import AreaGenerator, ExitKind
@@ -29,7 +29,7 @@ BARE = DefenderStats(1, 0)
 # ---------------------------------------------------------------- RNG
 
 
-def test_rng_deterministico_e_forks_independentes():
+def test_rng_is_deterministic_and_forks_are_independent():
     a, b = Rng(123), Rng(123)
     assert [a.next_u64() for _ in range(500)] == [b.next_u64() for _ in range(500)]
     loot1 = Rng.for_label(7, "loot")
@@ -39,17 +39,17 @@ def test_rng_deterministico_e_forks_independentes():
     assert Rng.for_label(7, "loot").next_u64() != Rng.for_label(7, "world").next_u64()
 
 
-def test_rng_limites():
+def test_rng_bounds():
     r = Rng(5)
     seen = {r.randint(3, 6) for _ in range(3000)}
     assert seen == {3, 4, 5, 6}
     assert all(0 <= r.random() < 1 for _ in range(3000))
 
 
-# ---------------------------------------------------------------- combate e guarda
+# ---------------------------------------------------------------- combat and guard
 
 
-def test_acerto_e_armadura(data):
+def test_hit_and_armor(data):
     c = cm(data)
     assert c.hit_chance(100, 100, 10, 10) == pytest.approx(0.5)
     assert c.hit_chance(10000, 1, 10, 1) == 0.95
@@ -58,30 +58,30 @@ def test_acerto_e_armadura(data):
     assert c.armor_reduction(1e9, 1) == 0.75
 
 
-def test_dano_final(data):
+def test_final_damage(data):
     r = cm(data).resolve_physical(HIT20, DefenderStats(1, 0, 250), Rng(9))
     assert r.hit and r.raw == pytest.approx(20)
     assert r.mitigated == pytest.approx(10)
     assert r.final == pytest.approx(10)
 
 
-def test_guarda_bloqueia_de_frente_e_gasta_energia(data):
+def test_guard_blocks_from_the_front_and_spends_energy(data):
     c = cm(data)
     g = GuardState(raised=True, in_arc=True, energy=100)
     r = c.resolve_physical(HIT20, BARE, Rng(1), g)
     assert r.block is BlockOutcome.BLOCKED and r.final == 0
     assert r.guard_energy_cost == pytest.approx(1 + 20 * 0.25)
     assert c.guard_cost(20, 0.3) == pytest.approx(6 * 0.7)
-    assert c.guard_cost(20, 0.95) == pytest.approx(6 * 0.4), "eficiência limitada a 60%"
+    assert c.guard_cost(20, 0.95) == pytest.approx(6 * 0.4), "efficiency capped at 60%"
 
 
-def test_guarda_nao_cobre_costas_nem_guarda_baixa(data):
+def test_guard_does_not_cover_the_back_nor_when_lowered(data):
     c = cm(data)
     assert c.resolve_physical(HIT20, BARE, Rng(1), GuardState(True, False, energy=100)).block is BlockOutcome.NONE
     assert c.resolve_physical(HIT20, BARE, Rng(1), GuardState(False, True, energy=100)).block is BlockOutcome.NONE
 
 
-def test_janela_perfeita_e_guarda_quebrada(data):
+def test_perfect_window_and_broken_guard(data):
     c = cm(data)
     perf = c.resolve_physical(HIT20, BARE, Rng(1), GuardState(True, True, perfect=True))
     assert perf.block is BlockOutcome.PERFECT and perf.guard_energy_cost == 0
@@ -90,7 +90,7 @@ def test_janela_perfeita_e_guarda_quebrada(data):
     assert broke.final == pytest.approx(20) and broke.guard_energy_cost == 2
 
 
-def test_arco_de_120_graus():
+def test_120_degree_arc():
     assert CombatMath.in_arc(1, 0, 1, 0, 120)
     assert CombatMath.in_arc(1, 0, 1, 1.5, 120)
     assert not CombatMath.in_arc(1, 0, 1, 2, 120)
@@ -98,7 +98,7 @@ def test_arco_de_120_graus():
     assert CombatMath.in_arc(1, 0, -1, 0, 360)
 
 
-def test_guerreiro_inicial(data):
+def test_starting_warrior(data):
     s = GameSession(data, 1)
     atk = player_attack(s.character, s.skills, s.gear)
     g = player_guard(s.skills, s.gear, data.balance.guard)
@@ -106,19 +106,19 @@ def test_guerreiro_inicial(data):
     assert atk.damage_bonus_pct == pytest.approx(0.10)
     assert g.can_guard and g.arc_degrees == 120 and g.efficiency == 0
     assert player_defense(s.character, s.skills, s.gear).armor == pytest.approx(13)
-    s.skills.allocate("postura_defensiva")
+    s.skills.allocate("defensive_stance")
     assert player_guard(s.skills, s.gear, data.balance.guard).efficiency == pytest.approx(0.03)
-    lobo = MonsterFactory(data).create(data.monster_type("lobo"), 2, "normal", Rng(1))
+    wolf = MonsterFactory(data).create(data.monster_type("wolf"), 2, "normal", Rng(1))
     avg_hit = (atk.dmg_min + atk.dmg_max) / 2 * (1 + atk.damage_bonus_pct)
-    assert 1.5 <= lobo.max_hp / avg_hit <= 5
+    assert 1.5 <= wolf.max_hp / avg_hit <= 5
 
 
-# ---------------------------------------------------------------- monstros
+# ---------------------------------------------------------------- monsters
 
 
-def test_multiplicadores_de_rank(data):
+def test_rank_multipliers(data):
     f = MonsterFactory(data)
-    t = data.monster_type("lobo")
+    t = data.monster_type("wolf")
     rng = Rng(3)
     n, c, u, m = (f.create(t, 5, r, rng) for r in ("normal", "champion", "unique", "minion"))
     assert (n.level, c.level, u.level, m.level) == (5, 7, 8, 8)
@@ -131,16 +131,16 @@ def test_multiplicadores_de_rank(data):
     assert c.damage_bonus_pct == pytest.approx(0.9)
 
 
-def test_dano_nao_passa_da_vida(data):
-    m = MonsterFactory(data).create(data.monster_type("zumbi"), 3, "normal", Rng(1))
+def test_damage_does_not_exceed_life(data):
+    m = MonsterFactory(data).create(data.monster_type("zombie"), 3, "normal", Rng(1))
     hp = m.hp
     assert m.take_damage(hp * 10) == pytest.approx(hp)
     assert not m.alive and m.take_damage(5) == 0
 
 
-def test_pacotes_por_area(data):
+def test_packs_per_area(data):
     sp = PackSpawner(data, MonsterFactory(data))
-    area = data.area("bosque")
+    area = data.area("woods")
     uniques = total = 0
     for seed in range(200):
         packs = sp.spawn_area(area, 0, Rng(seed))
@@ -160,19 +160,26 @@ def test_pacotes_por_area(data):
     assert 0.72 <= uniques / total <= 0.88
 
 
-def test_chefe_so_no_ultimo_andar(data):
+def test_unique_names_come_from_data(data):
+    n = data.monsters.unique_names
+    name = unique_name(data, Rng(1))
+    assert any(name.startswith(p) for p in n.prefixes)
+    assert any(name.endswith(e) for e in n.epithets)
+
+
+def test_boss_only_on_the_last_floor(data):
     sp = PackSpawner(data, MonsterFactory(data))
-    cripta = data.area("cripta")
-    assert not any(p.kind == PackKind.BOSS for p in sp.spawn_area(cripta, 0, Rng(1)))
-    last = sp.spawn_area(cripta, 2, Rng(1))
+    crypt = data.area("crypt")
+    assert not any(p.kind == PackKind.BOSS for p in sp.spawn_area(crypt, 0, Rng(1)))
+    last = sp.spawn_area(crypt, 2, Rng(1))
     boss = [p for p in last if p.kind == PackKind.BOSS]
     assert len(boss) == 1 and boss[0].leader.level == 12
 
 
-# ---------------------------------------------------------------- loot e baú
+# ---------------------------------------------------------------- loot and stash
 
 
-def test_unico_sempre_derruba_magico(data):
+def test_unique_always_drops_magic(data):
     loot, rng = LootGenerator(data), Rng(11)
     for _ in range(300):
         drops = loot.roll_drops("unique", 8, 0, rng)
@@ -180,7 +187,7 @@ def test_unico_sempre_derruba_magico(data):
         assert any(isinstance(d, ItemDrop) and d.item.rarity >= Rarity.MAGIC for d in drops)
 
 
-def test_itens_respeitam_nivel_e_grupos(data):
+def test_items_respect_level_and_groups(data):
     loot, rng = LootGenerator(data), Rng(21)
     for _ in range(1500):
         ilvl = rng.randint(1, 15)
@@ -193,7 +200,16 @@ def test_itens_respeitam_nivel_e_grupos(data):
             assert set(a.affix.tags) & set(item.base.tags)
 
 
-def test_loot_reproduzivel(data):
+def test_magic_names_use_english_order(data):
+    loot = LootGenerator(data)
+    base = data.base("short_sword")
+    affixes = [RolledAffix(data.affix("sharp"), 10), RolledAffix(data.affix("of_the_bear"), 3)]
+    assert loot._name(base, Rarity.MAGIC, affixes, Rng(1)) == "Sharp Short Sword of the Bear"
+    rare = loot._name(base, Rarity.RARE, [], Rng(1))
+    assert rare.split()[0] in data.items.rare_names.first
+
+
+def test_loot_is_reproducible(data):
     def roll(seed):
         loot, rng = LootGenerator(data), Rng(seed)
         return [repr(d) for _ in range(40) for d in loot.roll_drops("champion", 6, 0, rng)]
@@ -202,19 +218,27 @@ def test_loot_reproduzivel(data):
     assert roll(99) != roll(100)
 
 
-def test_bau_compartilhado(data):
+def test_shared_stash(data):
     item = LootGenerator(data).roll_item(10, 3, 1, Rarity.RARE, Rng(4))
     stash = SharedStash(gold=50)
     assert stash.deposit(item)
-    other = SharedStash.from_json(stash.to_json())
-    back = other.withdraw(0, data)
+    other = SharedStash.from_json(data, stash.to_json())
+    back = other.withdraw(0)
     assert other.gold == 50 and back.name == item.name and back.base.id == item.base.id
     assert back.stat("str") == pytest.approx(item.stat("str"))
     full = SharedStash(capacity=1)
     assert full.deposit(item) and not full.deposit(item)
 
 
-# ---------------------------------------------------------------- mundo gerado
+def test_starting_loadout_comes_from_data(data):
+    g = Loadout.starting(data)
+    assert g.has_shield and g.armor == 13
+    assert [i.base.id for i in g.slots.values()] == data.items.starting_gear
+    old = g.equip(Item.plain(data.base("kite_shield")))
+    assert old.base.id == "buckler" and g.off_hand.base.id == "kite_shield"
+
+
+# ---------------------------------------------------------------- generated world
 
 
 def _floors(area):
@@ -222,7 +246,7 @@ def _floors(area):
 
 
 @pytest.mark.parametrize("seeds", [range(12)])
-def test_mapas_validos(data, seeds):
+def test_maps_are_valid(data, seeds):
     gen = AreaGenerator(data)
     for area in data.all_areas:
         if area.kind == "town":
@@ -243,72 +267,55 @@ def test_mapas_validos(data, seeds):
 
 
 @pytest.mark.slow
-def test_cem_seeds_por_area(data):
-    test_mapas_validos(data, range(100))
+def test_a_hundred_seeds_per_area(data):
+    test_maps_are_valid(data, range(100))
 
 
-def test_mesma_seed_mesmo_mapa(data):
+def test_same_seed_same_map(data):
     gen = AreaGenerator(data)
-    area = data.area("planicie")
+    area = data.area("plains")
     a, b, c = gen.generate(area, 0, 555, 10), gen.generate(area, 0, 555, 10), gen.generate(area, 0, 556, 10)
     assert np.array_equal(a.tiles, b.tiles) and a.spawn_points == b.spawn_points
     assert not np.array_equal(a.tiles, c.tiles)
 
 
-# ---------------------------------------------------------------- sessão, morte e save
+# ---------------------------------------------------------------- session and death
 
 
-def test_morte(fresh_data):
+def test_death(fresh_data):
     s = GameSession(fresh_data, 1)
     s.gold = 1000
-    s.proficiencies.set_xp("laminas", fresh_data.xp_total_by_level[1] * 2)
+    s.proficiencies.set_xp("blades", fresh_data.xp_total_by_level[1] * 2)
     r = s.apply_death()
     assert r.gold_lost == 100 and r.xp_lost == {} and r.leaves_corpse
     fresh_data.balance.death.xp_loss_pct_of_level = 0.10
-    gained = s.proficiencies["laminas"].xp - fresh_data.xp_total_by_level[1]
+    gained = s.proficiencies["blades"].xp - fresh_data.xp_total_by_level[1]
     r2 = s.apply_death()
-    assert r2.xp_lost["laminas"] == pytest.approx(gained * 0.10)
+    assert r2.xp_lost["blades"] == pytest.approx(gained * 0.10)
     for _ in range(200):
         s.apply_death()
-    assert s.proficiencies["laminas"].level == 2, "nunca perde nível"
+    assert s.proficiencies["blades"].level == 2, "never loses a level"
 
 
-def test_save_e_load(data):
-    s = GameSession(data, 2024)
-    s.gold = 321
-    s.proficiencies.set_xp("laminas", 5000)
-    s.skills.allocate("lamina_afiada")
-    s.skills.allocate("lamina_afiada")
-    loaded = GameSession.load(data, s.save(), new_world_seed=77)
-    assert loaded.master_seed == 77 and loaded.gold == 321
-    assert loaded.proficiencies["laminas"].xp == pytest.approx(5000)
-    assert loaded.skills.points_in("lamina_afiada") == 2
-
-
-def test_entrar_em_area(data):
+def test_entering_an_area(data):
     s = GameSession(data, 42)
-    layout, packs = s.enter_area("cripta", 2)
+    layout, packs = s.enter_area("crypt", 2)
     assert layout.validate() is None
     assert any(p.kind == PackKind.BOSS for p in packs)
     assert len(layout.spawn_points) == sum(p.kind != PackKind.BOSS for p in packs)
-    plain, _ = s.enter_area("planicie")
-    assert any(e.target_area == "vila" for e in plain.exits)
-    assert any(e.target_area == "caverna" and e.kind == ExitKind.ENTRANCE for e in plain.exits)
+    plain, _ = s.enter_area("plains")
+    assert any(e.target_area == "village" for e in plain.exits)
+    assert any(e.target_area == "cave" and e.kind == ExitKind.ENTRANCE for e in plain.exits)
 
 
-def test_caminho_contorna_parede(data):
+def test_path_goes_around_a_wall(data):
     from aethelgard.core.pathfinding import find_path
     from aethelgard.core.world_gen import FLOOR, WALL, AreaLayout
 
     L = AreaLayout.filled(10, 10, FLOOR)
-    L.tiles[5, 0:9] = WALL  # parede horizontal com passagem em x=9
+    L.tiles[5, 0:9] = WALL  # horizontal wall with a gap at x=9
     path = find_path(L, (2, 2), (2, 8))
     assert path and path[-1] == (2, 8)
     assert all(L.is_floor(c) for c in path)
-    assert any(x == 9 for x, _ in path), "passa pela abertura"
-    assert find_path(L, (2, 2), (4, 5))[-1] != (4, 5), "destino em parede vira o chão mais próximo"
-
-
-def test_loadout_inicial(data):
-    g = Loadout.starting(data)
-    assert g.has_shield and g.armor == 13
+    assert any(x == 9 for x, _ in path), "goes through the gap"
+    assert find_path(L, (2, 2), (4, 5))[-1] != (4, 5), "a goal on a wall becomes the nearest floor"

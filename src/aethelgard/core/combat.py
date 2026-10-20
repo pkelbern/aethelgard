@@ -1,4 +1,4 @@
-"""Fórmulas de combate (GDD 7). Ordem: acerto → guarda → armadura → dano final."""
+"""Combat formulas (GDD 7). Order: hit → guard → armor → final damage."""
 
 from __future__ import annotations
 
@@ -6,8 +6,26 @@ import math
 from dataclasses import dataclass, replace
 from enum import Enum
 
-from .data import CombatParams, GameData, GuardParams, ItemBaseDef
+from .data import CombatParams, GuardParams
+from .items import Loadout
 from .rng import Rng
+
+__all__ = [
+    "AttackResult",
+    "AttackerStats",
+    "BlockOutcome",
+    "CombatMath",
+    "DefenderStats",
+    "GuardProfile",
+    "GuardState",
+    "Loadout",
+    "monster_attack",
+    "monster_defense",
+    "player_attack",
+    "player_defense",
+    "player_guard",
+    "with_bonus",
+]
 
 
 @dataclass(frozen=True)
@@ -22,7 +40,7 @@ class AttackerStats:
 
 @dataclass(frozen=True)
 class DefenderStats:
-    """Defesa passiva. O bloqueio é ativo e vem em :class:`GuardState`."""
+    """Passive defense. Blocking is active and comes in :class:`GuardState`."""
 
     level: int
     defense: float
@@ -32,7 +50,7 @@ class DefenderStats:
 
 @dataclass(frozen=True)
 class GuardState:
-    """Guarda no instante do golpe: erguida, atacante no arco, janela perfeita, eficiência, Energia."""
+    """Guard at the moment of the hit: raised, attacker inside the arc, perfect window, efficiency, Energy."""
 
     raised: bool = False
     in_arc: bool = False
@@ -76,7 +94,7 @@ class CombatMath:
         self.g = guard
 
     def hit_chance(self, accuracy: float, defense: float, att_level: int, def_level: int) -> float:
-        """Estilo D2: 2 × PREC/(PREC+DEF) × NA/(NA+ND), limitado a [5%, 95%]."""
+        """D2 style: 2 × ACC/(ACC+DEF) × ALvl/(ALvl+DLvl), clamped to [5%, 95%]."""
         if accuracy + defense <= 0:
             return self.p.hit_chance_max
         c = 2.0 * accuracy / (accuracy + defense) * att_level / (att_level + def_level)
@@ -120,35 +138,14 @@ class CombatMath:
             cost = self.guard_cost(raw, guard.efficiency)
             if guard.energy >= cost:
                 return AttackResult(True, BlockOutcome.BLOCKED, crit, raw, raw, 0.0, cost)
-            outcome, cost = BlockOutcome.GUARD_BROKEN, guard.energy  # sem Energia: guarda quebra
+            outcome, cost = BlockOutcome.GUARD_BROKEN, guard.energy  # out of Energy: the guard breaks
 
         reduction = 1 - (1 - self.armor_reduction(d.armor, a.level)) * (1 - max(0.0, min(d.physical_reduction, 0.9)))
         mitigated = raw * reduction
         return AttackResult(True, outcome, crit, raw, mitigated, raw - mitigated, cost)
 
 
-# ---------------------------------------------------------------- equipamento e jogador
-
-
-@dataclass
-class Loadout:
-    """Equipamento atual (bases, no protótipo). Afixos entram com o inventário (M6)."""
-
-    main_hand: ItemBaseDef | None = None
-    off_hand: ItemBaseDef | None = None
-    body: ItemBaseDef | None = None
-
-    @classmethod
-    def starting(cls, d: GameData) -> Loadout:
-        return cls(d.base("espada_curta"), d.base("broquel"), d.base("couro"))
-
-    @property
-    def has_shield(self) -> bool:
-        return self.off_hand is not None and "shield" in self.off_hand.tags
-
-    @property
-    def armor(self) -> float:
-        return (self.off_hand.armor if self.off_hand else 0) + (self.body.armor if self.body else 0)
+# ---------------------------------------------------------------- player
 
 
 @dataclass(frozen=True)
@@ -164,11 +161,11 @@ DEFENSE_PER_DEX = 2.0
 
 
 def player_attack(sheet, skills, gear: Loadout, skill: str | None = None) -> AttackerStats:
-    """FOR: +1% dano por ponto. DES: +5 precisão e +0,2% crítico por ponto (GDD 4.2)."""
+    """STR: +1% damage per point. DEX: +5 accuracy and +0.2% crit per point (GDD 4.2)."""
     a = sheet.attributes
     w = gear.main_hand
-    dmg_min, dmg_max = (w.dmg_min, w.dmg_max) if w else (1, 2)
-    bonus = a.str * 0.01 + skills.effect("lamina_afiada", "swordDamagePct")
+    dmg_min, dmg_max = (w.base.dmg_min, w.base.dmg_max) if w else (1, 2)
+    bonus = a.str * 0.01 + skills.effect("sharp_blade", "swordDamagePct")
     acc = BASE_ACCURACY + a.dex * 5
     if skill:
         bonus += skills.effect(skill, "damagePct")
@@ -177,16 +174,16 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None) -> Att
 
 
 def player_defense(sheet, skills, gear: Loadout) -> DefenderStats:
-    armor = gear.armor * (1 + skills.effect("pele_ferro", "armorPct") + skills.effect("escudo_pesado", "shieldArmorPct"))
+    armor = gear.armor * (1 + skills.effect("iron_skin", "armorPct") + skills.effect("heavy_shield", "shieldArmorPct"))
     return DefenderStats(sheet.level, sheet.attributes.dex * DEFENSE_PER_DEX, armor)
 
 
 def player_guard(skills, gear: Loadout, g: GuardParams) -> GuardProfile:
     if not gear.has_shield:
         return GuardProfile(False, 0, 0, 0)
-    arc = g.arc_degrees + skills.effect("escudo_pesado", "guardArcDegrees")
-    eff = gear.off_hand.guard_efficiency + skills.effect("postura_defensiva", "guardEfficiency")
-    window = g.perfect_window_seconds + skills.effect("aparar", "perfectWindowSeconds")
+    arc = g.arc_degrees + skills.effect("heavy_shield", "guardArcDegrees")
+    eff = gear.off_hand.base.guard_efficiency + skills.effect("defensive_stance", "guardEfficiency")
+    window = g.perfect_window_seconds + skills.effect("parry", "perfectWindowSeconds")
     return GuardProfile(True, arc, min(eff, g.efficiency_cap), window)
 
 
