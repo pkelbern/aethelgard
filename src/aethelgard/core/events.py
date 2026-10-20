@@ -114,6 +114,22 @@ class SkillUsed:
 
 
 @dataclass(frozen=True)
+class WaypointReached:
+    """The player stepped on a waypoint (``new`` = first time: it is now on their list)."""
+
+    player_id: int
+    area_id: str
+    new: bool = False
+
+
+@dataclass(frozen=True)
+class StashChanged:
+    """The shared stash changed: the client writes its file."""
+
+    player_id: int
+
+
+@dataclass(frozen=True)
 class ConsumableUsed:
     player_id: int
     consumable_id: str

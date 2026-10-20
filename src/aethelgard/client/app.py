@@ -11,18 +11,39 @@ import pygame
 
 from ..core.data import GameData
 from ..core.describe import Line, describe_skill
-from ..core.events import ExitReached, FloatingText, LootPicked, MonsterKilled, PlayerDied, ProficiencyLeveledUp
+from ..core.events import (
+    ExitReached,
+    FloatingText,
+    LootPicked,
+    MonsterKilled,
+    PlayerDied,
+    ProficiencyLeveledUp,
+    StashChanged,
+    WaypointReached,
+)
 from ..core.items import GoldDrop, ItemDrop, drop_name
 from ..core.progression import Bind
 from ..core.saves import SaveStore
 from ..core.session import GameSession
 from ..core.simulation import run_act
-from ..core.world import AttackTarget, MonsterActor, MoveTo, PickUp, Respawn, SetGuard, UseConsumable, UseSkill, World, is_implemented
+from ..core.world import (
+    AttackTarget,
+    MonsterActor,
+    MoveTo,
+    PickUp,
+    Respawn,
+    SetGuard,
+    TravelWaypoint,
+    UseConsumable,
+    UseSkill,
+    World,
+    is_implemented,
+)
 from ..core.world_gen import ExitKind
 from . import palette as C
 from .hud import Hud
-from .inventory_view import InventoryView
 from .iso import Camera, MapRenderer
+from .item_windows import InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
 from .sprites import ActorSprites, ArtDownload, SpriteLibrary
@@ -73,7 +94,12 @@ class Game:
         self.hovered: MonsterActor | None = None
         self.hovered_drop: int | None = None
         self.ground_view = GroundView(self.fonts["tiny"])
-        self.inventory_view = InventoryView(self)
+        self.inventory_view = InventoryWindow(self)
+        self.stash_view = StashWindow(self)
+        self.shop_view = ShopWindow(self)
+        self.waypoint_menu: list[tuple[pygame.Rect, str]] | None = None  # open while standing on a waypoint
+        self.stash_store = SaveStore.for_stash(save_dir)
+        self.talk_to: str | None = None  # NPC role being walked to (vendor | stash)
         self.hold: dict | None = None  # left button held in the world: {"target": monster id or None, "timer": s}
         self.death_text: str | None = None  # set while the character lies dead, waiting for a click
         self.vision = Vision()
@@ -112,6 +138,36 @@ class Game:
         bus.subscribe(ExitReached, self._on_exit)
         bus.subscribe(PlayerDied, self._on_death)
         bus.subscribe(MonsterKilled, self._on_monster_killed)
+        bus.subscribe(WaypointReached, self._on_waypoint)
+        bus.subscribe(StashChanged, lambda e: self.stash_store.save_stash(self.world.stash))
+        self.world.stash = self.stash_store.load_stash(self.data)  # the same file for every character
+
+    @property
+    def windows(self):
+        """Item windows, front first: the service one (stash or shop) and the inventory."""
+        return (self.stash_view, self.shop_view, self.inventory_view)
+
+    def window_at(self, pos):
+        return next((w for w in self.windows if w.contains(pos)), None)
+
+    def close_windows(self) -> None:
+        for w in self.windows:
+            w.open = False
+        self.waypoint_menu = None
+
+    def _on_waypoint(self, e: WaypointReached) -> None:
+        if e.player_id != self.session.player_id:
+            return
+        if e.new:
+            self.hud.add(f"Waypoint activated: {self.area_names.get(e.area_id, e.area_id)}", C.WAYPOINT)
+        self.open_waypoints()
+
+    def open_waypoints(self) -> None:
+        """List of every waypoint area in act order; the ones not found yet are greyed out."""
+        W, H = self.screen.get_size()
+        areas = [a for a in self.data.all_areas if a.waypoint]
+        top = H // 2 - 20 * len(areas) - 30
+        self.waypoint_menu = [(pygame.Rect(W // 2 - 150, top + 44 + i * 40, 300, 34), a.id) for i, a in enumerate(areas)]
 
     def _on_monster_killed(self, e: MonsterKilled) -> None:
         """The world removes the monster right after this event, so its body stays here, on the client."""
@@ -185,7 +241,7 @@ class Game:
         self.hud.add(f"You died. {self.death_text}", C.LIFE)
         self.hold = None
         self.ui.close_all()
-        self.inventory_view.open = False
+        self.close_windows()
 
     @property
     def dead(self) -> bool:
@@ -254,7 +310,8 @@ class Game:
     def _update_hover(self) -> None:
         """What a click would act on. With Alt held, a drop label wins over a monster (labels sit on top)."""
         mouse = pygame.mouse.get_pos()
-        over_hud = self.dead or self.ui.over_ui or self.inventory_view.contains(mouse) or self.slot_under_mouse() is not None
+        over_hud = self.dead or self.ui.over_ui or self.window_at(mouse) is not None or self.over_waypoint_menu(mouse)
+        over_hud = over_hud or self.slot_under_mouse() is not None
         if over_hud:
             self.hovered = self.hovered_drop = None
             return
@@ -329,7 +386,7 @@ class Game:
                 continue
             if self.ui.process(ev) or self.ui.typing:
                 continue  # the interface (windows, text field) consumed the event
-            if not self.dead and self.inventory_view.handle(ev):
+            if not self.dead and any(w.handle(ev) for w in self.windows):
                 continue
             if ev.type == pygame.MOUSEBUTTONDOWN:
                 self._on_click(ev.button)
@@ -346,10 +403,42 @@ class Game:
         gx, gy = self.mouse_grid()
         self.world.apply(SetGuard(pid, bool(held), gx - self.player.x, gy - self.player.y))
 
+    def over_waypoint_menu(self, pos) -> bool:
+        if not self.waypoint_menu:
+            return False
+        boxes = [b for b, _ in self.waypoint_menu]
+        return boxes[0].unionall(boxes).inflate(40, 80).collidepoint(pos)
+
+    def npc_under_mouse(self) -> str | None:
+        """Role of the NPC under the cursor (its body on screen)."""
+        mx, my = pygame.mouse.get_pos()
+        for _, (cell, props) in self.world.layout.markers.items():
+            sx, sy = self.cam.to_screen(*cell)
+            if pygame.Rect(sx - 14, sy - 50, 28, 54).collidepoint(mx, my):
+                return props.get("role")
+        return None
+
+    def _open_service(self, role: str) -> None:
+        """Talking to the merchant or the stash opens its window with the backpack beside it."""
+        self.close_windows()
+        (self.shop_view if role == "vendor" else self.stash_view).open = True
+
     def _on_click(self, button: int) -> None:
         if self.dead:
             if button == 1:
                 self.respawn()
+            return
+        if self.waypoint_menu is not None:
+            if button == 1:
+                for r, area_id in self.waypoint_menu:
+                    if r.collidepoint(pygame.mouse.get_pos()) and area_id in self.session.waypoints:
+                        msg = self.world.apply(TravelWaypoint(self.session.player_id, area_id))
+                        if msg:
+                            self.hud.add(msg, C.MUTED)
+                        else:
+                            self._area_changed()
+                        break
+            self.waypoint_menu = None
             return
         slot = self.slot_under_mouse()
         if slot is not None:  # the bar: left picks a skill for the key, right clears it
@@ -360,6 +449,13 @@ class Game:
             return
         if button != 1:
             return
+        role = self.npc_under_mouse()
+        if role in ("vendor", "stash"):  # walk there; the window opens on arrival (tick)
+            self.talk_to = role
+            self.world.apply(MoveTo(self.session.player_id, *self.mouse_grid()))
+            self.hold = None
+            return
+        self.talk_to = None
         if self.hovered_drop is not None:  # walk to it and pick it up; holding does not repeat this
             self.world.apply(PickUp(self.session.player_id, self.hovered_drop))
             self.hold = None
@@ -383,7 +479,7 @@ class Game:
         if not pygame.mouse.get_pressed()[0]:
             self.hold = None
             return
-        if self.ui.over_ui or self.inventory_view.contains(pygame.mouse.get_pos()):  # over a window: pause, release ends it
+        if self.ui.over_ui or self.window_at(pygame.mouse.get_pos()):  # over a window: pause, release ends it
             return
         self.hold["timer"] -= DT
         if self.hold["timer"] > 0:
@@ -424,9 +520,9 @@ class Game:
         elif action == "map":
             self.big_map = not self.big_map
         elif action == "cancel":
-            if self.ui.any_open or self.inventory_view.open:
+            if self.ui.any_open or any(w.open for w in self.windows) or self.waypoint_menu is not None:
                 self.ui.close_all()
-                self.inventory_view.open = False
+                self.close_windows()
             else:
                 self.running = False
 
@@ -518,8 +614,12 @@ class Game:
         if self.dead:
             self._draw_death_screen()
         else:
-            self.inventory_view.draw(screen)
-            tip = None if self.inventory_view.contains(pygame.mouse.get_pos()) else self.skill_tooltip()
+            if self.stash_view.open or self.shop_view.open:  # a service window shows its own backpack
+                self.inventory_view.open = False
+            for w in reversed(self.windows):
+                w.draw(screen)
+            self._draw_waypoint_menu()
+            tip = None if self.window_at(pygame.mouse.get_pos()) else self.skill_tooltip()
             if tip:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
         pygame.display.flip()
@@ -542,6 +642,26 @@ class Game:
         screen.blit(title, title.get_rect(midtop=(rect.centerx, rect.y + 16)))
         for k, img in enumerate(imgs):
             screen.blit(img, img.get_rect(midtop=(rect.centerx, rect.y + 56 + 26 * k)))
+
+    def _draw_waypoint_menu(self) -> None:
+        if not self.waypoint_menu:
+            return
+        screen, f = self.screen, self.fonts
+        boxes = [b for b, _ in self.waypoint_menu]
+        panel = boxes[0].unionall(boxes).inflate(40, 80)
+        draw_panel(screen, panel, edge=C.WAYPOINT)
+        screen.blit(f["body"].render("Waypoints", True, C.WAYPOINT), (panel.x + 20, panel.y + 10))
+        mouse = pygame.mouse.get_pos()
+        for r, area_id in self.waypoint_menu:
+            known = area_id in self.session.waypoints
+            hot = known and r.collidepoint(mouse)
+            pygame.draw.rect(screen, (40, 50, 80) if hot else C.PANEL, r, border_radius=4)
+            pygame.draw.rect(screen, C.WAYPOINT if known else (50, 50, 56), r, 1, border_radius=4)
+            name = self.area_names.get(area_id, area_id) + ("  (here)" if area_id == self.world.area_id else "")
+            img = f["small"].render(name if known else f"{name}  (not found yet)", True, C.TEXT if known else C.PANEL_EDGE)
+            screen.blit(img, img.get_rect(center=r.center))
+        hint = f["tiny"].render("click to travel · Esc or click outside closes", True, C.MUTED)
+        screen.blit(hint, hint.get_rect(midbottom=(panel.centerx, panel.bottom - 6)))
 
     def _draw_portal(self) -> None:
         """The player's town portal, where it stands in this area (in the world, or beside the town waypoint)."""
@@ -686,6 +806,15 @@ class Game:
         self.handle_events()
         self.world.step(DT)  # the world keeps running while windows are open
         self._update_hover()
+        if self.talk_to and self.world.npc_near(self.player, self.talk_to):
+            self.world.apply(MoveTo(self.session.player_id, self.player.x, self.player.y))  # stop beside the NPC
+            self._open_service(self.talk_to)
+            self.talk_to = None
+        for w, role in ((self.stash_view, "stash"), (self.shop_view, "vendor")):  # walking away closes it
+            if w.open and not self.world.npc_near(self.player, role):
+                w.open = False
+        if self.waypoint_menu is not None and not self.world.at_waypoint(self.player):
+            self.waypoint_menu = None
         self.vision.update(self.player.x, self.player.y)
         self.sprites.tick(DT)
         note = self.art.poll()

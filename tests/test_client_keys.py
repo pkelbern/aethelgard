@@ -39,6 +39,6 @@ def test_bad_key_maps_are_refused():
 
 
 def test_inventory_screen_draws_every_equipment_slot(data):
-    from aethelgard.client.inventory_view import GEAR_LAYOUT
+    from aethelgard.client.item_windows import GEAR_LAYOUT
 
     assert set(GEAR_LAYOUT) == set(data.items.equipment), "a slot in items.json without a place on the screen (or the reverse)"

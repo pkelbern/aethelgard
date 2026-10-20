@@ -24,8 +24,8 @@ from .progression import (
 from .rng import Rng
 from .world_gen import AreaGenerator, AreaLayout
 
-# v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables. v3: + action bar.
-SAVE_VERSION = 3
+# v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables. v3: + action bar. v4: + waypoints.
+SAVE_VERSION = 4
 DEFAULT_NAME = "Wanderer"
 
 
@@ -75,6 +75,7 @@ class GameSession:
         self.gear = Loadout.starting(data)
         self.inventory = Inventory.for_data(data)
         self.consumables: Counter[str] = Counter()
+        self.waypoints: set[str] = {data.town_id}  # areas whose waypoint this character has touched
         self.gold = 0
 
     def enter_area(self, area_id: str, floor: int = 0) -> tuple[AreaLayout, list[MonsterPack]]:
@@ -167,6 +168,7 @@ class GameSession:
                 "gear": self.gear.to_dict(),
                 "inventory": self.inventory.to_list(),
                 "consumables": dict(self.consumables),
+                "waypoints": sorted(self.waypoints),
             },
             ensure_ascii=False,
             indent=2,
@@ -195,4 +197,6 @@ class GameSession:
             s.gear = Loadout.from_dict(data, raw["gear"])
         s.inventory.load_list(data, raw.get("inventory", []))
         s.consumables.update(raw.get("consumables", {}))
+        known = {a.id for a in data.all_areas if a.waypoint}
+        s.waypoints |= {w for w in raw.get("waypoints", []) if w in known}
         return s

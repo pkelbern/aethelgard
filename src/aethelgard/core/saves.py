@@ -13,7 +13,10 @@ import sys
 from pathlib import Path
 
 from .data import GameData
+from .items import SharedStash
 from .session import GameSession
+
+STASH_SLOT = "shared_stash"  # one file for every character (GDD 10.5)
 
 APP_DIR = "Aethelgard"
 ENV_SAVE_DIR = "AETHELGARD_SAVE_DIR"  # override for tests, CI and portable installs
@@ -95,3 +98,21 @@ class SaveStore:
         if errors:
             raise ValueError("No readable save: " + "; ".join(errors))
         return None
+
+    # ---- the shared stash: same safe writing and backup, its own file
+
+    @classmethod
+    def for_stash(cls, directory: Path | str | None = None) -> SaveStore:
+        return cls(directory, STASH_SLOT)
+
+    def save_stash(self, stash: SharedStash) -> Path:
+        return self.write(stash.to_json())
+
+    def load_stash(self, data: GameData) -> SharedStash:
+        """The stash on disk, or an empty one the first time (a broken file falls back to its backup)."""
+        for text in self.candidates():
+            try:
+                return SharedStash.from_json(data, text)
+            except (ValueError, KeyError, TypeError):
+                continue
+        return SharedStash()

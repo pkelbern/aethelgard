@@ -39,11 +39,14 @@ from .events import (
     PlayerDied,
     ProficiencyLeveledUp,
     SkillUsed,
+    StashChanged,
+    WaypointReached,
 )
-from .items import GoldDrop, GroundItem
+from .items import GoldDrop, GroundItem, SharedStash
 from .monsters import MonsterInstance, PackKind
 from .pathfinding import find_path
 from .projectiles import Projectile, line_of_sight
+from .rng import Rng
 from .session import Equip, GameSession
 from .timing import (
     Cooldowns,
@@ -52,6 +55,7 @@ from .timing import (
     player_hit_recovery,
     skill_cooldown,
 )
+from .town import Vendor, item_price, sell_price
 from .world_gen import AreaLayout, Exit, ExitKind
 
 # Skills with behavior implemented in the prototype; the rest are in the backlog (M3-04).
@@ -129,6 +133,58 @@ class UseConsumable:
 
 
 @dataclass(frozen=True)
+class TravelWaypoint:
+    """From the waypoint you stand on to another one you have touched before."""
+
+    player_id: int
+    area_id: str
+
+
+@dataclass(frozen=True)
+class Buy:
+    """Buy the vendor's item at ``index`` (stand by the merchant)."""
+
+    player_id: int
+    index: int
+
+
+@dataclass(frozen=True)
+class BuyConsumable:
+    player_id: int
+    consumable_id: str
+
+
+@dataclass(frozen=True)
+class Sell:
+    """Sell the backpack item at ``index``."""
+
+    player_id: int
+    index: int
+
+
+@dataclass(frozen=True)
+class StashPut:
+    """Backpack item at ``index`` into the shared stash (stand by the stash)."""
+
+    player_id: int
+    index: int
+
+
+@dataclass(frozen=True)
+class StashTake:
+    player_id: int
+    index: int
+
+
+@dataclass(frozen=True)
+class StashGold:
+    """Move gold: positive puts it in the stash, negative takes it out (clamped to what there is)."""
+
+    player_id: int
+    amount: int
+
+
+@dataclass(frozen=True)
 class EquipItem:
     """Wear the backpack item at ``index`` in ``slot`` (None = its automatic slot); swaps with what is there."""
 
@@ -150,7 +206,11 @@ class Respawn:
     player_id: int
 
 
-Command = MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
+Command = (
+    MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
+    | TravelWaypoint | Buy | BuyConsumable | Sell | StashPut | StashTake | StashGold
+)
+TOWN_COMMANDS = (Buy, BuyConsumable, Sell, StashPut, StashTake, StashGold)
 
 
 @dataclass
@@ -172,6 +232,7 @@ class AreaState:
     ground: dict
 
 PORTAL_TOUCH = 0.7  # tiles: how close to a portal you must walk to go through it
+WAYPOINT_TOUCH = 0.9  # tiles: standing this close activates the waypoint and opens its list
 
 
 # ---------------------------------------------------------------- actors
@@ -195,6 +256,7 @@ class PlayerActor:
     pending_skill: str | None = None
     pickup_id: int | None = None
     restores: list[list] = field(default_factory=list)  # [stat, per second, seconds left] from potions
+    on_waypoint: bool = False  # standing on it; the list opens again only after stepping off
     # states: idle | attacking | hit_recovery | block_recovery | stunned | dead
     state: str = "idle"
     state_left: float = 0.0
@@ -331,6 +393,9 @@ class World:
         self.ground: dict[int, GroundItem] = {}
         self._next_ground = 1
         self.portals: dict[int, TownPortal] = {}
+        self.vendor = Vendor(self.data)
+        self.stash: SharedStash | None = None  # shared by every character; the client loads and saves it
+        self._town_visits = 0
         self._areas: dict[tuple[str, int], AreaState] = {}
         self.layout: AreaLayout | None = None
         self.area_id = ""
@@ -358,6 +423,10 @@ class World:
             self.monsters, self.ground = {}, {}
         self.layout, self.area_id, self.floor = layout, area_id, floor
         self.projectiles.clear()
+        if area_id == self.data.town_id:  # the merchant has new wares every time you come back
+            self._town_visits += 1
+            level = max(p.session.character.level for p in self.players.values())
+            self.vendor.restock(level, Rng.for_label(host.master_seed, f"vendor:{self._town_visits}"))
 
         start = layout.entry
         if came_from is not None:
@@ -374,6 +443,7 @@ class World:
         for p in self.players.values():
             p.x, p.y = sx, sy
             p.restores.clear()
+            p.on_waypoint = True  # arriving on a waypoint does not open its list until you step off
             p.path.clear()
             p.target_id = None
             p.exit_cooldown = EXIT_COOLDOWN
@@ -434,6 +504,10 @@ class World:
             return None
         if isinstance(cmd, UseConsumable):
             return self._use_consumable(p, cmd.consumable_id)
+        if isinstance(cmd, TravelWaypoint):
+            return self._travel(p, cmd.area_id)
+        if isinstance(cmd, TOWN_COMMANDS):
+            return self._town(p, cmd)
         if isinstance(cmd, EquipItem | UnequipItem):  # gear changes the fight, so it goes through the world
             s = p.session
             r, msg = s.equip_from_backpack(cmd.index, cmd.slot) if isinstance(cmd, EquipItem) else s.unequip(cmd.slot)
@@ -621,6 +695,16 @@ class World:
                 if math.hypot(g.x - p.x, g.y - p.y) <= self.data.balance.loot.gold_pickup_range_tiles:
                     self._take(p, g)
 
+        # waypoint: touching it activates it (saved) and asks the client to show the list
+        wp = self.layout.waypoint if self.layout else None
+        if wp is not None:
+            here = math.hypot(wp[0] - p.x, wp[1] - p.y) <= WAYPOINT_TOUCH
+            if here and not p.on_waypoint:
+                new = self.area_id not in s.waypoints
+                s.waypoints.add(self.area_id)
+                self.bus.publish(WaypointReached(p.player_id, self.area_id, new))
+            p.on_waypoint = here
+
         # town portal, in the world or in town
         portal = self.portals.get(p.player_id)
         if portal is not None and p.exit_cooldown <= 0:
@@ -640,6 +724,89 @@ class World:
                     p.exit_cooldown = EXIT_COOLDOWN
                     self.bus.publish(ExitReached(p.player_id, e.kind.value, e.target_area))
                     break
+
+    # ------------------------------------------------------------ waypoints and town
+
+    def at_waypoint(self, p: PlayerActor, slack: float = 1.5) -> bool:
+        wp = self.layout.waypoint if self.layout else None
+        return wp is not None and math.hypot(wp[0] - p.x, wp[1] - p.y) <= slack
+
+    def _travel(self, p: PlayerActor, area_id: str) -> str | None:
+        if not self.at_waypoint(p):
+            return "Stand on a waypoint to travel"
+        if area_id not in p.session.waypoints:
+            return "You have not found that waypoint yet"
+        if area_id == self.area_id:
+            return None
+        self.enter_area(area_id, 0)
+        wp = self.layout.waypoint
+        if wp is not None:  # beside it, on the first free neighbour
+            spot = next((c for c in ((wp[0] + 1, wp[1]), (wp[0], wp[1] + 1), (wp[0] - 1, wp[1]), (wp[0], wp[1] - 1)) if self.layout.is_floor(c)), wp)
+            p.x, p.y = float(spot[0]), float(spot[1])
+        return None
+
+    def npc_near(self, p: PlayerActor, role: str) -> str | None:
+        """Name of an NPC with ``role`` within reach of the player (merchant, stash), or None."""
+        if self.layout is None:
+            return None
+        reach = self.data.items.trade.npc_range_tiles
+        for name, (cell, props) in self.layout.markers.items():
+            if props.get("role") == role and math.hypot(cell[0] - p.x, cell[1] - p.y) <= reach:
+                return name
+        return None
+
+    def _town(self, p: PlayerActor, cmd) -> str | None:
+        s, d = p.session, self.data
+        if isinstance(cmd, StashPut | StashTake | StashGold):
+            if self.stash is None or not self.npc_near(p, "stash"):
+                return "Stand by the stash"
+            if isinstance(cmd, StashPut):
+                if not 0 <= cmd.index < len(s.inventory.items):
+                    return "no such item"
+                if self.stash.full:
+                    return "The stash is full"
+                self.stash.deposit(s.inventory.take(cmd.index))
+            elif isinstance(cmd, StashTake):
+                if not 0 <= cmd.index < len(self.stash.items):
+                    return "no such item"
+                if s.inventory.full:
+                    return "Backpack full"
+                s.inventory.add(self.stash.withdraw(cmd.index))
+            else:
+                amount = min(cmd.amount, s.gold) if cmd.amount > 0 else -min(-cmd.amount, self.stash.gold)
+                s.gold -= amount
+                self.stash.gold += amount
+            self.bus.publish(StashChanged(p.player_id))
+            return None
+        if not self.npc_near(p, "vendor"):
+            return "Stand by the merchant"
+        if isinstance(cmd, Buy):
+            if not 0 <= cmd.index < len(self.vendor.stock):
+                return "no such item"
+            item = self.vendor.stock[cmd.index]
+            price = item_price(d, item)
+            if s.gold < price:
+                return f"{item.name} costs {price} gold"
+            if s.inventory.full:
+                return "Backpack full"
+            s.gold -= price
+            s.inventory.add(self.vendor.stock.pop(cmd.index))
+            return None
+        if isinstance(cmd, BuyConsumable):
+            c = d.items.consumables.get(cmd.consumable_id)
+            if c is None or c.price <= 0:
+                return "not for sale"
+            if s.gold < c.price:
+                return f"{c.name} costs {c.price} gold"
+            s.gold -= c.price
+            s.consumables[cmd.consumable_id] += 1
+            return None
+        if not 0 <= cmd.index < len(s.inventory.items):
+            return "no such item"
+        item = s.inventory.take(cmd.index)
+        s.gold += sell_price(d, item)
+        self.vendor.stock.append(item)  # D2 style: what you sold can be bought back while you stay
+        return None
 
     # ------------------------------------------------------------ potions and scrolls
 

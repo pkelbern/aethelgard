@@ -12,8 +12,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
 | M3 – Árvores | 2 | 1 | 7 | 8 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
-| M5 – Mundo | 4 | 1 | 8 | 7.5 |
-| M6 – Loot | 2 | 3 | 8 | 5.5 |
+| M5 – Mundo | 4 | 2 | 8 | 6 |
+| M6 – Loot | 2 | 4 | 8 | 3.5 |
 | M7 – Vertical slice | 0 | 2 | 9 | 28.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
@@ -142,14 +142,14 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Acampamentos, ruínas, santuários e baús desenhados no Tiled (.tmx) e carimbados na geração pela seed.
 - [ ] **M5-04** Salas pré-montadas nas masmorras _(código, ~3 d)_  
   Trocar retângulos por salas desenhadas no Tiled, com conectores marcados como objetos.
-- [ ] **M5-05** Waypoints com menu de viagem _(código, ~1.5 d)_  
-  Ativar ao tocar; menu lista os ativados. Salvar no personagem.
+- [ ] **M5-05** Waypoints com menu de viagem _(código, ~1.5 d)_ — **escrito, validar**  
+  Pisar ativa (salvo no personagem, save v4) e abre o menu com todos os waypoints do ato; os não encontrados ficam cinza. Chegar por waypoint não reabre o menu até sair dele. Comando TravelWaypoint.
 - [ ] **M5-06** Portal de cidade (pergaminho) _(código, ~1 d)_ — **escrito, validar**  
   E abre o portal onde você está; entrar leva à vila, onde o portal aparece ao lado do waypoint; entrar de novo volta ao mesmo ponto. O portal fica até o próximo pergaminho. As áreas agora guardam o estado na partida (monstros mortos continuam mortos, itens no chão continuam lá).
 - [x] **M5-07** Névoa de guerra e mapa automático (Tab) _(UI, ~2 d)_  
   Feito: campo de visão do tcod revela o mapa, monstros fora da visão somem, mapa pequeno no canto e grande com Tab. Saídas, waypoint, NPCs e portal só aparecem depois de explorados.
 - [x] **M5-08** Cidade feita à mão no Tiled _(conteúdo, ~2 d)_  
-  Feito: data/maps/village.tmx com entrada, saída, waypoint, vendedora e baú (marcadores). Falta: lógica do vendedor e do baú.
+  Feito: data/maps/village.tmx com entrada, saída, waypoint, vendedora e baú (marcadores); clicar no NPC anda até ele e abre a janela.
 
 ## M6 – Loot
 
@@ -163,12 +163,12 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Feito: tela no I (client/inventory_view.py) com slots de equipamento e grade 10×6; equipar arrastando para o slot, duplo clique ou Ctrl+clique; o mesmo tira; requisitos (borda vermelha, aviso); troca no lugar da mochila; comandos EquipItem/UnequipItem no World; tooltip do item (describe_item). Slots de equipamento em items.json (equipment): dois anéis; a mão secundária aceita escudo ou arma de uma mão (duas armas alternam os golpes, sem guarda nem habilidades ativas de Escudo). Falta: itens ocupando várias células (size) e os afixos valerem no combate (hoje só a base conta: dano, armadura, escudo).
 - [ ] **M6-04** Tooltip com comparação ao equipado _(UI, ~1.5 d)_ — **escrito, validar**  
   Shift sobre um item da mochila: diferenças em verde/vermelho por atributo (describe.compare_items) e o item vestido ao lado.
-- [ ] **M6-05** Tela do baú compartilhado e vendedor _(UI, ~2 d)_  
-  Tela do baú (itens e ouro, 100 espaços) usando o SharedStash do núcleo; vendedor com estoque renovado.
+- [ ] **M6-05** Tela do baú compartilhado e vendedor _(UI, ~2 d)_ — **escrito, validar**  
+  client/item_windows.py: uma janela-base para inventário, baú e loja (grades, arrastar, Shift/Ctrl/duplo clique, tooltip). Baú: itens e ouro, arquivo próprio shared_stash.json com backup. Loja: estoque normal/mágico renovado a cada volta à vila, preços em items.json trade, venda a 20%, o que você vende pode ser recomprado, poções e pergaminho sempre à venda. Comandos Buy/Sell/BuyConsumable/StashPut/StashTake/StashGold exigem estar perto do NPC.
 - [ ] **M6-06** 5 itens únicos do MVP _(conteúdo, ~1 d)_  
   Tabela de únicos com propriedades fixas e faixas; tirar o 'único vira raro'.
 - [ ] **M6-07** Save completo _(código, ~2 d)_  
-  Feito: save v2 do personagem (níveis, pontos, equipamento, mochila, ouro, consumíveis) em arquivo versionado com backup (core/saves.py), F5/`save`, salva ao sair e reabre na vila. Falta: waypoints ativados e gravar o baú compartilhado em disco.
+  Feito: save v2 do personagem (níveis, pontos, equipamento, mochila, ouro, consumíveis) em arquivo versionado com backup (core/saves.py), F5/`save`, salva ao sair e reabre na vila. Waypoints (v4) e baú compartilhado em disco também.
 - [x] **M6-08** Baú compartilhado no núcleo _(código, ~0.5 d)_  
   SharedStash: arquivo próprio, versionado, lido por todos os personagens; testes de ida e volta.
 

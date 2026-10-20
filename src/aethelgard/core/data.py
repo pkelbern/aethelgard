@@ -539,6 +539,17 @@ class RareNameParts:
 
 
 @dataclass
+class TradeParams:
+    base_price: float = 20
+    per_item_level: float = 6
+    per_affix: float = 25
+    rarity_mult: list[float] = field(default_factory=lambda: [1, 3, 8, 20])
+    sell_fraction: float = 0.2
+    stock_size: int = 18
+    npc_range_tiles: float = 3.0
+
+
+@dataclass
 class EquipSlotDef:
     name: str = ""
     accepts: list[str] = field(default_factory=list)
@@ -552,6 +563,7 @@ class ConsumableDef:
     seconds: float = 0.0
     cooldown_seconds: float = 0.5
     portal: bool = False
+    price: int = 0
 
 
 @dataclass
@@ -560,7 +572,8 @@ class ItemsData:
     starting_gear: list[str] = field(default_factory=list)
     slot_names: dict[str, str] = field(default_factory=dict)  # item type (base 'slot') → name in tooltips
     consumables: dict[str, ConsumableDef] = field(default_factory=dict)
-    equipment: dict[str, EquipSlotDef] = field(default_factory=dict)  # equipment slot → what it accepts, in screen order
+    equipment: dict[str, EquipSlotDef] = field(default_factory=dict)
+    trade: TradeParams = field(default_factory=TradeParams)  # equipment slot → what it accepts, in screen order
     rare_names: RareNameParts = field(default_factory=RareNameParts)
     rarity_chances: RarityChances = field(default_factory=RarityChances)
     drop_count: dict[str, DropCountDef] = field(default_factory=dict)
