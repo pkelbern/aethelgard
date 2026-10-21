@@ -163,6 +163,7 @@ class CombatParams:
     melee_vs_ranged_damage_pct: float = 0.25
     melee_vs_ranged_accuracy_pct: float = 0.25
     in_place_arc_degrees: float = 90  # Shift+click swing: what it can hit in front
+    ranged_kite_tiles: float = 3.0  # archers and casters step back from anyone closer than this
     cc_reduction_unique_and_boss: float = 0.5
 
 
@@ -224,6 +225,7 @@ class BowParams:
 @dataclass
 class TownPortalParams:
     cooldown_seconds: float = 5.0
+    cast_seconds: float = 1.5  # standing still while it opens; moving, attacking or a hard hit stops it
 
 
 @dataclass

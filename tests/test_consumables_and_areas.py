@@ -1,11 +1,14 @@
 """Potions, the town portal and areas that stay as they were left."""
 
+import math
+
 import pytest
 
-from aethelgard.core.events import ConsumableUsed, ExitReached
+from aethelgard.core.combat import AttackerStats
+from aethelgard.core.events import ConsumableUsed, ExitReached, MonsterXpInfo
 from aethelgard.core.items import GoldDrop
 from aethelgard.core.session import GameSession
-from aethelgard.core.world import OpenPortal, UseConsumable, World
+from aethelgard.core.world import MoveTo, OpenPortal, UseConsumable, World
 from aethelgard.core.world_gen import ExitKind
 
 DT = 1 / 60
@@ -55,18 +58,42 @@ def test_no_portal_from_town(data):
 def test_the_town_portal_needs_no_scroll_but_has_a_cooldown(data):
     s, w, p = world_in(data, "plains")
     assert "portal_scroll" not in data.items.consumables
-    assert w.apply(OpenPortal(0)) is None and 0 in w.portals
+    cast = data.balance.town_portal.cast_seconds
+    assert w.apply(OpenPortal(0)) is None and 0 not in w.portals, "it takes a moment to open"
+    run(w, cast + 0.05)
+    assert 0 in w.portals
     assert w.apply(OpenPortal(0)).startswith("Town Portal:"), "cooldown"
     run(w, data.balance.town_portal.cooldown_seconds + 0.1)
     p.x += 1
-    assert w.apply(OpenPortal(0)) is None and w.portals[0].x == pytest.approx(p.x), "a new portal replaces the old one"
+    assert w.apply(OpenPortal(0)) is None
+    run(w, cast + 0.05)
+    assert w.portals[0].x == pytest.approx(p.x + p.face_x), "a new portal replaces the old one, a step in front"
+
+
+def test_moving_or_a_hard_hit_stops_the_portal_from_opening(data):
+    s, w, p = world_in(data, "plains")
+    w.monsters.clear()
+    w.apply(OpenPortal(0))
+    run(w, 0.5)
+    w.apply(MoveTo(0, p.x + 2, p.y))
+    run(w, data.balance.town_portal.cast_seconds)
+    assert 0 not in w.portals and p.portal_cast_left == 0
+    assert p.cooldowns.ready("town_portal"), "a stopped portal costs no cooldown"
+    w.apply(OpenPortal(0))
+    hard = AttackerStats(level=1, accuracy=1e9, dmg_min=p.max_life * 0.3, dmg_max=p.max_life * 0.3)
+    w._hit_player(p, hard, MonsterXpInfo(1, 1, 10, 10), p.x + 1, p.y, magic=False, melee=None)
+    assert p.state == "hit_recovery"
+    run(w, data.balance.town_portal.cast_seconds + 0.5)
+    assert 0 not in w.portals
 
 
 def test_town_portal_round_trip_brings_you_back_to_the_same_spot(data):
     s, w, p = world_in(data, "crypt", 1)
     w.monsters.clear()
-    here = (p.x, p.y)
     assert w.apply(OpenPortal(0)) is None
+    run(w, data.balance.town_portal.cast_seconds + 0.05)
+    assert math.hypot(w.portals[0].x - p.x, w.portals[0].y - p.y) <= 1.01, "a step in front of you"
+    p.x, p.y = here = w.portals[0].x, w.portals[0].y
     exits = []
     s.bus.subscribe(ExitReached, exits.append)
     run(w, 1.0)  # standing on it: it only takes you once the short arrival cooldown is over
@@ -81,7 +108,8 @@ def test_town_portal_round_trip_brings_you_back_to_the_same_spot(data):
     assert exits and exits[-1].kind == ExitKind.PORTAL_BACK.value and exits[-1].target_area == "crypt"
     w.take_portal(0)
     assert (w.area_id, w.floor) == ("crypt", 1)
-    assert abs(p.x - here[0]) + abs(p.y - here[1]) <= 2
+    assert abs(p.x - here[0]) + abs(p.y - here[1]) <= 2, "back beside where the portal stood"
+    assert 0 not in w.portals and w.portal_spot(0) is None, "used to come back: it closes"
 
 
 def test_areas_stay_as_they_were_left(data):

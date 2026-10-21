@@ -179,14 +179,25 @@ class GameUI:
                 self._node_buttons[btn] = node.id
                 locked = prof.level < node.layer
                 slot = s.skill_bar.slot_of(node.id)
-                line2 = f"level {node.layer} · {node.kind}" + (f" · cooldown {node.cooldown:g}s" if node.kind == "active" else "")
-                if slot is not None:
-                    line2 += f" · key {keys.slot_label(slot)}"
-                a = UILabel(pygame.Rect(x + 36, y, col_w - 50, 22), f"{node.name}  {pts}/{node.max_points}", self.manager, container=win,
+                line2 = self.node_info(node, slot, pts)
+                a = UILabel(pygame.Rect(x + 36, y, col_w - 50, 22), node.name, self.manager, container=win,
                             object_id="#node_locked" if locked else ("#node_on" if pts else "#node"))
                 b = UILabel(pygame.Rect(x + 36, y + 20, col_w - 50, 20), line2, self.manager, container=win, object_id="#node_info")
                 self._node_rows.append(((btn, a, b), node.id))
         self.tree = win
+
+    def node_info(self, node, slot: int | None, pts: int) -> str:
+        """Second line of a node, short enough for a narrow column (the tooltip has the details)."""
+        parts = [f"{pts}/{node.max_points}", f"lv {node.layer}"]
+        if node.spell:
+            parts.append("spell")
+        elif node.kind == "passive":
+            parts.append("passive")
+        elif node.cooldown > 0:
+            parts.append(f"{node.cooldown:g}s cd")
+        if slot is not None:
+            parts.append(f"key {self.g.keys.slot_label(slot)}")
+        return " · ".join(parts)
 
     # ------------------------------------------------------------ skill picker for one bar slot
 

@@ -108,10 +108,13 @@ class SpellCaster:
     def cast_seconds(self, p: PlayerActor) -> float:
         return self.w.data.balance.magic.cast_seconds / (1 + p.session.skills.stat_total("fasterCastPct"))
 
-    def aim_point(self, p: PlayerActor, node_id: str) -> tuple[float, float]:
-        """Where the spell goes: the aimed point, pulled back to the spell's range."""
+    def aim_point(self, p: PlayerActor, node_id: str, at: tuple[float, float] | None = None) -> tuple[float, float]:
+        """Where the spell goes: the aimed point (``at``, or the player's aim), pulled back to the spell's range."""
         rng = p.session.skills.effect(node_id, "rangeTiles") or 14.0
-        ax, ay = (p.aim_x, p.aim_y) if p.aim_x is not None else (p.x + p.face_x, p.y + p.face_y)
+        if at is not None:
+            ax, ay = at
+        else:
+            ax, ay = (p.aim_x, p.aim_y) if p.aim_x is not None else (p.x + p.face_x, p.y + p.face_y)
         dx, dy = ax - p.x, ay - p.y
         dist = math.hypot(dx, dy)
         if dist > rng:
@@ -230,8 +233,8 @@ class SpellCaster:
                 for m in list(self.w.monsters.values()):
                     if m.alive and f.touches(m):
                         amount = self.resisted(p, m, f.dps * tick, f.element)
-                        if amount > 0:
-                            self.w._damage_monster(p, m, amount, f.prof)
+                        if amount > 0:  # fire on the ground hurts but never staggers
+                            self.w._damage_monster(p, m, amount, f.prof, recover=False)
             if f.left <= 0:
                 del self.fires[f.id]
         for m in list(self.w.monsters.values()):

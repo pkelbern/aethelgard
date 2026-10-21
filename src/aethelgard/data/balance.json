@@ -55,6 +55,8 @@
     "_meleeEdge": "A melee hit on someone who fights from range (a bow, or a monster that shoots) gets this much more damage and accuracy: closing in on an archer pays off, for players and monsters alike.",
     "meleeVsRangedDamagePct": 0.25,
     "meleeVsRangedAccuracyPct": 0.25,
+    "_rangedKite": "Archers and casters step back from anyone closer than rangedKiteTiles before shooting again; cornered (a wall or a body behind them), they shoot from where they are.",
+    "rangedKiteTiles": 3.0,
     "inPlaceArcDegrees": 90,
     "ccReductionUniqueAndBoss": 0.5
   },
@@ -80,8 +82,9 @@
     "arrowRadius": 0.12
   },
   "townPortal": {
-    "_comment": "Always available, no scroll (GDD 10.4): opens where you stand, unless you are in town; walking into it takes you to town, and the one in town brings you back. cooldownSeconds between two portals.",
-    "cooldownSeconds": 5.0
+    "_comment": "Always available, no scroll (GDD 10.4): opens where you stand after castSeconds of standing still (moving, attacking or a hard hit stops it), unless you are in town; walking into it takes you to town, and the one in town brings you back and closes it. cooldownSeconds between two portals, counted from when one opens.",
+    "cooldownSeconds": 5.0,
+    "castSeconds": 1.5
   },
   "loot": {
     "_comment": "Drops fall on the ground around the monster and must be picked up (click, or walk over gold when autoPickupGold). pickupRangeTiles = how close the player must get. Alt shows every label.",

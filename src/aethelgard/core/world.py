@@ -70,6 +70,7 @@ BOW_SKILLS = {"power_shot", "multishot", "piercing_arrow"}  # fire arrows; aimed
 SELF_SKILLS = {"bulwark"}
 PROJECTILE_SKILLS = {"shield_throw"}
 SPELL_SKILLS = {"fire_bolt", "fireball", "fire_wall", "meteor"}  # cast in place toward a point (core/spells.py)
+GROUND_SPELLS = {"wall", "meteor"}  # spell.cast values that set the ground on fire: only where the caster can see
 IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS | BOW_SKILLS | SPELL_SKILLS
 # Passives whose effect the rules already read (combat.py, world.py); the rest are M3-05.
 IMPLEMENTED_PASSIVES = {
@@ -287,6 +288,8 @@ class PlayerActor:
     aim_y: float | None = None
     restores: list[list] = field(default_factory=list)  # [stat, per second, seconds left] from potions
     on_waypoint: bool = False  # standing on it; the list opens again only after stepping off
+    portal_cast_left: float = 0.0  # opening a town portal: seconds still to stand still
+    portal_at: tuple[float, float] | None = None  # where it is opening: a step in front of the player
     in_exit: bool = False  # inside an exit's zone: it takes you only when you walk in, not when you arrive in it
     # states: idle | attacking | hit_recovery | block_recovery | stunned | dead
     state: str = "idle"
@@ -563,6 +566,7 @@ class World:
         if isinstance(cmd, AttackInPlace | AttackTarget | UseSkill) and self.area_id == self.data.town_id:
             return "You cannot fight in town"
         if isinstance(cmd, AttackInPlace):
+            self._cancel_portal(p)
             if p.busy or p.guarding or p.state == "attacking":
                 return None
             p.aim_x, p.aim_y = cmd.x, cmd.y
@@ -574,6 +578,8 @@ class World:
             return None
         if isinstance(cmd, OpenPortal):
             return self._open_portal(p)
+        if isinstance(cmd, MoveTo | AttackTarget | AttackInPlace | UseSkill | PickUp | TravelWaypoint):
+            self._cancel_portal(p)  # doing anything else stops the portal from opening
         if isinstance(cmd, TravelWaypoint):
             return self._travel(p, cmd.area_id)
         if isinstance(cmd, TOWN_COMMANDS):
@@ -660,6 +666,11 @@ class World:
             ax, ay = (t.x, t.y) if t is not None else (cmd.x, cmd.y)
             if ax is None or ay is None:
                 return "no target"
+            node = self.data.node(cmd.skill_id)
+            if node.spell.cast in GROUND_SPELLS:  # fire on the ground goes only where you can see
+                gx, gy = self.spells.aim_point(p, cmd.skill_id, (ax, ay))
+                if not self.layout.is_floor(cell_of(gx, gy)) or not line_of_sight(self.layout, (p.x, p.y), (gx, gy)):
+                    return f"{node.name}: you cannot see there"
             self._face(p, ax - p.x, ay - p.y)
             p.aim_x, p.aim_y = ax, ay
             p.path.clear()
@@ -729,6 +740,11 @@ class World:
                 p.state, p.state_left = "idle", 0.0
         if p.state in ("hit_recovery", "stunned"):
             self._lower_guard(p, start_cooldown=False)
+            return
+        if p.portal_cast_left > 0:  # standing still while the portal opens
+            p.portal_cast_left -= dt
+            if p.portal_cast_left <= 0:
+                self._finish_portal(p)
             return
 
         # guard
@@ -935,22 +951,46 @@ class World:
         return None
 
     def _open_portal(self, p: PlayerActor) -> str | None:
+        """Starts opening a portal: the player stands still for townPortal.castSeconds, then it appears."""
         if self.area_id == self.data.town_id:
             return "You are already in town"
         if not p.cooldowns.ready("town_portal"):
             return f"Town Portal: {p.cooldowns.remaining('town_portal'):.1f}s"
-        self.portals[p.player_id] = TownPortal(self.area_id, self.floor, p.x, p.y)  # replaces the old one
+        if p.portal_cast_left > 0 or p.busy or p.state == "attacking":
+            return None
+        p.path.clear()
+        p.target_id = p.pending_skill = p.pickup_id = None
+        self._lower_guard(p, start_cooldown=False)
+        p.portal_cast_left = max(1e-6, self.data.balance.town_portal.cast_seconds)
+        front = (p.x + p.face_x, p.y + p.face_y)
+        p.portal_at = front if self.layout.is_floor(cell_of(*front)) else (p.x, p.y)
+        return None
+
+    def _finish_portal(self, p: PlayerActor) -> None:
+        p.portal_cast_left = 0.0
+        x, y = p.portal_at or (p.x, p.y)
+        p.portal_at = None
+        self.portals[p.player_id] = TownPortal(self.area_id, self.floor, x, y)  # replaces the old one
         p.exit_cooldown = EXIT_COOLDOWN  # do not step through it the moment it opens
         p.cooldowns.start("town_portal", self.data.balance.town_portal.cooldown_seconds)
         self._float(p.x, p.y, "Town Portal", "info")
-        return None
+
+    def _cancel_portal(self, p: PlayerActor) -> None:
+        if p.portal_cast_left > 0:
+            p.portal_cast_left, p.portal_at = 0.0, None
+            self._float(p.x, p.y, "portal stopped", "miss")
+
+    @property
+    def portal_cast_seconds(self) -> float:
+        return self.data.balance.town_portal.cast_seconds
 
     def take_portal(self, player_id: int) -> None:
         """Goes through the player's portal: from the world to town, or from town back to where it was opened."""
         portal = self.portals.get(player_id)
         if portal is None:
             return
-        if self.area_id == self.data.town_id:
+        back = self.area_id == self.data.town_id
+        if back:
             self.enter_area(portal.area_id, portal.floor)
         else:
             self.enter_area(self.data.town_id)
@@ -958,6 +998,8 @@ class World:
         p = self.players[player_id]
         if spot is not None:
             p.x, p.y = spot
+        if back:  # used to come back: it closes behind you
+            del self.portals[player_id]
 
     def portal_spot(self, player_id: int) -> tuple[float, float] | None:
         """Where the player's portal stands in the current area: where it was opened, or next to the town waypoint."""
@@ -1234,6 +1276,8 @@ class World:
 
         if m.alert:
             self._face(m, target.x - m.x, target.y - m.y)
+            if m.ranged and dist < self.data.balance.combat.ranged_kite_tiles and self._step_back(m, target, dt):
+                return  # an archer caught up close backs off before shooting again
             sees = not m.ranged or line_of_sight(self.layout, (m.x, m.y), (target.x, target.y))
             if dist > m.reach or not sees:  # archers and casters get closer until they have a clear shot
                 self._step_towards(m, (target.x, target.y), m.speed, dt)
@@ -1245,6 +1289,18 @@ class World:
             if leader and math.hypot(leader.x - m.x, leader.y - m.y) > 4:
                 self._face(m, leader.x - m.x, leader.y - m.y)
                 self._step_towards(m, (leader.x, leader.y), m.speed * 0.6, dt)
+
+    def _step_back(self, m: MonsterActor, threat: PlayerActor, dt: float) -> bool:
+        """Moves away from ``threat``, or slantwise when straight back is blocked. False when cornered."""
+        dx, dy = m.x - threat.x, m.y - threat.y
+        n = math.hypot(dx, dy) or 1.0
+        step = m.speed * dt
+        for ang in (0.0, 0.6, -0.6, 1.2, -1.2):
+            c, s = math.cos(ang), math.sin(ang)
+            ux, uy = (dx * c - dy * s) / n, (dx * s + dy * c) / n
+            if self._try_move(m, m.x + ux * step, m.y + uy * step):
+                return True
+        return False
 
     def _separate(self, m: MonsterActor, dt: float) -> None:
         """Gently pushes overlapping monsters apart (packs spawn close together)."""
@@ -1306,6 +1362,7 @@ class World:
                 p.path.clear()
         elif r.block == BlockOutcome.GUARD_BROKEN:
             self._lower_guard(p, start_cooldown=True)
+            self._cancel_portal(p)
             p.state, p.state_left = "stunned", self.data.balance.guard.guard_break_stun_seconds
             p.path.clear()
             self._float(p.x, p.y, "guard broken", "hurt")
@@ -1325,8 +1382,9 @@ class World:
             fhr = s.skills.stat_total("fasterHitRecovery")
             rec = player_hit_recovery(self.timing, r.final, p.max_life, fhr)
             if rec > 0:
-                p.state, p.state_left = "hit_recovery", rec  # interrupts attack and movement
+                p.state, p.state_left = "hit_recovery", rec  # interrupts attack, movement and an opening portal
                 p.attack_hit_done = True
+                self._cancel_portal(p)
 
     # ------------------------------------------------------------ projectiles
 

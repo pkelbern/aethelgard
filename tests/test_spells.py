@@ -255,3 +255,26 @@ def test_tooltips_say_how_to_learn_a_spell(data):
     assert "+1 from your wand" in text and "next Pyromancy level" in text
     wand = " ".join(x.text for x in describe_item(data, Item.plain(data.base("ember_wand"))))
     assert "+1 to Fire Bolt while worn" in wand
+
+
+def test_fire_on_the_ground_never_staggers(data):
+    s, w, p, m = pyro_arena(data, "blaze_wand", at=(8.0, 5.0), monster_hp=20)
+    m.base_speed = 0.0
+    w.spells.fires.clear()
+    states = set()
+    w.apply(UseSkill(0, "fire_wall", 1))
+    for _ in range(150):
+        w.step(DT)
+        states.add(m.state)
+    assert m.monster.hp < 20 and "hit_recovery" not in states
+
+
+def test_ground_spells_need_a_clear_line_of_sight(data):
+    from aethelgard.core.world_gen import WALL
+
+    s, w, p, m = pyro_arena(data, "blaze_wand", at=(10.0, 5.0))
+    w.layout.tiles[2:9, 7] = WALL
+    assert "cannot see" in w.apply(UseSkill(0, "fire_wall", None, 9.0, 5.0))
+    assert "cannot see" in w.apply(UseSkill(0, "fire_wall", None, 7.0, 5.0)), "not inside a wall either"
+    s.skills.learned.add("fire_bolt")
+    assert w.apply(UseSkill(0, "fire_bolt", None, 9.0, 5.0)) is None, "a bolt can be fired at a wall (it just stops there)"

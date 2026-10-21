@@ -107,10 +107,21 @@ class Hud:
             color = {"life_potion": C.LIFE, "energy_potion": C.ENERGY}.get(cid, (150, 190, 255)) if usable else C.MUTED
             self._text(screen, short if n is None else f"{short} ×{n}", (r.x + 6, r.y + 3), self.f["tiny"], color)
             self._text(screen, self.keys.action_label(action), (r.x + 6, r.y + 17), self.f["tiny"], C.MUTED)
-            frac = p.cooldowns.fraction(cid)
-            if frac > 0:
-                self._sweep(screen, r, frac)
+            self._countdown(screen, r, p.cooldowns.fraction(cid), p.cooldowns.remaining(cid), "tiny")
+            if cid == "town_portal" and p.portal_cast_left > 0:  # opening: the bar fills up
+                k = 1 - p.portal_cast_left / max(1e-6, s.data.balance.town_portal.cast_seconds)
+                pygame.draw.rect(screen, (90, 150, 255), (r.x + 2, r.bottom - 5, (r.w - 4) * k, 3))
             x = r.x - 6
+
+    def _countdown(self, screen, r: pygame.Rect, frac: float, left: float, font: str) -> None:
+        """Cooldown on a bar button (skills, potions, the portal): a dark sector that empties, and the seconds left."""
+        if frac <= 0:
+            return
+        self._sweep(screen, r, frac)
+        if left > 0:
+            t = f"{left:.1f}" if left < 10 else f"{left:.0f}"
+            img = self.f[font].render(t, True, C.TEXT)
+            screen.blit(img, img.get_rect(midright=(r.right - 5, r.centery)) if font == "tiny" else img.get_rect(center=r.center))
 
     def _skill_bar(self, screen, p: PlayerActor) -> None:
         s = p.session
@@ -133,15 +144,8 @@ class Hud:
                 continue
             if skill not in IMPLEMENTED_SKILLS:
                 self._text(screen, "soon", (r.x + 5, r.y + 22), self.f["tiny"], C.MUTED)
-            # countdown: dark sector that empties + seconds left
             frac = max(p.cooldowns.fraction(skill), p.cooldowns.fraction("global"))
-            if frac > 0:
-                self._sweep(screen, r, frac)
-                left = p.cooldowns.remaining(skill)
-                if left > 0:
-                    t = f"{left:.1f}" if left < 10 else f"{left:.0f}"
-                    img = self.f["body"].render(t, True, C.TEXT)
-                    screen.blit(img, img.get_rect(center=r.center))
+            self._countdown(screen, r, frac, p.cooldowns.remaining(skill), "body")
             if p.energy < node.energy_cost:
                 pygame.draw.rect(screen, (40, 60, 140), r, 3, border_radius=4)
 

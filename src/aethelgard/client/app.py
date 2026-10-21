@@ -739,6 +739,7 @@ class Game:
             self._draw_projectile(proj)
         self.map.draw_exit_labels(screen, cam, self.fonts["small"], self.area_names, self.vision.explored)
         self.spell_view.draw_bursts(screen)
+        self._draw_portal_cast()
         self.ground_view.draw_labels(screen, cam, drops, self.keys.held("showItems"), self.hovered_drop, pygame.mouse.get_pos())
 
         for f in self.floaters:
@@ -804,6 +805,27 @@ class Game:
             screen.blit(img, img.get_rect(center=r.center))
         hint = f["tiny"].render("click to travel · Esc or click outside closes", True, C.MUTED)
         screen.blit(hint, hint.get_rect(midbottom=(panel.centerx, panel.bottom - 6)))
+
+    def _draw_portal_cast(self) -> None:
+        """Opening a portal: a blue light gathers at the hero's feet and grows into the gate."""
+        p = self.player
+        if p.portal_cast_left <= 0 or p.portal_at is None:
+            return
+        k = 1 - p.portal_cast_left / max(1e-6, self.world.portal_cast_seconds)
+        sx, sy = self.cam.to_screen(*p.portal_at)
+        t = pygame.time.get_ticks() / 1000
+        for i in range(8):  # sparks spiralling up and inward where the gate will stand
+            a = t * 6 + i * math.tau / 8
+            rad = 46 * (1 - k) + 16
+            lift = (i % 4) * 14 * k
+            pygame.draw.circle(self.screen, (170, 210, 255), (sx + math.cos(a) * rad, sy - 6 - lift + math.sin(a) * rad / 2), 3)
+        gate = pygame.Rect(0, 0, int(28 * k), int(52 * k))  # grows to the size of the open portal (_draw_portal)
+        gate.midbottom = (sx, sy + 2)
+        if gate.h > 6:
+            glow = pygame.Surface(gate.size, pygame.SRCALPHA)
+            pygame.draw.ellipse(glow, (60, 110, 230, 110), glow.get_rect())
+            self.screen.blit(glow, gate)
+            pygame.draw.ellipse(self.screen, (120, 180, 255), gate, 3)
 
     def _draw_portal(self) -> None:
         """The player's town portal, where it stands in this area (in the world, or beside the town waypoint)."""

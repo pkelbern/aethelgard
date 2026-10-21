@@ -243,3 +243,23 @@ def test_a_projectile_at_the_end_of_its_range_is_removed_not_left_hanging(data):
     proj.traveled = 8.999999999999998
     w._step_projectiles(DT)
     assert not w.projectiles
+
+
+def test_archers_back_off_from_a_sword_up_close(data):
+    s, w, p, m = archer_arena(data, at=(6.5, 5.0))  # 1.5 tiles from the player
+    m.attack_cooldown = 10.0
+    run(w, 0.5)
+    assert m.x > 6.5 + 0.5, "steps away instead of shooting point-blank"
+    assert not w.projectiles
+
+
+def test_a_cornered_archer_shoots_from_where_it_is(data):
+    s, w, p, m = archer_arena(data, at=(10.0, 5.0))
+    p.x = 8.5  # the player between the archer and... nothing: walls all around the archer
+    for x, y in ((11, 4), (11, 5), (11, 6), (10, 4), (10, 6), (9, 4), (9, 6)):
+        w.layout.tiles[y, x] = WALL
+    seen = False
+    for _ in range(240):
+        w.step(DT)
+        seen = seen or bool(w.projectiles)
+    assert seen
