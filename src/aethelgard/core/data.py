@@ -124,6 +124,8 @@ class AttributeParams:
 class CharacterParams:
     secondary_proficiency_weight: float = 0.25
     level_up_heal_pct: float = 0.25
+    energy_regen_pct_per_second: float = 0.02
+    guard_energy_regen_pct_per_second: float = 0.005
     base_life: float = 50
     life_per_vit: float = 4
     life_per_level: float = 3
@@ -424,6 +426,7 @@ class ProficiencyDef:
     id: str = ""
     name: str = ""
     xp_source: str = "offense"
+    description: str = ""
     attributes: dict[str, int] = field(default_factory=dict)
     weapon_tags: list[str] = field(default_factory=list)
 

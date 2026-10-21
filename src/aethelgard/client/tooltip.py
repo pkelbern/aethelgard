@@ -41,9 +41,10 @@ def wrap(text: str, font: pygame.font.Font, width: int) -> list[str]:
     return [*out, line]
 
 
-def draw_panel(screen: pygame.Surface, rect: pygame.Rect, edge=C.PANEL_EDGE) -> None:
+def draw_panel(screen: pygame.Surface, rect: pygame.Rect, edge=C.PANEL_EDGE, opaque: bool = False) -> None:
+    """Background box; ``opaque`` for windows that cover other HUD text."""
     box = pygame.Surface(rect.size, pygame.SRCALPHA)
-    box.fill(C.TOOLTIP_BG)
+    box.fill((*C.TOOLTIP_BG[:3], 255) if opaque else C.TOOLTIP_BG)
     screen.blit(box, rect.topleft)
     pygame.draw.rect(screen, edge, rect, 1, border_radius=3)
 

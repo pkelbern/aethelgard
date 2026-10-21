@@ -520,14 +520,16 @@
    "maxPoints": 15,
    "energyCost": 5,
    "cooldown": 2.0,
-   "description": "Fire {arrows} arrows in a {spreadDegrees} fan toward the target, each with {damagePct} more damage. Needs a bow.",
+   "description": "Fire {arrows} arrows in a fan toward the target, each with {damagePct} more damage. The fan covers about {spreadTiles} across where the target stands: wide up close, narrow far away. Needs a bow.",
    "effects": {
     "damagePct": 0.08,
     "arrows": 0.2
    },
    "base": {
     "arrows": 3,
-    "spreadDegrees": 40
+    "spreadTiles": 3,
+    "minSpreadDegrees": 8,
+    "maxSpreadDegrees": 70
    }
   },
   {

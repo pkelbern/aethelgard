@@ -63,7 +63,9 @@ def test_two_weapons_alternate_swings_and_cannot_guard_or_bash(data):
     w.step(DT)
     assert not p.guarding, "no shield, no guard"
     s.allocate_skill("shield_bash")
-    assert w.apply(UseSkill(0, "shield_bash", 1)) == "Shield Bash: needs a shield"
+    w.enter_area("plains")  # nobody fights in town
+    target = next(iter(w.monsters))
+    assert w.apply(UseSkill(0, "shield_bash", target)) == "Shield Bash: needs a shield"
     hands = []
     for _ in range(4):
         w._begin_attack(p, None, None)

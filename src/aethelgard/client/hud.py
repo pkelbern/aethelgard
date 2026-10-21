@@ -85,7 +85,8 @@ class Hud:
             self._text(screen, text, (16, ly), self.f["small"], color)
             ly += 18
         k = self.keys
-        parts = [("guard", "guard"), ("skillTrees", "trees"), ("inventory", "inventory"), ("showItems", "items"), ("map", "map"), ("save", "save")]
+        parts = [("guard", "guard"), ("skillTrees", "trees"), ("inventory", "inventory"), ("character", "character"),
+                 ("showItems", "items"), ("map", "map"), ("save", "save")]
         potions = f"{k.action_label('lifePotion')}/{k.action_label('energyPotion')}: potions · {k.action_label('townPortal')}: town portal"
         help_ = f"Click: move/attack · {k.bar_labels}: skills · {potions} · " + " · ".join(f"{k.action_label(a)}: {label}" for a, label in parts)
         self._text(screen, help_, (W - self.f["tiny"].size(help_)[0] - 16, H - 20), self.f["tiny"], C.MUTED)

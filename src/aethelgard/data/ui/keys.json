@@ -4,6 +4,7 @@
   "guard": "space",
   "skillTrees": "t",
   "inventory": "i",
+  "character": "c",
   "map": "tab",
   "console": "f1",
   "save": "f5",

@@ -8,13 +8,13 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | Marco | Feito | Validar | Total | Dias restantes |
 |---|---|---|---|---|
 | M0 – Base | 4 | 0 | 8 | 2.5 |
-| M1 – Combate | 6 | 8 | 16 | 4.5 |
+| M1 – Combate | 6 | 9 | 17 | 4.7 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
 | M3 – Árvores | 2 | 3 | 9 | 8 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 2 | 8 | 6 |
 | M6 – Loot | 2 | 4 | 8 | 3.5 |
-| M7 – Vertical slice | 0 | 2 | 9 | 28.5 |
+| M7 – Vertical slice | 0 | 3 | 10 | 29.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
 | M10 – Multiplayer | 2 | 0 | 6 | 22 |
@@ -71,9 +71,11 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M1-11** Bloqueio parcial: o golpe bloqueado ainda fere _(balanceamento, ~0.5 d)_ — **escrito, validar**  
   O bloqueio para 70% do golpe (balance.guard.blockReduction) + base do escudo (0/5/10/15%) + Postura Defensiva (+2,5%/ponto), no máximo 95% (blockReductionCap); a armadura age sobre o que passa. Aparo perfeito para 95%. Validar no jogo se 70% de base está bom.
 - [ ] **M1-12** Colisão entre corpos _(código, ~1 d)_ — **escrito, validar**  
-  Jogador e monstros não se atravessam; contorno pela borda do corpo; grupos nascem sem sobreposição. Raio por tipo (monsters.json) × sizeMult do rank; monstro sem corpo exige collides=false explícito e o quadro do alvo avisa ("Ethereal").
+  Jogador e monstros não se atravessam; contorno pela borda do corpo; grupos nascem sem sobreposição. Raio por tipo (monsters.json) × sizeMult do rank; monstro sem corpo exige collides=false explícito e o quadro do alvo avisa ("Ethereal"). Bichos largos com corpo maior (Lobo 0,45, Lobo Alfa e Javali 0,5; humanoides 0,3): o alcance corpo a corpo conta até a borda do corpo.
 - [ ] **M1-13** Segurar o botão do mouse repete o clique _(UI, ~0.5 d)_ — **escrito, validar**  
   Segurando no chão continua andando para o cursor; segurando num monstro continua atacando-o até ele morrer.
+- [ ] **M1-17** Sem combate na cidade _(regra, ~0.2 d)_ — **escrito, validar**  
+  Na Vila o World recusa atacar e usar habilidades ("You cannot fight in town"), como no D2.
 - [x] **M1-10** Tempos de ação: recargas e recuperações _(código, ~1.5 d)_  
   Recarga por habilidade e global, recuperação de golpe (≥ 1/12 da vida), recuperação de bloqueio, recuperação de monstros. Testes em test_world_timing.py.
 
@@ -117,7 +119,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   4ª proficiência (XP de todos os golpes com duas armas e das habilidades da árvore — Lâminas é só para uma lâmina sem par; perfil 1 FOR / 2 DES). Mão secundária com 70% do dano (balance.dualWield). Árvore: Double Strike (golpe com as duas armas), Off-Hand Training, Frenzy (acúmulos de velocidade), Ambidexterity, Whirling Blades (360° com as duas), Blade Guard (desvio de golpes corpo a corpo), Blade Dance (falta implementar), Bloodlust (roubo de vida). Títulos Twinblade, Blademaster, Skirmisher, Marauder.
 
 - [ ] **M3-09** Arcos e árvore Archery _(código, ~3 d)_ — **escrito, validar**  
-  5ª proficiência (todo tiro de arco; 3 DES por nível). Arco é de duas mãos (tira escudo e segunda arma; mochila cheia recusa), atira flecha reta de longe com linha de visão. Árvore: Power Shot, Steady Aim, Multishot (leque), Eagle Eye (alcance), Piercing Arrow (atravessa), Quick Draw, Rain of Arrows (falta implementar), Hunter's Mark. 4 bases de arco. Personagem novo leva um arco e uma segunda espada na mochila. Falta: arte do arco equipado (sprites.json gear).
+  5ª proficiência (todo tiro de arco; 3 DES por nível). Arco é de duas mãos (tira escudo e segunda arma; mochila cheia recusa), atira flecha reta de longe com linha de visão. Árvore: Power Shot, Steady Aim, Multishot (leque que abre perto e fecha longe: cobre spreadTiles de largura na distância do alvo, entre 8° e 70°), Eagle Eye (alcance), Piercing Arrow (atravessa), Quick Draw, Rain of Arrows (falta implementar), Hunter's Mark. 4 bases de arco. Personagem novo leva um arco e uma segunda espada na mochila. Falta: arte do arco equipado (sprites.json gear).
 
 ## M4 – Monstros
 
@@ -190,6 +192,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 
 **Pronto quando:** 5 pessoas de fora terminam o Ato 1; feedback coletado
 
+- [ ] **M7-10** Ficha do personagem (C) _(UI, ~1 d)_ — **escrito, validar**  
+  core/sheet.py monta as linhas com as mesmas fórmulas do combate (nível, título, ouro, proficiências com XP, atributos, vida/energia e regeneração, dano, ataques/s, precisão com chance de acerto contra monstro do mesmo nível, crítico, alcance, defesa com chance de errar, armadura com redução, bloqueio). Passar o mouse numa linha explica de onde vem o número. Regeneração de Energia (2%/s, 0,5%/s com guarda) foi para balance.json. Falta: as constantes de atributo (5 precisão/DES, 0,2% crítico/DES, 1% dano/FOR) têm nome em combat.py mas ainda não estão num JSON.
 - [ ] **M7-01** Direção de arte e pipeline 3D → sprite _(arte, ~5 d)_  
   Definir paleta e escala; protótipo de personagem em 8 direções renderizado no Blender.
 - [ ] **M7-02** Tileset dos 3 biomas do Ato 1 _(arte, ~5 d)_  

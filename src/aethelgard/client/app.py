@@ -43,6 +43,7 @@ from ..core.world import (
 )
 from ..core.world_gen import ExitKind
 from . import palette as C
+from .character_view import CharacterWindow
 from .hud import Hud
 from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
@@ -99,6 +100,7 @@ class Game:
         self.inventory_view = InventoryWindow(self)
         self.stash_view = StashWindow(self)
         self.shop_view = ShopWindow(self)
+        self.character_view = CharacterWindow(self)
         self.waypoint_menu: list[tuple[pygame.Rect, str]] | None = None  # open while standing on a waypoint
         self.stash_store = SaveStore.for_stash(save_dir)
         self.talk_to: str | None = None  # NPC role being walked to (vendor | stash)
@@ -218,7 +220,7 @@ class Game:
     @property
     def windows(self):
         """Item windows, front first: the service one (stash or shop) and the inventory."""
-        return (self.stash_view, self.shop_view, self.inventory_view)
+        return (self.stash_view, self.shop_view, self.inventory_view, self.character_view)
 
     def window_at(self, pos):
         return next((w for w in self.windows if w.contains(pos)), None)
@@ -613,6 +615,8 @@ class Game:
             self.open_only("trees")
         elif action == "inventory":
             self.open_only(self.inventory_view)
+        elif action == "character":
+            self.open_only(self.character_view)
         elif action == "map":
             self.big_map = not self.big_map
         elif action == "cancel":

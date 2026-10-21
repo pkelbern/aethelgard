@@ -1,5 +1,5 @@
 {
-  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Skills always feed their own tree.",
+  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C).",
   "proficiencies": [
     {
       "id": "blades",
@@ -13,7 +13,8 @@
       },
       "weaponTags": [
         "sword"
-      ]
+      ],
+      "description": "XP from damage dealt with a one-hand blade used alone (with or without a shield) and from Blades skills."
     },
     {
       "id": "shield",
@@ -27,7 +28,8 @@
       },
       "weaponTags": [
         "shield"
-      ]
+      ],
+      "description": "XP from blows you block with the guard, and from Shield skills."
     },
     {
       "id": "armor",
@@ -39,7 +41,8 @@
         "vit": 2,
         "int": 0
       },
-      "weaponTags": []
+      "weaponTags": [],
+      "description": "XP from damage your armor soaks up."
     },
     {
       "id": "dual_wield",
@@ -53,7 +56,8 @@
       },
       "weaponTags": [
         "sword"
-      ]
+      ],
+      "description": "XP from every swing while holding two weapons, and from Dual Wield skills."
     },
     {
       "id": "bows",
@@ -67,7 +71,8 @@
       },
       "weaponTags": [
         "bow"
-      ]
+      ],
+      "description": "XP from every arrow that hits, and from Archery skills."
     }
   ],
   "titles": [

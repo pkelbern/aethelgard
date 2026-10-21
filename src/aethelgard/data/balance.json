@@ -28,6 +28,8 @@
   "character": {
     "secondaryProficiencyWeight": 0.25,
     "levelUpHealPct": 0.25,
+    "energyRegenPctPerSecond": 0.02,
+    "guardEnergyRegenPctPerSecond": 0.005,
     "baseLife": 50,
     "lifePerVit": 4,
     "lifePerLevel": 3,

@@ -12,7 +12,7 @@ from importlib import resources
 import pygame
 
 ACTIONS = (
-    "guard", "skillTrees", "inventory", "map", "console", "save", "cancel", "showItems", "compare",
+    "guard", "skillTrees", "inventory", "character", "map", "console", "save", "cancel", "showItems", "compare",
     "lifePotion", "energyPotion", "townPortal", "standStill",
 )
 SHARED_MODIFIERS = ("compare", "standStill")

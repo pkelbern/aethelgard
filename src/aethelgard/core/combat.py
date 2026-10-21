@@ -175,6 +175,9 @@ class GuardProfile:
 
 BASE_ACCURACY = 20.0
 DEFENSE_PER_DEX = 2.0
+ACCURACY_PER_DEX = 5.0
+CRIT_PER_DEX = 0.002
+DAMAGE_PER_STR = 0.01
 
 
 def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: str = "main") -> AttackerStats:
@@ -185,9 +188,9 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: 
     if hand == "off" and gear.dual_wielding:  # the weaker hand (Off-Hand Training narrows the gap)
         mult = min(1.0, sheet.data.balance.dual_wield.off_hand_damage_mult + skills.effect("off_hand_training", "offHandDamagePct"))
         dmg_min, dmg_max = dmg_min * mult, dmg_max * mult
-    bonus = a.str * 0.01
-    acc = BASE_ACCURACY + a.dex * 5
-    crit = min(0.5, a.dex * 0.002)
+    bonus = a.str * DAMAGE_PER_STR
+    acc = BASE_ACCURACY + a.dex * ACCURACY_PER_DEX
+    crit = min(0.5, a.dex * CRIT_PER_DEX)
     tags = w.base.tags if w else []
     if "sword" in tags:  # Sharp Blade: one-hand blades only
         bonus += skills.effect("sharp_blade", "swordDamagePct")

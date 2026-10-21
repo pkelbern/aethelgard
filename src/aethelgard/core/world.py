@@ -80,6 +80,7 @@ def is_implemented(node_id: str) -> bool:
     return node_id in IMPLEMENTED_SKILLS or node_id in IMPLEMENTED_PASSIVES
 
 MELEE_RANGE = 1.4
+DEFAULT_BODY_RADIUS = 0.3  # a man-sized body; wider ones (wolves, boars) are reached that much sooner
 AGGRO_RADIUS = 8.0
 EXIT_COOLDOWN = 0.8
 
@@ -277,6 +278,8 @@ class PlayerActor:
     target_id: int | None = None
     pending_skill: str | None = None
     pickup_id: int | None = None
+    aim_x: float | None = None  # where a shot aimed at the ground goes (Multishot uses its distance)
+    aim_y: float | None = None
     restores: list[list] = field(default_factory=list)  # [stat, per second, seconds left] from potions
     on_waypoint: bool = False  # standing on it; the list opens again only after stepping off
     # states: idle | attacking | hit_recovery | block_recovery | stunned | dead
@@ -538,9 +541,12 @@ class World:
             return None
         if isinstance(cmd, UseConsumable):
             return self._use_consumable(p, cmd.consumable_id)
+        if isinstance(cmd, AttackInPlace | AttackTarget | UseSkill) and self.area_id == self.data.town_id:
+            return "You cannot fight in town"
         if isinstance(cmd, AttackInPlace):
             if p.busy or p.guarding or p.state == "attacking":
                 return None
+            p.aim_x, p.aim_y = cmd.x, cmd.y
             p.path.clear()
             p.target_id = p.pending_skill = None
             self._face(p, cmd.x - p.x, cmd.y - p.y)
@@ -630,6 +636,7 @@ class World:
             return None
         if cmd.skill_id in BOW_SKILLS and (cmd.target_id is None or cmd.target_id not in self.monsters) and cmd.x is not None:
             self._face(p, cmd.x - p.x, cmd.y - p.y)  # no target: shoot toward the mouse, from where you stand
+            p.aim_x, p.aim_y = cmd.x, cmd.y
             p.path.clear()
             p.target_id = None
             p.pending_skill = cmd.skill_id
@@ -669,7 +676,8 @@ class World:
         p.frenzy_left = max(0.0, p.frenzy_left - dt)
         if p.frenzy_left <= 0:
             p.frenzy_stacks = 0
-        regen = 0.005 if p.guarding else 0.02
+        c = self.data.balance.character
+        regen = c.guard_energy_regen_pct_per_second if p.guarding else c.energy_regen_pct_per_second
         p.energy = min(p.max_energy, p.energy + p.max_energy * regen * dt)
         p.life = min(p.max_life, p.life + s.skills.effect("recovery", "lifeRegenPerSecond") * dt)
         for r in p.restores:  # potions: a share of the maximum over a few seconds
@@ -951,11 +959,16 @@ class World:
             return s.gear.main_hand.base.range_tiles + s.skills.effect("eagle_eye", "bowRangeTiles")
         return MELEE_RANGE
 
+    @staticmethod
+    def melee_gap(p: PlayerActor, t: MonsterActor) -> float:
+        """Distance for melee, measured to the edge of the target's body: a wide wolf is reached sooner."""
+        return math.hypot(t.x - p.x, t.y - p.y) - max(0.0, t.radius - DEFAULT_BODY_RADIUS)
+
     def in_reach(self, p: PlayerActor, t: MonsterActor) -> bool:
         """Close enough to strike, or (with a bow) in range and in sight."""
         d = math.hypot(t.x - p.x, t.y - p.y)
         if not p.session.gear.has_bow:
-            return d <= MELEE_RANGE
+            return self.melee_gap(p, t) <= MELEE_RANGE
         return d <= self.player_reach(p) and line_of_sight(self.layout, (p.x, p.y), (t.x, t.y))
 
     def attack_speed(self, p: PlayerActor) -> float:
@@ -992,16 +1005,16 @@ class World:
         if skill in AREA_SKILLS:
             arc = s.skills.effect(skill, "arcDegrees")  # fixed arc (base); points raise the damage
             for m in self.monsters.values():
-                if m.alive and math.hypot(m.x - p.x, m.y - p.y) <= MELEE_RANGE + 0.4:
+                if m.alive and self.melee_gap(p, m) <= MELEE_RANGE + 0.4:
                     if s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc):
                         targets.append(m)
         elif p.attack_target is not None:
             t = self.monsters.get(p.attack_target)
-            if t and t.alive and math.hypot(t.x - p.x, t.y - p.y) <= MELEE_RANGE + 0.6:
+            if t and t.alive and self.melee_gap(p, t) <= MELEE_RANGE + 0.6:
                 targets.append(t)
         else:  # in place (Shift+click): the closest one in reach in front, if any
             arc = self.data.balance.combat.in_place_arc_degrees
-            near = [m for m in self.monsters.values() if m.alive and math.hypot(m.x - p.x, m.y - p.y) <= MELEE_RANGE + 0.6
+            near = [m for m in self.monsters.values() if m.alive and self.melee_gap(p, m) <= MELEE_RANGE + 0.6
                     and s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc)]
             if near:
                 targets.append(min(near, key=lambda m: math.hypot(m.x - p.x, m.y - p.y)))
@@ -1300,7 +1313,13 @@ class World:
         count, spread = 1, 0.0
         if skill == "multishot":
             count = max(1, math.floor(s.skills.effect("multishot", "arrows") + 1e-9))
-            spread = math.radians(s.skills.effect("multishot", "spreadDegrees"))
+            if t is not None and t.alive:
+                dist = math.hypot(t.x - p.x, t.y - p.y)
+            elif p.aim_x is not None:
+                dist = math.hypot(p.aim_x - p.x, p.aim_y - p.y)
+            else:
+                dist = self.player_reach(p) / 2
+            spread = math.radians(self.multishot_spread(p, dist))
         reach = self.player_reach(p) + 1.0
         for k in range(count):
             a = base + (spread * (k / (count - 1) - 0.5) if count > 1 else 0.0)
@@ -1308,6 +1327,14 @@ class World:
                                 owner="player", owner_id=p.player_id, skill=skill, prof=self.data.node(skill).tree if skill else "bows",
                                 pierce=skill == "piercing_arrow")
             proj.dir_x, proj.dir_y = math.cos(a), math.sin(a)
+
+    def multishot_spread(self, p: PlayerActor, distance: float) -> float:
+        """Fan angle in degrees: it covers about spreadTiles across at the target's distance, so it opens
+        wide up close and closes far away (clamped between the narrowest and widest fan)."""
+        e = p.session.skills.effect
+        width = e("multishot", "spreadTiles")
+        angle = math.degrees(2 * math.atan2(width / 2, max(0.5, distance)))
+        return max(e("multishot", "minSpreadDegrees"), min(e("multishot", "maxSpreadDegrees"), angle))
 
     def _throw_shield(self, p: PlayerActor, cmd: UseSkill) -> str | None:
         s = p.session

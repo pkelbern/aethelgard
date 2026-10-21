@@ -180,3 +180,51 @@ def test_melee_has_the_edge_against_ranged_fighters(data):
     w2._hit_player = lambda pl, atk, *a, **k: seen.append(atk.damage_bonus_pct)
     w2._monster_hit(m2, p2)
     assert seen == [pytest.approx(m2.attack.damage_bonus_pct + 0.25)]
+
+
+def test_multishot_opens_up_close_and_narrows_far_away(data):
+    s, w, p, m = archer(data)
+    s.proficiencies.set_xp("bows", data.xp_total_by_level[11])
+    s.allocate_skill("multishot")
+    near, mid, far = (w.multishot_spread(p, d) for d in (1.5, 5.0, 14.0))
+    assert near > mid > far
+    assert near == pytest.approx(70) and far == pytest.approx(12.2, abs=0.2), "3 tiles wide at 14 tiles"
+
+    def fan(at_x):
+        w.projectiles.clear()
+        m.x = at_x
+        p.cooldowns = type(p.cooldowns)()
+        assert w.apply(UseSkill(0, "multishot", 1)) is None
+        for _ in range(40):
+            w.step(DT)
+            if len(w.projectiles) >= 3:
+                break
+        ys = sorted(pr.dir_y for pr in w.projectiles.values())
+        return ys[-1] - ys[0]
+
+    m.state, m.state_left = "stunned", 99.0
+    assert fan(7.0) > fan(16.0), "same skill, wider fan on the closer target"
+
+
+def test_no_fighting_in_town(data):
+    from aethelgard.core.world import AttackInPlace
+
+    s = GameSession(data, 1)
+    from aethelgard.core.world import World
+
+    w = World([s])
+    w.enter_area(data.town_id)
+    assert w.apply(AttackInPlace(0, 3.0, 3.0)) == "You cannot fight in town"
+    assert w.apply(AttackTarget(0, 1)) == "You cannot fight in town"
+    assert w.apply(UseSkill(0, "precise_strike")) == "You cannot fight in town"
+    assert w.players[0].state == "idle"
+
+
+def test_wide_beasts_have_a_bigger_hitbox(data):
+    s, w, p, m = arena(data)
+    m.monster.type = data.monster_type("wolf")
+    assert m.radius == pytest.approx(0.45)
+    m.x = 5.0 + 1.5  # 1.5 tiles from the center: too far for a man-sized body, in reach of a wolf's side
+    assert w.in_reach(p, m)
+    m.monster.type = data.monster_type("bandit")
+    assert not w.in_reach(p, m)
