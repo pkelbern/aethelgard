@@ -56,13 +56,19 @@ class Hud:
         self._bar(screen, (16, 68, 260, 14), p.life / max(1, p.max_life), C.LIFE, f"Life {p.life:.0f}/{p.max_life:.0f}")
         self._bar(screen, (16, 86, 260, 14), p.energy / max(1, p.max_energy), C.ENERGY, f"Energy {p.energy:.0f}/{p.max_energy:.0f}")
 
-        y = 110
+        y = 110  # only the proficiencies in use; the others are summed up in one line (all of them are in the trees, T)
+        unused = 0
         for prof in s.proficiencies:
             free = s.skills.available(prof.id)
+            if prof.xp <= 0:
+                unused += free
+                continue
             label = f"{prof.name} {prof.level}" + (f"   [{free} point{'s' if free > 1 else ''}]" if free else "")
             self._text(screen, label, (16, y), self.f["small"], C.GOLD if free else C.TEXT)
             self._bar(screen, (16, y + 18, 200, 5), prof.progress, C.XP, None)
             y += 30
+        if unused:
+            self._text(screen, f"+{unused} points in unused trees", (16, y), self.f["tiny"], C.MUTED)
 
         # current state (hit recovery, block recovery, stunned) with time left
         if p.state in STATE_LABEL and p.state != "attacking":

@@ -871,6 +871,389 @@
    ]
   },
   {
+   "id": "crushing_blow",
+   "tree": "maces",
+   "name": "Crushing Blow",
+   "shortName": "Crush",
+   "description": "A heavy blow against one enemy that deals {damagePct} more damage, with a {stunChance} chance to stun it for {stunSeconds}.",
+   "layer": 1,
+   "kind": "active",
+   "energyCost": 3,
+   "effects": {
+    "damagePct": 0.16,
+    "stunChance": 0.015
+   },
+   "cooldown": 0.0,
+   "base": {
+    "stunChance": 0.15,
+    "stunSeconds": 0.5
+   },
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "heavy_head",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "heavy_head",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "heavy_head",
+   "tree": "maces",
+   "name": "Heavy Head",
+   "description": "Your mace or hammer lands harder: {maceDamagePct} more damage with one-hand maces and hammers. Also boosts Crushing Blow.",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "maceDamagePct": 0.06
+   }
+  },
+  {
+   "id": "ground_slam",
+   "tree": "maces",
+   "name": "Ground Slam",
+   "shortName": "Slam",
+   "description": "Strike the ground: every enemy within {radiusTiles} of you takes {damagePct} more damage and has a {stunChance} chance to be stunned for {stunSeconds}.",
+   "layer": 6,
+   "kind": "active",
+   "energyCost": 6,
+   "effects": {
+    "damagePct": 0.08
+   },
+   "cooldown": 3.0,
+   "base": {
+    "arcDegrees": 360,
+    "radiusTiles": 2.2,
+    "stunChance": 0.25,
+    "stunSeconds": 0.4
+   },
+   "requires": [
+    "crushing_blow"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "bone_breaker",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "bone_breaker",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "bone_breaker",
+   "tree": "maces",
+   "name": "Bone Breaker",
+   "description": "Blunt weapons shatter what is already dead: {undeadDamagePct} more damage against the undead (any attack).",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "undeadDamagePct": 0.05
+   },
+   "requires": [
+    "heavy_head"
+   ]
+  },
+  {
+   "id": "hammer_blow",
+   "tree": "maces",
+   "name": "Hammer Blow",
+   "shortName": "Hammer",
+   "description": "A swing from the shoulder: {damagePct} more damage to one enemy, knocking it back {knockbackTiles} and stunning it for {stunSeconds}. Unique monsters and bosses are pushed and stunned for half as long.",
+   "layer": 12,
+   "kind": "active",
+   "energyCost": 7,
+   "effects": {
+    "damagePct": 0.12
+   },
+   "cooldown": 5.0,
+   "base": {
+    "knockbackTiles": 1.5,
+    "stunSeconds": 1.0
+   },
+   "requires": [
+    "ground_slam"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "concussive",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "concussive",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "concussive",
+   "tree": "maces",
+   "name": "Concussive",
+   "description": "Every hit with a mace or hammer has a {maceStunChance} chance to stun for {maceStunSeconds}.",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "maceStunChance": 0.02
+   },
+   "base": {
+    "maceStunSeconds": 0.5
+   },
+   "requires": [
+    "bone_breaker"
+   ]
+  },
+  {
+   "id": "earthquake",
+   "tree": "maces",
+   "name": "Earthquake",
+   "shortName": "Quake",
+   "description": "The ground heaves: every enemy within {radiusTiles} takes {damagePct} more damage and has a {stunChance} chance to be stunned for {stunSeconds}.",
+   "layer": 18,
+   "kind": "active",
+   "energyCost": 14,
+   "effects": {
+    "damagePct": 0.12
+   },
+   "cooldown": 8.0,
+   "base": {
+    "arcDegrees": 360,
+    "radiusTiles": 3.5,
+    "stunChance": 0.5,
+    "stunSeconds": 0.8
+   },
+   "requires": [
+    "hammer_blow"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "executioner",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "executioner",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "executioner",
+   "tree": "maces",
+   "name": "Executioner",
+   "description": "{damageVsStunnedPct} more damage against stunned enemies (any attack).",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "damageVsStunnedPct": 0.05
+   },
+   "requires": [
+    "concussive"
+   ]
+  },
+  {
+   "id": "heavy_swing",
+   "tree": "two_handed",
+   "name": "Heavy Swing",
+   "shortName": "Swing",
+   "description": "Put your whole weight behind the blow: {damagePct} more damage and {accuracyPct} accuracy against one enemy.",
+   "layer": 1,
+   "kind": "active",
+   "energyCost": 3,
+   "effects": {
+    "damagePct": 0.18,
+    "accuracyPct": 0.08
+   },
+   "cooldown": 0.0,
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "great_weapon_mastery",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "great_weapon_mastery",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "great_weapon_mastery",
+   "tree": "two_handed",
+   "name": "Great Weapon Mastery",
+   "description": "{greatDamagePct} more damage with two-handed swords, axes and mauls. Also boosts Heavy Swing.",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "greatDamagePct": 0.07
+   }
+  },
+  {
+   "id": "cleave",
+   "tree": "two_handed",
+   "name": "Cleave",
+   "shortName": "Cleave",
+   "description": "A wide stroke through every enemy in a {arcDegrees} arc in front of you, aimed at the mouse, for {damagePct} more damage.",
+   "layer": 6,
+   "kind": "active",
+   "energyCost": 5,
+   "effects": {
+    "damagePct": 0.12
+   },
+   "cooldown": 1.5,
+   "base": {
+    "arcDegrees": 150
+   },
+   "requires": [
+    "heavy_swing"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "brute_force",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "brute_force",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "brute_force",
+   "tree": "two_handed",
+   "name": "Brute Force",
+   "description": "Every hit with a two-handed weapon has a {greatStunChance} chance to stun for {greatStunSeconds}.",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "greatStunChance": 0.015
+   },
+   "base": {
+    "greatStunSeconds": 0.4
+   },
+   "requires": [
+    "great_weapon_mastery"
+   ]
+  },
+  {
+   "id": "berserk",
+   "tree": "two_handed",
+   "name": "Berserk",
+   "shortName": "Berserk",
+   "description": "For {durationSeconds} you deal {buffDamagePct} more damage, but your defense and armor drop by {buffDefensePct}.",
+   "layer": 12,
+   "kind": "active",
+   "energyCost": 8,
+   "effects": {
+    "durationSeconds": 0.2,
+    "buffDamagePct": 0.03
+   },
+   "cooldown": 18.0,
+   "base": {
+    "durationSeconds": 6,
+    "buffDamagePct": 0.3,
+    "buffDefensePct": -0.5
+   },
+   "requires": [
+    "cleave"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "relentless",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "relentless",
+     "points": 10
+    }
+   ],
+   "useXp": 0.3
+  },
+  {
+   "id": "relentless",
+   "tree": "two_handed",
+   "name": "Relentless",
+   "description": "{greatAttackSpeedPct} attack speed with two-handed swords, axes and mauls (they swing slower to begin with).",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "greatAttackSpeedPct": 0.03
+   },
+   "requires": [
+    "brute_force"
+   ]
+  },
+  {
+   "id": "devastate",
+   "tree": "two_handed",
+   "name": "Devastate",
+   "shortName": "Devast.",
+   "description": "A crushing overhead blow: {damagePct} more damage to one enemy, throwing it back {knockbackTiles} and stunning it for {stunSeconds}.",
+   "layer": 18,
+   "kind": "active",
+   "energyCost": 10,
+   "effects": {
+    "damagePct": 0.3
+   },
+   "cooldown": 4.0,
+   "base": {
+    "damagePct": 0.5,
+    "knockbackTiles": 2.0,
+    "stunSeconds": 0.8
+   },
+   "requires": [
+    "berserk"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "overpower",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "overpower",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "overpower",
+   "tree": "two_handed",
+   "name": "Overpower",
+   "description": "{greatCritChance} critical chance with two-handed swords, axes and mauls.",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "effects": {
+    "greatCritChance": 0.02
+   },
+   "requires": [
+    "relentless"
+   ]
+  },
+  {
    "id": "fire_bolt",
    "tree": "pyromancy",
    "name": "Fire Bolt",
@@ -1199,6 +1582,42 @@
    "from": "fireball",
    "stat": "damagePct",
    "perPoint": 0.05
+  },
+  {
+   "target": "crushing_blow",
+   "from": "heavy_head",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "earthquake",
+   "from": "ground_slam",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "earthquake",
+   "from": "crushing_blow",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "heavy_swing",
+   "from": "great_weapon_mastery",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "devastate",
+   "from": "heavy_swing",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "cleave",
+   "from": "heavy_swing",
+   "stat": "damagePct",
+   "perPoint": 0.03
   }
  ]
 }

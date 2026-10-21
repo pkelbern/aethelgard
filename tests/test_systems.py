@@ -363,7 +363,7 @@ def test_affixes_only_roll_where_they_make_sense(data):
         item = loot.roll_item(rng.randint(5, 15), 3, 1, Rarity.MAGIC, rng)
         for a in item.affixes:
             seen.setdefault(a.affix.stat, set()).add(item.base.item_class)
-    assert seen.get("attackSpeedPct", set()) <= {"sword", "bow", "gloves"}, "no attack speed on armor, boots or jewelry"
+    assert seen.get("attackSpeedPct", set()) <= {"sword", "mace", "great", "bow", "gloves"}, "no attack speed on armor, boots or jewelry"
     assert seen.get("guardEfficiency", set()) <= {"shield"}
     assert seen.get("moveSpeedPct", set()) <= {"boots"}, "movement speed only on boots"
     assert not seen.get("armorPct", set()) & {"sword", "bow", "wand", "ring", "amulet"}

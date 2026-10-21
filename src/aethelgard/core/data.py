@@ -450,13 +450,25 @@ class AreasData:
 
 
 @dataclass
+class GearNeed:
+    """What a tree's actives need in hand (proficiencies.json ``skillsNeed``): a tag on the main-hand weapon,
+    a tag on the off-hand item, or two weapons. ``text`` finishes "needs …" in the message."""
+
+    main_tag: str = ""
+    off_tag: str = ""
+    dual_wield: bool = False
+    text: str = ""
+
+
+@dataclass
 class ProficiencyDef:
     id: str = ""
     name: str = ""
     xp_source: str = "offense"
     description: str = ""
     attributes: dict[str, int] = field(default_factory=dict)
-    weapon_tags: list[str] = field(default_factory=list)
+    weapon_tags: list[str] = field(default_factory=list)  # plain attacks with a main-hand weapon carrying one of these feed it
+    skills_need: GearNeed | None = None
 
 
 @dataclass
@@ -471,6 +483,8 @@ class ProficienciesData:
     titles: list[TitleDef] = field(default_factory=list)
     title_secondary_threshold: float = 0.5
     default_title: str = ""
+    dual_wield: str = "dual_wield"  # every plain swing with two weapons feeds this one
+    unarmed: str = "blades"  # plain swings with no weapon tag of any proficiency (fists, a wand in the main hand)
 
 
 SPELL_CASTS = ("bolt", "ball", "wall", "meteor")  # how a spell is delivered (core/spells.py)
@@ -647,7 +661,8 @@ class ItemBaseDef:
     armor: float = 0
     guard_efficiency: float = 0
     block_reduction: float = 0
-    two_handed: bool = False  # bows: no shield, no second weapon
+    two_handed: bool = False  # bows and great weapons: no shield, no second weapon
+    attack_speed_pct: float = 0  # added to the attack speed while it is the swinging weapon (great weapons are slower)
     range_tiles: float = 0  # bows: how far it shoots
     spell: str | None = None  # wands: the spell (skills.json node) it lets you cast while equipped
     spell_level: int = 0  # wands: levels of that spell it gives while equipped
@@ -1046,6 +1061,13 @@ def validate(d: GameData) -> list[str]:
             if n.spell.element not in ELEMENTS:
                 errors.append(f"skills: spell '{n.id}' has unknown element '{n.spell.element}'")
     errors += _validate_skill_links(d)
+    for p in d.proficiencies.proficiencies:
+        n = p.skills_need
+        if n is not None and sum([bool(n.main_tag), bool(n.off_tag), n.dual_wield]) != 1:
+            errors.append(f"proficiencies: '{p.id}' skillsNeed must set exactly one of mainTag, offTag, dualWield")
+    for pid in (d.proficiencies.dual_wield, d.proficiencies.unarmed):
+        if pid not in prof_ids:
+            errors.append(f"proficiencies: '{pid}' (dualWield/unarmed) is not a proficiency")
     for b in d.items.bases:
         if b.spell is not None and (b.spell not in node_ids or d.node(b.spell).spell is None):
             errors.append(f"items: wand '{b.id}' gives '{b.spell}', which is not a spell")

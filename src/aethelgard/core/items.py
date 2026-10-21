@@ -335,8 +335,8 @@ class Loadout:
         return gear
 
     def slots_for(self, item: Item) -> list[str]:
-        """Every slot the item fits in."""
-        return [k for k, acc in self.accepts.items() if item.slot in acc]
+        """Every slot the item fits in (a two-handed weapon only in the main hand)."""
+        return [k for k, acc in self.accepts.items() if item.slot in acc and not (item.base.two_handed and k == "offhand")]
 
     def native_slots(self, item: Item) -> list[str]:
         """Slots made for this kind of item (a sword's is the main hand, not the off hand)."""
@@ -383,6 +383,16 @@ class Loadout:
     def has_blade(self) -> bool:
         """A one-hand blade in the main hand (Blades skills need it)."""
         return self.main_hand is not None and "sword" in self.main_hand.base.tags
+
+    def meets(self, need) -> bool:
+        """``GearNeed`` from proficiencies.json: what a tree's actives need in hand."""
+        if need is None:
+            return True
+        if need.dual_wield:
+            return self.dual_wielding
+        if need.off_tag:
+            return self.off_hand is not None and need.off_tag in self.off_hand.base.tags
+        return self.main_hand is not None and need.main_tag in self.main_hand.base.tags
 
     @property
     def dual_wielding(self) -> bool:

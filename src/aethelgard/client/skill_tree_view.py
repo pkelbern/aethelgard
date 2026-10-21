@@ -25,7 +25,8 @@ GAP_X, ROW_GAP = 18, 30
 LABEL_W = 64  # "Level 12" at the left of each row
 PAD = 16
 TAB_H = 34
-HEAD_H = 86  # tabs + the line under them + the column titles
+TABS_PER_ROW = 6  # more proficiencies wrap to a second row of tabs
+HEAD_H = 86  # one row of tabs + the line under them + the column titles
 MAX_W = 940
 
 LOCKED = (90, 88, 82)
@@ -105,9 +106,17 @@ class SkillTreeWindow:
     def rect(self) -> pygame.Rect:
         W, H = self.g.screen.get_size()
         layers = len({n.layer for n in self.g.data.skills.nodes})
-        h = HEAD_H + layers * (NODE_H + ROW_GAP) + 40
+        h = self.head_h + layers * (NODE_H + ROW_GAP) + 40
         w = min(W - 32, MAX_W)
         return pygame.Rect((W - w) // 2, max(8, (H - 92 - h) // 2), w, h)
+
+    @property
+    def tab_rows(self) -> int:
+        return -(-len(self.g.data.proficiencies.proficiencies) // TABS_PER_ROW)
+
+    @property
+    def head_h(self) -> int:
+        return HEAD_H + (self.tab_rows - 1) * TAB_H
 
     def contains(self, pos) -> bool:
         return self.open and self.rect.collidepoint(pos)
@@ -152,13 +161,13 @@ class SkillTreeWindow:
         prof = s.proficiencies[self.tab]
         free = s.skills.available(self.tab)
         info = f"{prof.name} level {prof.level}  ·  {free} free point{'s' if free != 1 else ''}"
-        screen.blit(f["body"].render(info, True, C.GOLD), (r.x + PAD, r.y + TAB_H + 10))
+        screen.blit(f["body"].render(info, True, C.GOLD), (r.x + PAD, r.y + self.tab_rows * TAB_H + 10))
         keys = self.g.keys
         hint = f"click: spend a point  ·  hover an active + {keys.bar_labels}: put it on that key  ·  {keys.action_label('skillTrees')} closes"
         img = f["tiny"].render(hint, True, C.MUTED)
-        screen.blit(img, (r.right - PAD - img.get_width(), r.y + TAB_H + 14))
+        screen.blit(img, (r.right - PAD - img.get_width(), r.y + self.tab_rows * TAB_H + 14))
 
-        area = pygame.Rect(r.x + PAD, r.y + HEAD_H, r.w - 2 * PAD, r.h - HEAD_H - 12)
+        area = pygame.Rect(r.x + PAD, r.y + self.head_h, r.w - 2 * PAD, r.h - self.head_h - 12)
         nodes = s.skills.nodes_of(self.tab)
         boxes, rows = tree_layout(nodes, area.w)
         half = (area.w - LABEL_W) // 2
@@ -193,10 +202,12 @@ class SkillTreeWindow:
     def _draw_tabs(self, screen: pygame.Surface, r: pygame.Rect) -> None:
         s, f = self.g.session, self.g.fonts
         profs = list(s.proficiencies)
-        w = (r.w - 2 * PAD) // len(profs)
+        per_row = -(-len(profs) // self.tab_rows)
+        w = (r.w - 2 * PAD) // per_row
         self._tabs = []
         for i, p in enumerate(profs):
-            box = pygame.Rect(r.x + PAD + i * w, r.y + 6, w - 4, TAB_H - 6)
+            row, col = divmod(i, per_row)
+            box = pygame.Rect(r.x + PAD + col * w, r.y + 6 + row * TAB_H, w - 4, TAB_H - 6)
             active = p.id == self.tab
             hot = box.collidepoint(pygame.mouse.get_pos())
             pygame.draw.rect(screen, (46, 42, 30) if active else (34, 35, 44) if hot else C.PANEL, box, border_radius=4)

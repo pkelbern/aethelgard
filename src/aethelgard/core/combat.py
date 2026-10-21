@@ -189,13 +189,10 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: 
     bonus = a.str * ap.damage_per_str
     acc = ap.base_accuracy + a.dex * ap.accuracy_per_dex
     crit = min(0.5, a.dex * ap.crit_per_dex)
-    tags = w.base.tags if w else []
-    if "sword" in tags:  # Sharp Blade: one-hand blades only
-        bonus += skills.effect("sharp_blade", "swordDamagePct")
-    if "bow" in tags:
-        bonus += skills.effect("steady_aim", "bowDamagePct")
-        acc *= 1 + skills.effect("eagle_eye", "bowAccuracyPct")
-        crit += skills.effect("hunters_mark", "bowCritChance")
+    for tag in w.base.tags if w else []:  # weapon passives: swordDamagePct (Sharp Blade), bowCritChance (Hunter's Mark), maceDamagePct…
+        bonus += skills.stat_total(f"{tag}DamagePct")
+        acc *= 1 + skills.stat_total(f"{tag}AccuracyPct")
+        crit += skills.stat_total(f"{tag}CritChance")
     if skill:
         bonus += skills.effect(skill, "damagePct")
         acc *= 1 + skills.effect(skill, "accuracyPct")

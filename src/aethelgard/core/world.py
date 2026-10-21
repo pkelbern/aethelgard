@@ -64,11 +64,11 @@ from .town import Vendor, item_price, sell_price
 from .world_gen import FLOOR, AreaLayout, Exit, ExitKind
 
 # Skills with behavior implemented in the prototype; the rest are in the backlog (M3-04).
-TARGET_SKILLS = {"precise_strike", "shield_bash", "double_strike", "frenzy"}
-AREA_SKILLS = {"wide_slash", "whirling_blades"}
+TARGET_SKILLS = {"precise_strike", "shield_bash", "double_strike", "frenzy", "crushing_blow", "hammer_blow", "heavy_swing", "devastate"}
+AREA_SKILLS = {"wide_slash", "whirling_blades", "ground_slam", "earthquake", "cleave"}  # arcDegrees in front (360 = all around), radiusTiles
 TWO_HAND_HITS = {"double_strike", "frenzy", "whirling_blades"}  # one hit with each weapon in the same swing
 BOW_SKILLS = {"power_shot", "multishot", "piercing_arrow"}  # fire arrows; aimed at a target or at the mouse
-SELF_SKILLS = {"bulwark"}
+SELF_SKILLS = {"bulwark", "berserk"}  # buffs on the caster for durationSeconds; their buff* stats count while they last
 PROJECTILE_SKILLS = {"shield_throw"}
 SPELL_SKILLS = {"fire_bolt", "fireball", "fire_wall", "meteor"}  # cast in place toward a point (core/spells.py)
 GROUND_SPELLS = {"wall", "meteor"}  # spell.cast values that set the ground on fire: only where the caster can see
@@ -79,6 +79,8 @@ IMPLEMENTED_PASSIVES = {
     "off_hand_training", "ambidexterity", "blade_guard", "bloodlust",
     "steady_aim", "eagle_eye", "quick_draw", "hunters_mark",
     "kindling", "ignite", "quick_casting", "searing_heat",
+    "heavy_head", "bone_breaker", "concussive", "executioner",
+    "great_weapon_mastery", "brute_force", "relentless", "overpower",
 }
 
 
@@ -304,7 +306,7 @@ class PlayerActor:
     guard_held: bool = False
     guarding: bool = False
     guard_time: float = 0.0
-    bulwark_left: float = 0.0
+    buffs: dict[str, float] = field(default_factory=dict)  # self skill → seconds left (Bulwark, Berserk, blessings)
     frenzy_stacks: int = 0  # Frenzy: attack speed per stack while frenzy_left > 0
     frenzy_left: float = 0.0
     cooldowns: Cooldowns = field(default_factory=Cooldowns)
@@ -314,6 +316,19 @@ class PlayerActor:
     @property
     def player_id(self) -> int:
         return self.session.player_id
+
+    @property
+    def bulwark_left(self) -> float:
+        return self.buffs.get("bulwark", 0.0)
+
+    @bulwark_left.setter
+    def bulwark_left(self, seconds: float) -> None:
+        self.buffs["bulwark"] = seconds
+
+    def buff_total(self, stat: str) -> float:
+        """A stat summed over the buffs up now (Berserk's buffDamagePct, a blessing's buffDefensePct…)."""
+        e = self.session.skills.effect
+        return sum(e(sid, stat) for sid, left in self.buffs.items() if left > 0)
 
     @property
     def max_life(self) -> float:
@@ -554,7 +569,7 @@ class World:
                 p.path.clear()
                 p.target_id = p.pending_skill = None
                 p.guarding = p.guard_held = False
-                p.bulwark_left = 0.0
+                p.buffs.clear()
             return None
         if p is None or p.state == "dead":
             return None
@@ -623,14 +638,9 @@ class World:
         node = self.data.node(skill_id)
         if s.skills.points_in(skill_id) <= 0:
             return f"{node.name}: no points"
-        if node.tree == "shield" and node.kind == "active" and not s.gear.has_shield:
-            return f"{node.name}: needs a shield"
-        if node.tree == "dual_wield" and node.kind == "active" and not s.gear.dual_wielding:
-            return f"{node.name}: needs two weapons"
-        if node.tree == "bows" and node.kind == "active" and not s.gear.has_bow:
-            return f"{node.name}: needs a bow"
-        if node.tree == "blades" and node.kind == "active" and not s.gear.has_blade:
-            return f"{node.name}: needs a one-hand blade"
+        need = self.data.proficiency(node.tree).skills_need
+        if node.kind == "active" and not s.gear.meets(need):
+            return f"{node.name}: needs {need.text}"
         if node.spell is not None and p.guarding:
             return f"{node.name}: lower your guard to cast"
         if skill_id not in IMPLEMENTED_SKILLS:
@@ -649,8 +659,8 @@ class World:
             if p.busy or not p.cooldowns.ready("global"):
                 return None
             self._commit_skill(p, cmd.skill_id)
-            p.bulwark_left = p.session.skills.effect("bulwark", "durationSeconds")  # 3 s base + per point (skills.json)
-            self._float(p.x, p.y, "Bulwark!", "info")
+            p.buffs[cmd.skill_id] = p.session.skills.effect(cmd.skill_id, "durationSeconds")  # base + per level (skills.json)
+            self._float(p.x, p.y, f"{self.data.node(cmd.skill_id).name}!", "info")
             return None
         if cmd.skill_id in PROJECTILE_SKILLS:
             return self._throw_shield(p, cmd)
@@ -727,7 +737,7 @@ class World:
         s = p.session
         p.cooldowns.tick(dt)
         p.exit_cooldown -= dt
-        p.bulwark_left = max(0.0, p.bulwark_left - dt)
+        p.buffs = {k: v - dt for k, v in p.buffs.items() if v - dt > 0}
         p.frenzy_left = max(0.0, p.frenzy_left - dt)
         if p.frenzy_left <= 0:
             p.frenzy_stacks = 0
@@ -1061,14 +1071,25 @@ class World:
         return d <= self.player_reach(p) and line_of_sight(self.layout, (p.x, p.y), (t.x, t.y))
 
     def attack_speed(self, p: PlayerActor) -> float:
-        """Attack speed bonus: generic, plus Ambidexterity with two weapons, plus Frenzy stacks."""
-        t = p.session.skills
-        ias = t.stat_total("attackSpeedPct")
-        if p.session.gear.dual_wielding:
+        """Attack speed bonus: generic, the weapon's own (great weapons are slower), passives for its tags
+        (Quick Draw: bowAttackSpeedPct), Ambidexterity with two weapons, Frenzy stacks and buffs."""
+        t, gear = p.session.skills, p.session.gear
+        ias = t.stat_total("attackSpeedPct") + p.buff_total("buffAttackSpeedPct")
+        w = gear.main_hand
+        if w is not None:
+            ias += w.base.attack_speed_pct + sum(t.stat_total(f"{tag}AttackSpeedPct") for tag in w.base.tags)
+        if gear.dual_wielding:
             ias += t.effect("ambidexterity", "dualAttackSpeedPct")
-        if p.session.gear.has_bow:
-            ias += t.effect("quick_draw", "bowAttackSpeedPct")
         return ias + p.frenzy_stacks * t.effect("frenzy", "attackSpeedPerStackPct")
+
+    def swing_proficiency(self, p: PlayerActor) -> str:
+        """Who gets the XP of a plain swing: Dual Wield with two weapons, else the proficiency of the main-hand
+        weapon's tags (Blades for a sword, Maces for a mace…), else the unarmed one (proficiencies.json)."""
+        pd, gear = self.data.proficiencies, p.session.gear
+        if gear.dual_wielding:
+            return pd.dual_wield
+        tags = set(gear.main_hand.base.tags) if gear.main_hand is not None else set()
+        return next((d.id for d in pd.proficiencies if tags & set(d.weapon_tags)), pd.unarmed)
 
     def _begin_attack(self, p: PlayerActor, target_id: int | None, skill: str | None) -> None:
         ias = self.attack_speed(p)
@@ -1097,8 +1118,9 @@ class World:
         targets: list[MonsterActor] = []
         if skill in AREA_SKILLS:
             arc = s.skills.effect(skill, "arcDegrees")  # fixed arc (base); points raise the damage
+            reach = s.skills.effect(skill, "radiusTiles") or MELEE_RANGE + 0.4
             for m in self.monsters.values():
-                if m.alive and self.melee_gap(p, m) <= MELEE_RANGE + 0.4:
+                if m.alive and self.melee_gap(p, m) <= reach:
                     if s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc):
                         targets.append(m)
         elif p.attack_target is not None:
@@ -1111,14 +1133,14 @@ class World:
                     and s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc)]
             if near:
                 targets.append(min(near, key=lambda m: math.hypot(m.x - p.x, m.y - p.y)))
-        # XP: a skill feeds its own tree; a plain swing feeds Dual Wield with two weapons, otherwise Blades
-        prof = self.data.node(skill).tree if skill else ("dual_wield" if s.gear.dual_wielding else "blades")
+        # XP: a skill feeds its own tree; a plain swing the weapon's proficiency
+        prof = self.data.node(skill).tree if skill else self.swing_proficiency(p)
         hands = ("main", "off") if skill in TWO_HAND_HITS else (p.attack_hand,)
         for t in targets:
             for hand in hands:
                 if not t.alive:
                     break
-                atk = player_attack(s.character, s.skills, s.gear, skill, hand)
+                atk = self._hit_bonuses(p, t, player_attack(s.character, s.skills, s.gear, skill, hand))
                 if t.ranged:  # closing in on an archer or caster pays off
                     atk = melee_edge(atk, self.data.balance.combat)
                 r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
@@ -1126,13 +1148,46 @@ class World:
                     self._float(t.x, t.y, "miss", "miss")
                     continue
                 self._damage_monster(p, t, r.final, prof, crit=r.crit, skill=skill)
+                self._weapon_stun(p, t, s.gear.weapon(hand))
                 if skill == "frenzy":
                     top = round(s.skills.effect("frenzy", "maxStacks"))
                     p.frenzy_stacks = min(top, p.frenzy_stacks + 1)
                     p.frenzy_left = s.skills.effect("frenzy", "durationSeconds")
-            if skill == "shield_bash" and t.alive:
-                self._knock_back(t, p.x, p.y, s.skills.effect("shield_bash", "knockbackTiles"))
-                self._stun_monster(t, s.skills.effect("shield_bash", "stunSeconds"))
+            if skill and t.alive:
+                self._skill_on_hit(p, t, skill)
+
+    def _hit_bonuses(self, p: PlayerActor, t: MonsterActor, atk):
+        """Bonuses that depend on the target: against its family (Bone Breaker: undeadDamagePct), against a stunned
+        enemy (Executioner), and the player's buffs (Berserk)."""
+        sk = p.session.skills
+        extra = sk.stat_total(f"{t.monster.type.family}DamagePct") + p.buff_total("buffDamagePct")
+        if t.state == "stunned":
+            extra += sk.stat_total("damageVsStunnedPct")
+        return with_bonus(atk, extra) if extra else atk
+
+    def _weapon_stun(self, p: PlayerActor, t: MonsterActor, weapon) -> None:
+        """Passives that stun with a kind of weapon (Concussive: maceStunChance / maceStunSeconds)."""
+        if weapon is None or not t.alive:
+            return
+        sk = p.session.skills
+        for tag in weapon.base.tags:
+            chance, secs = sk.stat_total(f"{tag}StunChance"), sk.stat_total(f"{tag}StunSeconds")
+            if chance > 0 and secs > 0 and t.state != "stunned" and p.session.combat_rng.chance(chance):
+                self._stun_monster(t, secs)
+                return
+
+    def _skill_on_hit(self, p: PlayerActor, t: MonsterActor, skill: str) -> None:
+        """What a skill's stats do to whoever it hit: knockbackTiles pushes away, stunSeconds stuns (always, or with
+        stunChance when the skill has that stat)."""
+        sk = p.session.skills
+        push = sk.effect(skill, "knockbackTiles")
+        if push > 0:
+            self._knock_back(t, p.x, p.y, push)
+        secs = sk.effect(skill, "stunSeconds")
+        if secs > 0:
+            chance = sk.effect(skill, "stunChance") if "stunChance" in sk.stats_of(skill) else 1.0
+            if p.session.combat_rng.chance(chance):
+                self._stun_monster(t, secs)
 
     def _damage_monster(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str, crit: bool = False, recover: bool = True,
                         skill: str | None = None) -> None:
@@ -1356,6 +1411,9 @@ class World:
             reduction=prof.block_reduction,
         )
         defense = player_defense(s.character, s.skills, s.gear)
+        buff = p.buff_total("buffDefensePct")  # Berserk lowers it
+        if buff:
+            defense = replace(defense, defense=defense.defense * max(0.0, 1 + buff), armor=defense.armor * max(0.0, 1 + buff))
         r = s.combat.resolve_physical(attack, defense, s.combat_rng, guard)
         if not r.hit:
             self._float(p.x, p.y, "dodged", "miss")
@@ -1500,7 +1558,8 @@ class World:
             return False
         s = p.session
         proj.hit_ids.add(t.id)
-        r = s.combat.resolve_physical(player_attack(s.character, s.skills, s.gear, proj.skill), t.defense, s.combat_rng)
+        atk = self._hit_bonuses(p, t, player_attack(s.character, s.skills, s.gear, proj.skill))
+        r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
         if r.hit:
             self._damage_monster(p, t, r.final, proj.prof or "bows", crit=r.crit, skill=proj.skill)
         else:

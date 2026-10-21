@@ -65,6 +65,13 @@ def describe_item(data: GameData, item, missing: dict[str, int] | None = None, g
     lines = [Line(item.name, f"rarity{int(item.rarity)}"), Line(sub, "subtitle")]
     if b.dmg_max > 0:
         lines.append(Line(f"Damage: {_num(b.dmg_min)}–{_num(b.dmg_max)}", "stat"))
+        if b.two_handed:
+            lines.append(Line("Two-handed", "stat"))
+        if b.attack_speed_pct:
+            lines.append(Line(stat_line(data.stat("attackSpeedPct"), b.attack_speed_pct), "stat"))
+        trains = next((p.name for p in data.proficiencies.proficiencies if set(b.tags) & set(p.weapon_tags)), None)
+        if trains:
+            lines.append(Line(f"Trains {trains}", "muted"))
     if b.armor > 0:
         lines.append(Line(f"Armor: {_num(b.armor)}", "stat"))
     if "shield" in b.tags:
@@ -76,7 +83,7 @@ def describe_item(data: GameData, item, missing: dict[str, int] | None = None, g
         spell = data.node(b.spell)
         school = data.proficiency(spell.tree).name
         lines.append(Line(f"+{b.spell_level} to {spell.name} while worn", "next"))
-        lines.append(Line(f"Cast {spell.name} with it, then gain a {school} level to learn the spell for good.", "muted"))
+        lines.append(Line(f"Lets you cast {spell.name} before you unlock it in the {school} tree.", "muted"))
     lines += [Line(stat_line(data.stat(k), v), "next") for k, v in item.mods]
     if item.set_id:
         lines += _set_lines(data, data.item_set(item.set_id), gear.set_pieces_worn(item.set_id) if gear else 0)

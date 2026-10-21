@@ -21,8 +21,9 @@ def calc(d):
 
 def test_data_loads_and_is_valid(data):
     assert validate(data) == []
-    assert len(data.proficiencies.proficiencies) == 6, "Blades, Shield, Armor, Dual Wield, Archery, Pyromancy"
-    assert len(data.skills.nodes) == 48, "8 nodes per tree"
+    assert [p.id for p in data.proficiencies.proficiencies] == [
+        "blades", "shield", "armor", "dual_wield", "bows", "maces", "two_handed", "pyromancy"]
+    assert len(data.skills.nodes) == 8 * len(data.proficiencies.proficiencies), "8 nodes per tree"
     assert all(n.cooldown >= 0 for n in data.skills.nodes if n.kind == "active")
     assert data.town_id == "village"
 

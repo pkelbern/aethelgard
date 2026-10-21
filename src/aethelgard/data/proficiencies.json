@@ -1,5 +1,5 @@
 {
-  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C). Pyromancy = fire spells: XP from every spell of its tree, unlocked or cast from a wand (see skills.json).",
+  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Maces = a one-hand mace or hammer used alone. Two-Handed = great swords, axes and mauls (tag 'great'). weaponTags = plain swings with a main-hand weapon carrying one of these tags feed it; with two weapons every swing feeds 'dualWield'; with none of those tags (a wand in the hand, fists) 'unarmed'. skillsNeed = what the tree's actives need in hand: mainTag (main-hand weapon tag), offTag (off-hand item tag) or dualWield; text finishes 'needs …'. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C). Pyromancy = fire spells: XP from every spell of its tree, unlocked or cast from a wand (see skills.json).",
   "proficiencies": [
     {
       "id": "blades",
@@ -14,7 +14,11 @@
       "weaponTags": [
         "sword"
       ],
-      "description": "XP from damage dealt with a one-hand blade used alone (with or without a shield) and from Blades skills."
+      "description": "XP from damage dealt with a one-hand blade used alone (with or without a shield) and from Blades skills.",
+      "skillsNeed": {
+        "mainTag": "sword",
+        "text": "a one-hand blade"
+      }
     },
     {
       "id": "shield",
@@ -26,10 +30,12 @@
         "vit": 2,
         "int": 0
       },
-      "weaponTags": [
-        "shield"
-      ],
-      "description": "XP from blows you block with the guard, and from Shield skills."
+      "weaponTags": [],
+      "description": "XP from blows you block with the guard, and from Shield skills.",
+      "skillsNeed": {
+        "offTag": "shield",
+        "text": "a shield"
+      }
     },
     {
       "id": "armor",
@@ -54,10 +60,12 @@
         "vit": 0,
         "int": 0
       },
-      "weaponTags": [
-        "sword"
-      ],
-      "description": "XP from every swing while holding two weapons, and from Dual Wield skills."
+      "weaponTags": [],
+      "description": "XP from every swing while holding two weapons, and from Dual Wield skills.",
+      "skillsNeed": {
+        "dualWield": true,
+        "text": "two weapons"
+      }
     },
     {
       "id": "bows",
@@ -72,7 +80,49 @@
       "weaponTags": [
         "bow"
       ],
-      "description": "XP from every arrow that hits, and from Archery skills."
+      "description": "XP from every arrow that hits, and from Archery skills.",
+      "skillsNeed": {
+        "mainTag": "bow",
+        "text": "a bow"
+      }
+    },
+    {
+      "id": "maces",
+      "name": "Maces",
+      "xpSource": "offense",
+      "attributes": {
+        "str": 2,
+        "dex": 0,
+        "vit": 1,
+        "int": 0
+      },
+      "weaponTags": [
+        "mace"
+      ],
+      "description": "XP from damage dealt with a one-hand mace or hammer used alone (with or without a shield) and from Maces skills.",
+      "skillsNeed": {
+        "mainTag": "mace",
+        "text": "a mace or hammer"
+      }
+    },
+    {
+      "id": "two_handed",
+      "name": "Two-Handed",
+      "xpSource": "offense",
+      "attributes": {
+        "str": 3,
+        "dex": 0,
+        "vit": 0,
+        "int": 0
+      },
+      "weaponTags": [
+        "great"
+      ],
+      "description": "XP from damage dealt with a two-handed sword, axe or maul and from Two-Handed skills.",
+      "skillsNeed": {
+        "mainTag": "great",
+        "text": "a two-handed weapon"
+      }
     },
     {
       "id": "pyromancy",
@@ -84,9 +134,7 @@
         "vit": 0,
         "int": 3
       },
-      "weaponTags": [
-        "wand"
-      ],
+      "weaponTags": [],
       "description": "XP from fire damage dealt with Pyromancy spells."
     }
   ],
@@ -231,8 +279,113 @@
         "pyromancy"
       ],
       "title": "Flame Archer"
+    },
+    {
+      "ids": [
+        "maces"
+      ],
+      "title": "Crusher"
+    },
+    {
+      "ids": [
+        "blades",
+        "maces"
+      ],
+      "title": "Weaponmaster"
+    },
+    {
+      "ids": [
+        "shield",
+        "maces"
+      ],
+      "title": "Templar"
+    },
+    {
+      "ids": [
+        "armor",
+        "maces"
+      ],
+      "title": "Ironclad"
+    },
+    {
+      "ids": [
+        "dual_wield",
+        "maces"
+      ],
+      "title": "Brawler"
+    },
+    {
+      "ids": [
+        "bows",
+        "maces"
+      ],
+      "title": "Yeoman"
+    },
+    {
+      "ids": [
+        "maces",
+        "pyromancy"
+      ],
+      "title": "Flamebrand"
+    },
+    {
+      "ids": [
+        "two_handed"
+      ],
+      "title": "Juggernaut"
+    },
+    {
+      "ids": [
+        "blades",
+        "two_handed"
+      ],
+      "title": "Swordmaster"
+    },
+    {
+      "ids": [
+        "shield",
+        "two_handed"
+      ],
+      "title": "Vanguard"
+    },
+    {
+      "ids": [
+        "armor",
+        "two_handed"
+      ],
+      "title": "Warlord"
+    },
+    {
+      "ids": [
+        "dual_wield",
+        "two_handed"
+      ],
+      "title": "Reaver"
+    },
+    {
+      "ids": [
+        "bows",
+        "two_handed"
+      ],
+      "title": "Highlander"
+    },
+    {
+      "ids": [
+        "maces",
+        "two_handed"
+      ],
+      "title": "Siegebreaker"
+    },
+    {
+      "ids": [
+        "two_handed",
+        "pyromancy"
+      ],
+      "title": "Doomblade"
     }
   ],
   "titleSecondaryThreshold": 0.5,
-  "defaultTitle": "Recruit"
+  "defaultTitle": "Recruit",
+  "dualWield": "dual_wield",
+  "unarmed": "blades"
 }
