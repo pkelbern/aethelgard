@@ -149,19 +149,20 @@ def test_tree_layers_points_synergies(data):
     assert t.allocate("sharp_blade") is Allocate.OK
     assert t.allocate("sharp_blade") is Allocate.NO_POINTS
     s.proficiencies.set_xp("blades", data.xp_total_by_level[5])  # level 6
-    assert t.allocate("wide_slash") is Allocate.OK
+    assert t.allocate("wide_slash") is Allocate.REQUIRES, "Precise Strike comes first"
+    assert t.allocate("precise_strike") is Allocate.OK and t.allocate("wide_slash") is Allocate.OK
     assert t.allocate("shield_bash") is Allocate.OK
     assert t.effect("shield_bash", "damagePct") == pytest.approx(0.10 + 0.06)
     assert t.effective_points(10) == pytest.approx(9)
     t.respec("blades")
-    assert t.available("blades") == 6
+    assert t.available("blades") == 6 and not t.unlocked & {"precise_strike", "wide_slash"}
 
 
 def test_restoring_points_respects_the_rules(data):
     s = GameSession(data, 1)
-    rejected = s.skills.restore({"sharp_blade": 1, "wide_slash": 3})  # wide_slash needs Blades 6
-    assert s.skills.points_in("sharp_blade") == 1 and s.skills.points_in("wide_slash") == 0
-    assert rejected == ["wide_slash"]
+    rejected = s.skills.restore({"sharp_blade": 1, "bleed": 3})  # bleed needs Blades 6
+    assert s.skills.points_in("sharp_blade") == 1 and s.skills.points_in("bleed") == 0
+    assert rejected == ["bleed"]
 
 
 def test_act_1_simulation_on_target(data):

@@ -143,7 +143,7 @@ def character_sheet(world, player) -> list[Section]:
                     Line(f"{_pct(ap.spell_damage_per_int)} per Intelligence ({a.int}): +{_pct(from_int)}. "
                          f"Fire spells: +{_pct(fire)} more from Kindling.", "body"),
                     Line("Spells always hit and ignore armor; the enemy's resistance to the element takes its share. "
-                         "Learn spells from wands (hover a spell in the skill trees).", "muted")]))
+                         "Unlock spells in the Pyromancy tree; a wand adds levels to its spell.", "muted")]))
     reach = world.player_reach(player)
     sec.rows.append(Row("Reach", f"{reach:.1f} tiles", [Line("Reach", "title"),
                     Line("How far you strike from: a bow's range (Eagle Eye adds to it), or arm's length in melee, "

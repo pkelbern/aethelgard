@@ -130,7 +130,7 @@ def test_ranged_monsters_need_a_clear_line_to_shoot(data):
 def test_shield_throw_flies_straight_and_bounces_to_the_next_enemy(data):
     s, w, p, m = arena(data, at=(9.0, 5.0), level=1)
     s.proficiencies.set_xp("shield", data.xp_total_by_level[17])  # level 18
-    s.allocate_skill("shield_throw")
+    s.grant_skill("shield_throw")
     other = add_monster(w, data, "bandit", 9.0, 8.0, 2, level=1)
     hp1, hp2 = m.monster.hp, other.monster.hp
     assert w.apply(UseSkill(0, "shield_throw", None, 9.0, 5.0)) is None
@@ -142,7 +142,7 @@ def test_shield_throw_flies_straight_and_bounces_to_the_next_enemy(data):
 def test_shield_throw_needs_a_shield(data):
     s, w, p, m = arena(data)
     s.proficiencies.set_xp("shield", data.xp_total_by_level[17])
-    s.allocate_skill("shield_throw")
+    s.grant_skill("shield_throw")
     s.gear.slots.pop("offhand", None)
     assert "needs a shield" in w.apply(UseSkill(0, "shield_throw", 1))
 

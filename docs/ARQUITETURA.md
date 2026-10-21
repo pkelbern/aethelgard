@@ -36,7 +36,7 @@ core/                   regras, sem pygame
 | core/world_gen.py, core/pathfinding.py | tcod | distâncias (`dijkstra2d`) e A* (`tcod.path.AStar`) em C |
 | core/world_gen.py | pytmx | mapas feitos à mão no Tiled (`load_tiled_map`) |
 | client/vision.py | tcod | campo de visão (`compute_fov`), névoa de guerra, mapa automático |
-| client/ui.py | pygame_gui | janela de árvores (T), console (F1); tema em `data/ui/theme.json` |
+| client/ui.py | pygame_gui | seletor de habilidade do atalho, console (F1); tema em `data/ui/theme.json` |
 | client/* | pygame-ce | janela, desenho isométrico, entrada, HUD |
 
 ## Itens (GDD 10)
@@ -49,10 +49,13 @@ core/                   regras, sem pygame
 ## Tooltips, atalhos e teclas
 
 - `data/stats.json`: rótulo e formato de cada atributo (pct, seconds, degrees…). Um catálogo para habilidades e afixos; `validate()` acusa atributo sem entrada.
-- `skills.json`: `effects` crescem por ponto; `base` é fixo depois de aprender (arco do Wide Slash, atordoamento do Shield Bash, 3 s da Bulwark); `description` tem `{stat}` trocado pelo valor do nível mostrado.
+- `skills.json`: `effects` crescem por nível; `base` é fixo desde o nível 1 (arco do Wide Slash, atordoamento do Shield Bash, 3 s da Bulwark); `description` tem `{stat}` trocado pelo valor do nível mostrado.
+- Progressão das árvores (`SkillTrees`): cada árvore ganha 1 ponto por nível da proficiência. **Passivos** compram nível com ponto (até `maxPoints`). **Ativos** custam 1 ponto para desbloquear e depois **só sobem pelo uso**: cada golpe da habilidade publica `DamageDealt(..., skill_id)` e ela ganha `skillXpRate` × o XP de proficiência daquele golpe, na mesma curva das proficiências, sem teto pela proficiência. Ativos que não causam dano (Bulwark, War Cry) ganham `useXp` × XP do monstro mais próximo (`SkillPracticed`). `requires` = nós anteriores (ativo pede o ativo anterior desbloqueado; passivo pede ponto no passivo anterior). `levelGates` seguram o ativo abaixo de um nível até um passivo ter X pontos; o XP continua acumulando e os níveis chegam juntos quando o portão abre (`SkillLeveledUp`). Varinha soma `spellLevel` à magia e deixa lançá-la mesmo sem desbloquear (o XP já conta). Respec devolve os pontos e guarda o XP de uso.
+- Todo dano em monstro passa por `World._damage_monster(p, alvo, dano, prof, skill=…)`; magias por `SpellCaster.deal` (a queimadura credita a magia que a acendeu).
 - `SkillTrees.effect_at(nó, stat, pontos)` dá o valor em qualquer nível; o tooltip mostra o atual e o próximo.
 - `SkillBar` (núcleo, salva no personagem) guarda qual habilidade está em cada atalho. `data/ui/keys.json` (cliente) diz qual tecla é cada atalho. O cliente traduz tecla → atalho → habilidade e manda `UseSkill(skill_id)`; o mundo nunca vê teclas.
 - `client/tooltip.py` desenha qualquer lista de `describe.Line`; a barra e a janela de árvores usam o mesmo texto.
+- `client/skill_tree_view.py` (T): janela desenhada em pygame, uma aba por proficiência (selo com pontos livres), ativos à esquerda e passivos à direita, uma linha por camada, linhas douradas dos pré-requisitos, barra de XP de uso nos ativos e pontos nos passivos. `tree_layout()` é só aritmética (testada sem tela). Clique gasta ponto; mouse em cima + tecla do atalho põe o ativo na barra.
 
 ## Bloqueio e colisão
 
@@ -207,8 +210,8 @@ de visita. Nunca use o módulo `random` em regra de jogo.
 
 ## Save
 
-`GameSession.save()` gera JSON versionado (`SAVE_VERSION = 2`): nome, ouro, XP das proficiências,
-pontos de árvore, equipamento, mochila e consumíveis. Saves v1 continuam carregando (equipamento inicial,
+`GameSession.save()` gera JSON versionado (`SAVE_VERSION = 6`): nome, ouro, XP das proficiências,
+pontos de árvore (v6: `skillPoints` dos passivos, `unlockedSkills`, `skillXp` dos ativos; saves até v5 voltam com o ativo desbloqueado no XP do nível que tinha e os outros pontos devolvidos à árvore), equipamento, mochila e consumíveis. Saves v1 continuam carregando (equipamento inicial,
 mochila vazia). O mundo não é salvo: `load(..., new_world_seed=…)` cria um mundo novo e o cliente
 sempre começa na cidade (`GameData.town_id`). Os pontos de árvore voltam por `SkillTrees.restore()`,
 que passa pelas mesmas regras de `allocate()` (save antigo ou editado não fura camada nem limite).

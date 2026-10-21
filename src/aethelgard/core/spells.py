@@ -126,8 +126,6 @@ class SpellCaster:
         s, w = p.session, self.w
         node = w.data.node(node_id)
         e = s.skills.effect
-        if node_id not in s.skills.learned:
-            s.skills.practice(node_id)  # cast from a wand: the next level of its tree teaches it
         ax, ay = self.aim_point(p, node_id)
         if node.spell.cast in ("bolt", "ball"):
             proj = w._launch(x=p.x, y=p.y, speed=e(node_id, "projectileSpeed") or 10.0, radius=0.2, max_range=e(node_id, "rangeTiles") or 14.0,
@@ -159,16 +157,20 @@ class SpellCaster:
 
     # ------------------------------------------------------------ damage
 
-    def hit(self, p: PlayerActor, t: MonsterActor, attack: AttackerStats, element: str, prof: str, can_ignite: bool = True) -> float:
+    def deal(self, p: PlayerActor, t: MonsterActor, amount: float, skill: str, recover: bool = True) -> None:
+        """Damage from a spell: XP to its tree and to the spell itself."""
+        self.w._damage_monster(p, t, amount, self.w.data.node(skill).tree, recover=recover, skill=skill)
+
+    def hit(self, p: PlayerActor, t: MonsterActor, attack: AttackerStats, element: str, skill: str, can_ignite: bool = True) -> float:
         """One spell hit on a monster: rolled, resisted, dealt (XP and loot as for any hit). Returns the damage."""
         s = p.session
         raw = s.combat_rng.uniform(attack.dmg_min, attack.dmg_max) * (1 + attack.damage_bonus_pct)
         amount = self.resisted(p, t, raw, element)
         if amount <= 0:
             return 0.0
-        self.w._damage_monster(p, t, amount, prof)
+        self.deal(p, t, amount, skill)
         if can_ignite and t.alive:
-            self.ignite(p, t, amount, prof)
+            self.ignite(p, t, amount, skill)
         return amount
 
     def resisted(self, p: PlayerActor, t: MonsterActor, raw: float, element: str) -> float:
@@ -176,7 +178,7 @@ class SpellCaster:
         pierce = p.session.skills.stat_total(f"{element}ResistPierce")
         return raw * (1 - effective_resist(t.resist(element), pierce, cap))
 
-    def ignite(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str) -> None:
+    def ignite(self, p: PlayerActor, t: MonsterActor, amount: float, skill: str) -> None:
         """Ignite: the hit burns on for a while (the strongest burn wins; it does not stack)."""
         e = p.session.skills.effect
         share, secs = e("ignite", "burnPctOfHit"), e("ignite", "burnSeconds")
@@ -184,14 +186,14 @@ class SpellCaster:
             return
         dps = amount * share / secs
         if dps * secs >= t.burn_dps * t.burn_left:
-            t.burn_dps, t.burn_left, t.burn_owner, t.burn_prof = dps, secs, p.player_id, prof
+            t.burn_dps, t.burn_left, t.burn_owner, t.burn_skill = dps, secs, p.player_id, skill
 
-    def burst(self, p: PlayerActor, x: float, y: float, radius: float, attack: AttackerStats, element: str, prof: str, look: str) -> None:
+    def burst(self, p: PlayerActor, x: float, y: float, radius: float, attack: AttackerStats, element: str, skill: str, look: str) -> None:
         """Every monster within ``radius`` of (x, y) takes the hit (its body counts: a wide wolf is caught sooner)."""
         self.w.bus.publish(SpellBurst(x, y, radius, look))
         for m in list(self.w.monsters.values()):
             if m.alive and math.hypot(m.x - x, m.y - y) <= radius + m.radius:
-                self.hit(p, m, attack, element, prof)
+                self.hit(p, m, attack, element, skill)
 
     def projectile_hit(self, proj, t: MonsterActor) -> bool:
         """A bolt or a ball reached a monster. False: the projectile is gone."""
@@ -199,17 +201,17 @@ class SpellCaster:
         if p is None:
             return False
         if proj.burst_radius > 0:
-            self.burst(p, proj.x, proj.y, proj.burst_radius, proj.attack, proj.element, proj.prof, proj.look)
+            self.burst(p, proj.x, proj.y, proj.burst_radius, proj.attack, proj.element, proj.skill, proj.look)
             proj.burst_radius = 0.0  # already burst: it does not go off again where it ends
         else:
-            self.hit(p, t, proj.attack, proj.element, proj.prof)
+            self.hit(p, t, proj.attack, proj.element, proj.skill)
         return False
 
     def projectile_end(self, proj) -> None:
         """A ball that hit a wall or flew its whole range bursts where it is."""
         p = self.w.players.get(proj.owner_id)
         if p is not None and proj.burst_radius > 0:
-            self.burst(p, proj.x, proj.y, proj.burst_radius, proj.attack, proj.element, proj.prof, proj.look)
+            self.burst(p, proj.x, proj.y, proj.burst_radius, proj.attack, proj.element, proj.skill, proj.look)
 
     # ------------------------------------------------------------ every step
 
@@ -223,7 +225,7 @@ class SpellCaster:
             if not f.landed:
                 f.delay -= dt
                 if f.landed and f.burst is not None:  # the meteor hits the ground
-                    self.burst(p, f.ax, f.ay, f.radius, f.burst, f.element, f.prof, f.look)
+                    self.burst(p, f.ax, f.ay, f.radius, f.burst, f.element, f.skill, f.look)
                     f.tick = tick
                 continue
             f.left -= dt
@@ -234,7 +236,7 @@ class SpellCaster:
                     if m.alive and f.touches(m):
                         amount = self.resisted(p, m, f.dps * tick, f.element)
                         if amount > 0:  # fire on the ground hurts but never staggers
-                            self.w._damage_monster(p, m, amount, f.prof, recover=False)
+                            self.deal(p, m, amount, f.skill, recover=False)
             if f.left <= 0:
                 del self.fires[f.id]
         for m in list(self.w.monsters.values()):
@@ -248,6 +250,6 @@ class SpellCaster:
             m.burn_tick += tick
             p = self.w.players.get(m.burn_owner)
             if p is not None:
-                self.w._damage_monster(p, m, m.burn_dps * tick, m.burn_prof or "pyromancy", recover=False)
+                self.deal(p, m, m.burn_dps * tick, m.burn_skill, recover=False)
         if m.burn_left <= 0:
             m.burn_left = m.burn_dps = 0.0

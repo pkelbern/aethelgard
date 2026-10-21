@@ -60,11 +60,11 @@ def test_learned_actives_fill_the_bar_and_passives_do_not(data):
 
 def test_binding_moves_and_replaces_without_swapping(data):
     s = trained(data)
-    for node in ("precise_strike", "wide_slash", "bulwark"):
-        s.allocate_skill(node)
+    for node in ("precise_strike", "wide_slash", "shield_bash", "bulwark"):
+        assert s.allocate_skill(node).value == "ok", node
     bar = s.skill_bar
     assert bar.bind(5, "bulwark") is Bind.OK
-    assert bar.slots == ["precise_strike", "wide_slash", None, None, None, "bulwark"], "moved, old slot freed"
+    assert bar.slots == ["precise_strike", "wide_slash", "shield_bash", None, None, "bulwark"], "moved, old slot freed"
     assert bar.bind(0, "wide_slash") is Bind.OK
     assert bar.slots[:2] == ["wide_slash", None], "Precise Strike leaves the bar; key 2 is left empty"
     bar.clear(0)
@@ -100,17 +100,20 @@ def test_sync_drops_unlearned_skills_after_a_respec(data):
 
 def test_bar_is_saved_exactly_and_old_saves_get_one(data):
     s = trained(data)
-    s.allocate_skill("precise_strike")
-    s.allocate_skill("bulwark")
+    for node in ("precise_strike", "shield_bash", "bulwark"):
+        s.allocate_skill(node)
     s.skill_bar.bind(3, "bulwark")
     s.skill_bar.clear(0)
+    s.skill_bar.clear(1)
     back = GameSession.load(data, s.save())
     assert back.skill_bar.slots == [None, None, None, "bulwark", None, None], "empty slots stay empty"
     old = json.loads(s.save())
-    old["version"] = 2
-    del old["skillBar"]
+    old["version"] = 2  # back then actives took points and there was no unlock
+    old["skillPoints"] = {"precise_strike": 1, "shield_bash": 1, "bulwark": 1}
+    for key in ("skillBar", "unlockedSkills", "skillXp"):
+        del old[key]
     v2 = GameSession.load(data, json.dumps(old))
-    assert v2.skill_bar.slots[:2] == ["precise_strike", "bulwark"]
+    assert v2.skill_bar.slots[:3] == ["precise_strike", "shield_bash", "bulwark"]
 
 
 # ---------------------------------------------------------------- tooltip text
@@ -139,7 +142,7 @@ def test_skill_tooltip_explains_now_and_next_level(data):
     assert "Current level (1)" in texts(lines) and "Next level (2)" in texts(lines)
     assert "+32% damage   (+10%)" in texts(lines, "next")
     assert "Energy: 4  ·  Cooldown: 4 s" in texts(lines)
-    assert any("per point in Sharp Blade" in t for t in texts(lines))
+    assert any("per level of Sharp Blade" in t for t in texts(lines))
 
 
 def test_tooltip_of_an_unlearned_or_locked_skill(data):
@@ -148,7 +151,7 @@ def test_tooltip_of_an_unlearned_or_locked_skill(data):
     assert "Next level (1)" in texts(lines) and "Current level (0)" not in texts(lines)
     assert "Requires Blades level 6 (now 1)." in texts(lines, "warn")
     precise = describe_skill(data, s.skills, "precise_strike")
-    assert "1 free Blades point to spend." in texts(precise, "good")
+    assert "Click to unlock  ·  1 free Blades point." in texts(precise, "good")
     assert "Energy: 3  ·  Cooldown: only the global 0.2 s" in texts(precise)
     soon = describe_skill(data, s.skills, "charge", implemented=False)
     assert any("Not in the prototype yet" in t for t in texts(soon, "warn"))
@@ -157,7 +160,7 @@ def test_tooltip_of_an_unlearned_or_locked_skill(data):
 def test_maxed_skill_and_diminishing_note(data):
     s = trained(data)
     s.skills.points["sharp_blade"] = 8
-    assert any("From point 9 on" in t for t in texts(describe_skill(data, s.skills, "sharp_blade")))
+    assert any("From level 9 on" in t for t in texts(describe_skill(data, s.skills, "sharp_blade")))
     s.skills.points["sharp_blade"] = 10
     lines = describe_skill(data, s.skills, "sharp_blade")
     assert "Maxed out." in texts(lines, "good") and not any(t.startswith("Next level") for t in texts(lines))

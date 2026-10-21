@@ -10,7 +10,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M0 – Base | 4 | 0 | 8 | 2.5 |
 | M1 – Combate | 6 | 9 | 17 | 4.7 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
-| M3 – Árvores | 2 | 4 | 12 | 18 |
+| M3 – Árvores | 2 | 5 | 13 | 18 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 2 | 8 | 6 |
 | M6 – Loot | 2 | 6 | 10 | 2.5 |
@@ -102,8 +102,10 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 
 - [x] **M3-01** Árvores no núcleo: camadas, pontos, sinergias _(código, ~1 d)_  
   SkillTrees com testes (bloqueio de camada, retorno decrescente, respec).
-- [x] **M3-02** Tela de árvores (pygame_gui) _(UI, ~3 d)_  
-  Feito: janela com as 3 árvores (T), botão + por nó, tooltip desenhado pelo jogo (core/describe.py) com descrição, valores do nível atual e do próximo, custo, sinergias e requisito. Falta: arte dos ícones e linhas entre camadas.
+- [x] **M3-02** Tela de árvores _(UI, ~3 d)_  
+  Feito: janela desenhada (T, client/skill_tree_view.py) com uma aba por proficiência, ativos à esquerda e passivos à direita por camada, linhas de pré-requisito, barra de XP de uso, tooltip desenhado pelo jogo (core/describe.py) com descrição, nível atual e próximo, custo, sinergias, portões e requisitos. Falta: arte dos ícones.
+- [ ] **M3-13** Árvores com pré-requisitos e ativos que sobem pelo uso _(código, ~2 d)_ — **escrito, validar**  
+  Ativo custa 1 ponto para desbloquear e depois só sobe usando (XP próprio = 0,75 × XP de proficiência dos golpes dele, mesma curva, sem teto). Fireball pede Fire Bolt, Multishot pede Power Shot etc.; passivos em cadeia (Kindling → Ignite → Quick Casting → Searing Heat). Portões: nível 10 do ativo pede 5 pontos num passivo da árvore, nível 20 pede 10. Bulwark e War Cry ganham XP por uso perto de monstros. Magias não se aprendem mais pela varinha; a varinha só soma nível e deixa lançar antes de desbloquear. Save v6 (migra v5). Validar no jogo: ritmo de subida do Fire Bolt e do Precise Strike no Ato 1 e se 0,75 (skills.json skillXpRate) está bom.
 - [ ] **M3-03** Barra de habilidades com contagem regressiva _(UI, ~1 d)_ — **escrito, validar**  
   Feito: barra de 6 atalhos (GDD 6.1) nas teclas 1–6 (data/ui/keys.json), setor de recarga e segundos. O jogador escolhe a habilidade de cada tecla: passar o mouse na árvore e apertar a tecla, ou clicar no atalho (seletor); clique direito limpa; atribuir numa tecla ocupada tira a habilidade antiga da barra (não troca). Habilidade nova vai para o primeiro atalho livre. Salva com o personagem (save v3). Tooltip ao passar o mouse no atalho. Falta: arrastar e soltar; clique direito para usar habilidade (GDD 12.3).
 - [ ] **M3-04** Implementar as ativas que faltam _(código, ~3 d)_  
@@ -122,9 +124,9 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   5ª proficiência (todo tiro de arco; 3 DES por nível). Arco é de duas mãos (tira escudo e segunda arma; mochila cheia recusa), atira flecha reta de longe com linha de visão. Árvore: Power Shot, Steady Aim, Multishot (leque que abre perto e fecha longe: cobre spreadTiles de largura na distância do alvo, entre 8° e 70°), Eagle Eye (alcance), Piercing Arrow (atravessa), Quick Draw, Rain of Arrows (falta implementar), Hunter's Mark. 4 bases de arco. Personagem novo leva um arco e uma segunda espada na mochila. Falta: arte do arco equipado (sprites.json gear).
 
 - [ ] **M3-10** Magia: base e escola Pyromancy (fogo, dano em área) _(código, ~4 d)_ — **escrito, validar**  
-  6ª proficiência (perfil 3 INT; XP do dano das magias). Magias se aprendem com varinhas: a varinha (mão secundária, slot 'wand') dá o nível da magia enquanto está equipada; lançar a magia com ela a coloca "em treino", e o próximo nível da escola a ensina (1 ponto grátis), daí funciona sem varinha e aceita pontos; varinha equipada soma o nível dela. Magia sempre acerta, ignora armadura e sofre a resistência do alvo (zumbi −25%, esqueletos −10%, xamã e necromante +20%, Fire Enchanted +50%); +1% de dano mágico por INT (balance.json attributes). Árvore: Fire Bolt, Kindling, Fireball (explode em área), Ignite (queima), Fire Wall, Quick Casting, Meteor, Searing Heat. Varinha vai em qualquer mão (com escudo, ou ao lado de uma arma); na mão principal o golpe é de mão vazia. Varinhas: Ember (Fire Bolt, nível 1, todo personagem novo leva uma), Cinder (Fireball, iLvl 5), Blaze (Fire Wall, iLvl 10), Star (Meteor, iLvl 16). Títulos Pyromancer, Arcane Blade, Battlemage, Hellknight, Flamedancer, Flame Archer. core/spells.py; cliente em client/spell_view.py (fogo no chão, explosões, meteoro caindo, monstros queimando). Fire Wall e Meteor só onde há linha de visão (não atrás de paredes); fogo no chão e queimadura nunca causam recuo (hit recovery). Validar no jogo: custo de Energia e dano do Fire Bolt nos níveis 1–6.
+  6ª proficiência (perfil 3 INT; XP do dano das magias). Magias se desbloqueiam na árvore como qualquer ativo (M3-13); a varinha (slot 'wand') soma o nível dela à magia e deixa lançá-la enquanto equipada, mesmo antes de desbloquear. Magia sempre acerta, ignora armadura e sofre a resistência do alvo (zumbi −25%, esqueletos −10%, xamã e necromante +20%, Fire Enchanted +50%); +1% de dano mágico por INT (balance.json attributes). Árvore: Fire Bolt, Kindling, Fireball (explode em área), Ignite (queima), Fire Wall, Quick Casting, Meteor, Searing Heat. Varinha vai em qualquer mão (com escudo, ou ao lado de uma arma); na mão principal o golpe é de mão vazia. Varinhas: Ember (Fire Bolt, nível 1, todo personagem novo leva uma), Cinder (Fireball, iLvl 5), Blaze (Fire Wall, iLvl 10), Star (Meteor, iLvl 16). Títulos Pyromancer, Arcane Blade, Battlemage, Hellknight, Flamedancer, Flame Archer. core/spells.py; cliente em client/spell_view.py (fogo no chão, explosões, meteoro caindo, monstros queimando). Fire Wall e Meteor só onde há linha de visão (não atrás de paredes); fogo no chão e queimadura nunca causam recuo (hit recovery). Validar no jogo: custo de Energia e dano do Fire Bolt nos níveis 1–6.
 - [ ] **M3-11** Escola de suporte (cura e bênçãos) _(código, ~3 d)_  
-  Mesmo modelo da Pyromancy (aprende pela varinha). A definir: nome, nós, como ganha XP (vida curada? tempo de bênção em combate?).
+  Mesmo modelo da Pyromancy (ativos desbloqueados na árvore e evoluídos pelo uso; varinha soma nível). A definir: nome, nós, como ganha XP (vida curada? tempo de bênção em combate?).
 - [ ] **M3-12** Escola de defesa (barreiras e proteções) _(código, ~3 d)_  
   Mesmo modelo; XP pelo dano que as barreiras absorvem (como a Armadura).
 

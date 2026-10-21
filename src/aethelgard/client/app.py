@@ -18,7 +18,7 @@ from ..core.events import (
     MonsterKilled,
     PlayerDied,
     ProficiencyLeveledUp,
-    SpellLearned,
+    SkillLeveledUp,
     StashChanged,
     WaypointReached,
 )
@@ -51,6 +51,7 @@ from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
+from .skill_tree_view import SkillTreeWindow
 from .spell_view import SpellView
 from .sprites import ActorSprites, ArtDownload, EffectArt, SpriteLibrary
 from .tilemap import MapArt
@@ -63,7 +64,7 @@ DT = 1 / FPS
 PX_PER_TILE = 33  # body radius on screen = collision radius (tiles, from the core) × this
 HOLD_REPEAT_SECONDS = 0.12  # holding the mouse button repeats the click this often (move/attack)
 CONSOLE_HELP = (
-    "save · load · bag · xp <prof> <amount> · level <prof> <n> · point <node> · area <id> [floor] · "
+    "save · load · bag · xp <prof> <amount> · level <prof> <n> · point <node> · skill <node> [level] · area <id> [floor] · "
     "god · kill · heal · reveal · sim · seed"
 )
 
@@ -105,6 +106,7 @@ class Game:
         self.stash_view = StashWindow(self)
         self.shop_view = ShopWindow(self)
         self.character_view = CharacterWindow(self)
+        self.tree_view = SkillTreeWindow(self)
         self.waypoint_menu: list[tuple[pygame.Rect, str]] | None = None  # open while standing on a waypoint
         self.stash_store = SaveStore.for_stash(save_dir)
         self.talk_to: str | None = None  # NPC role being walked to (vendor | stash)
@@ -223,15 +225,15 @@ class Game:
         bus.subscribe(PlayerDied, self._on_death)
         bus.subscribe(MonsterKilled, self._on_monster_killed)
         bus.subscribe(WaypointReached, self._on_waypoint)
-        bus.subscribe(SpellLearned, lambda e: self.hud.add(f"You learned {self.data.node(e.node_id).name}: it no longer needs the wand.", C.GOLD))
+        bus.subscribe(SkillLeveledUp, lambda e: self.hud.add(f"{self.data.node(e.skill_id).name} reached level {e.level}.", C.GOLD))
         self.spell_view.listen(bus)
         bus.subscribe(StashChanged, lambda e: self.stash_store.save_stash(self.world.stash))
         self.world.stash = self.stash_store.load_stash(self.data)  # the same file for every character
 
     @property
     def windows(self):
-        """Item windows, front first: the service one (stash or shop) and the inventory."""
-        return (self.stash_view, self.shop_view, self.inventory_view, self.character_view)
+        """Painted windows, front first: the service one (stash or shop), the inventory, the sheet and the skill trees."""
+        return (self.stash_view, self.shop_view, self.inventory_view, self.character_view, self.tree_view)
 
     def window_at(self, pos):
         return next((w for w in self.windows if w.contains(pos)), None)
@@ -425,7 +427,6 @@ class Game:
             name = self.data.node(node_id).name
             r = bar.bind(slot, node_id)
             self.hud.add(f"{name} on key {label}." if r is Bind.OK else f"{name}: {r.value}", C.TEXT if r is Bind.OK else C.MUTED)
-        self.ui.refresh_tree_if_open()
 
     def use_slot(self, slot: int) -> None:
         skill = self.session.skill_bar.skill_at(slot)
@@ -445,7 +446,7 @@ class Game:
         """Lines for the skill under the mouse: a node in the tree window or a slot of the bar."""
         pos = pygame.mouse.get_pos()
         bar, keys = self.session.skill_bar, self.keys
-        node_id = self.ui.hovered_node(pos)
+        node_id = self.tree_view.node_at(pos)
         if node_id is not None:
             return self._skill_lines(node_id, f"Hover and press {keys.bar_labels} to put it on that key.")
         slot = None if self.ui.over_ui else self.slot_under_mouse()
@@ -521,17 +522,12 @@ class Game:
 
     def open_only(self, view) -> None:
         """One screen at a time: opening the inventory closes the trees and the other way round
-        (the debug console is the exception: it stays). ``view`` is an item window or "trees"."""
-        was_open = self.ui.tree is not None if view == "trees" else view.open
+        (the debug console is the exception: it stays)."""
+        was_open = view.open
         self.close_windows()
-        if self.ui.tree is not None:
-            self.ui.toggle_tree()
-        if was_open:
-            return  # pressing its key again just closes it
-        if view == "trees":
-            self.ui.toggle_tree()
-        else:
-            view.open = True
+        self.ui.close_picker()
+        if not was_open:  # pressing its key again just closes it
+            view.toggle()
 
     def _on_click(self, button: int) -> None:
         if self.dead:
@@ -617,7 +613,7 @@ class Game:
             return
         slot = self.keys.slot_for(key)
         if slot is not None:
-            node_id = self.ui.hovered_node(pygame.mouse.get_pos())
+            node_id = self.tree_view.node_at(pygame.mouse.get_pos())
             if node_id is not None:  # D2 style: hover a skill in the trees and press the key to bind it
                 self.bind_slot(slot, node_id)
             else:
@@ -635,7 +631,7 @@ class Game:
         elif action == "save":
             self.save_game()
         elif action == "skillTrees":
-            self.open_only("trees")
+            self.open_only(self.tree_view)
         elif action == "inventory":
             self.open_only(self.inventory_view)
         elif action == "character":
@@ -674,9 +670,10 @@ class Game:
             self.player.reset_vitals()
             return f"{p.name}: level {p.level}"
         if name == "point":
-            r = s.allocate_skill(args[0]).value
-            self.ui.refresh_tree_if_open()
-            return r
+            return s.allocate_skill(args[0]).value
+        if name == "skill":
+            s.grant_skill(args[0], int(args[1]) if len(args) > 1 else 1)
+            return f"{self.data.node(args[0]).name}: level {s.skills.points_in(args[0])}"
         if name == "area":
             self.load_area(args[0], int(args[1]) - 1 if len(args) > 1 else 0)
             return "ok"
@@ -768,7 +765,8 @@ class Game:
             for w in reversed(self.windows):
                 w.draw(screen)
             self._draw_waypoint_menu()
-            tip = None if self.window_at(pygame.mouse.get_pos()) else self.skill_tooltip()
+            under = self.window_at(pygame.mouse.get_pos())
+            tip = self.skill_tooltip() if under in (None, self.tree_view) else None
             if tip:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
         self.menu.draw(screen)

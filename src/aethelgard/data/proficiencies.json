@@ -1,5 +1,5 @@
 {
-  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C). Pyromancy = fire spells: XP from every spell of its tree, cast from a wand or learned (spells are learned from wands, see skills.json).",
+  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C). Pyromancy = fire spells: XP from every spell of its tree, unlocked or cast from a wand (see skills.json).",
   "proficiencies": [
     {
       "id": "blades",
@@ -87,7 +87,7 @@
       "weaponTags": [
         "wand"
       ],
-      "description": "XP from fire damage dealt with Pyromancy spells, cast from a wand or learned."
+      "description": "XP from fire damage dealt with Pyromancy spells."
     }
   ],
   "titles": [

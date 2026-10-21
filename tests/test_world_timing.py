@@ -176,7 +176,7 @@ def test_guard_has_a_cooldown_before_rising_again(data):
 def test_perfect_parry_counterattacks_with_parry(data):
     s, w, p, m = arena(data, monster_dmg=(10, 10))
     s.proficiencies.set_xp("shield", data.xp_total_by_level[5])  # level 6 unlocks Parry
-    s.skills.allocate("parry")
+    s.grant_skill("parry")
     blocks = []
     s.bus.subscribe(HitBlocked, blocks.append)
     # raise the guard only at the moment of the monster's swing
@@ -195,7 +195,7 @@ def test_perfect_parry_counterattacks_with_parry(data):
 def test_bulwark_blocks_from_behind_for_free(data):
     s, w, p, m = arena(data, monster_dmg=(10, 10), at=(4.0, 5.0), level=14)  # monster behind (−x), level close to the player's
     s.proficiencies.set_xp("shield", data.xp_total_by_level[11])  # level 12
-    s.skills.allocate("bulwark")
+    s.grant_skill("bulwark")
     p.reset_vitals()
     w.apply(SetGuard(0, True, 1, 0))  # facing +x
     run(w, 0.3)

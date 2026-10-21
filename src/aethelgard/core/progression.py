@@ -16,6 +16,8 @@ from .events import (
     MonsterKilled,
     MonsterXpInfo,
     ProficiencyLeveledUp,
+    SkillLeveledUp,
+    SkillPracticed,
     XpGained,
 )
 
@@ -146,7 +148,7 @@ class ProficiencySet:
         self._calc = calc
         self._bus = bus
         self.player_id = player_id
-        curve = XpCurve(data.xp_total_by_level)
+        self.curve = curve = XpCurve(data.xp_total_by_level)
         self._profs = {d.id: Proficiency(d, curve) for d in data.proficiencies.proficiencies}
         self._defense_xp_by_monster: dict[int, float] = {}
         if bus is not None:
@@ -157,6 +159,14 @@ class ProficiencySet:
 
     def __getitem__(self, prof_id: str) -> Proficiency:
         return self._profs[prof_id]
+
+    @property
+    def bus(self) -> EventBus | None:
+        return self._bus
+
+    @property
+    def calc(self) -> XpCalculator:
+        return self._calc
 
     def __contains__(self, prof_id: str) -> bool:
         return prof_id in self._profs
@@ -301,19 +311,27 @@ class Allocate(Enum):
     OK = "ok"
     NO_POINTS = "no points left in this tree"
     LAYER_LOCKED = "layer still locked"
+    REQUIRES = "take the skills before it first"
     MAXED_OUT = "already maxed out"
-    NOT_LEARNED = "learn this spell from a wand first"
+    BY_USE = "already unlocked: it levels up as you use it"
     UNKNOWN = "unknown node"
 
 
 class SkillTrees:
-    """1 point per proficiency level in its own tree, level 1 included (GDD 6.1).
+    """One tree per proficiency, 1 point per proficiency level, level 1 included (GDD 6.1).
 
-    Spells (nodes with ``spell``) are learned from wands: while a wand is worn its spell has the wand's
-    levels (``granted``, read from the gear every time); casting it from the wand puts it in training,
-    and the next level of its proficiency teaches it for good (``learned``: 1 free level, then it takes
-    points like any node). ``points_in`` adds all three, so every rule that reads a node's level
-    (effects, the action bar, the cast) sees the same number.
+    * **Passives** take points: one level per point, up to ``max_points``.
+    * **Actives** cost one point to unlock and then level up **by use only**: every hit of the skill gives it
+      its own XP (the proficiency XP of that hit × ``skillXpRate``), on the same curve as the proficiencies.
+      A skill never used stays at level 1, whatever the proficiency level. ``levelGates`` hold an active
+      back until a passive has enough points; its XP keeps building and the levels arrive when the gate opens.
+    * ``requires``: an active needs the actives before it unlocked; a passive needs a point in the passives
+      before it.
+    * Worn wands add levels to their spell (``granted``, read from the gear every time), even before it is
+      unlocked, so it can be cast (and practised) while the wand is worn.
+
+    ``points_in`` is the node's level with all of that, so every rule that reads a level (effects, the action
+    bar, the cast) sees the same number.
     """
 
     def __init__(self, data: SkillsData, profs: ProficiencySet, granted: Callable[[], dict[str, int]] | None = None):
@@ -321,9 +339,14 @@ class SkillTrees:
         self._profs = profs
         self._nodes = {n.id: n for n in data.nodes}
         self._granted = granted or dict
-        self.points: dict[str, int] = {}  # spent tree points
-        self.learned: set[str] = set()  # spells learned for good (1 free level each)
-        self.training: set[str] = set()  # spells cast from a wand, learned at the next level of their tree
+        self._curve = profs.curve
+        self.points: dict[str, int] = {}  # tree points in passives
+        self.unlocked: set[str] = set()  # actives bought with a point
+        self.xp: dict[str, float] = {}  # actives: XP by use
+        bus = profs.bus
+        if bus is not None:
+            bus.subscribe(DamageDealt, self.on_damage_dealt)
+            bus.subscribe(SkillPracticed, self.on_practiced)
 
     def node(self, node_id: str):
         return self._nodes[node_id]
@@ -331,43 +354,79 @@ class SkillTrees:
     def nodes_of(self, tree: str):
         return [n for n in self._d.nodes if n.tree == tree]
 
-    def points_in(self, node_id: str) -> int:
-        """The node's level: spent points, +1 when the spell is learned, + what worn wands give."""
-        return self.points.get(node_id, 0) + (node_id in self.learned) + self._granted().get(node_id, 0)
+    # ---- levels
 
-    def spent(self, tree: str) -> int:
-        return sum(self.points.get(n.id, 0) for n in self.nodes_of(tree))
-
-    # ---- spells
+    def is_active(self, node_id: str) -> bool:
+        n = self._nodes.get(node_id)
+        return n is not None and n.kind == "active"
 
     def is_spell(self, node_id: str) -> bool:
         n = self._nodes.get(node_id)
         return n is not None and n.spell is not None
 
-    def practice(self, node_id: str) -> None:
-        """A spell was cast without being learned (from a wand): the next level of its tree teaches it."""
-        if self.is_spell(node_id) and node_id not in self.learned:
-            self.training.add(node_id)
+    def taken(self, node_id: str) -> bool:
+        """Unlocked (an active) or with a point (a passive): what ``requires`` asks for."""
+        return node_id in self.unlocked if self.is_active(node_id) else self.points.get(node_id, 0) > 0
 
-    def learn_on_level_up(self, tree: str) -> list[str]:
-        """Called when ``tree`` gains a level: every spell of it in training is learned. Returns them."""
-        new = sorted(n for n in self.training if self._nodes[n].tree == tree)
-        self.learned.update(new)
-        self.training.difference_update(new)
-        return new
+    def missing_requirements(self, node_id: str) -> list[str]:
+        return [r for r in self._nodes[node_id].requires if not self.taken(r)]
+
+    def xp_level(self, node_id: str) -> int:
+        """The level the active's XP is worth, before gates (1 with no XP)."""
+        return self._curve.level_for_xp(self.xp.get(node_id, 0.0))
+
+    def xp_progress(self, node_id: str) -> float:
+        """0..1 of the way to the next level by XP (for the tree's bar)."""
+        return self._curve.progress(self.xp.get(node_id, 0.0))
+
+    def closed_gates(self, node_id: str) -> list:
+        return [g for g in self._nodes[node_id].level_gates if self.points.get(g.node, 0) < g.points]
+
+    def gate_holding(self, node_id: str):
+        """The gate that is keeping this active below the level its XP is worth, if any."""
+        xp_level = self.xp_level(node_id)
+        held = [g for g in self.closed_gates(node_id) if g.level <= xp_level]
+        return min(held, key=lambda g: g.level) if held else None
+
+    def own_level(self, node_id: str) -> int:
+        """Level without wands: passive points, or the unlocked active's XP level held by its gates."""
+        n = self._nodes[node_id]
+        if n.kind != "active":
+            return self.points.get(node_id, 0)
+        if node_id not in self.unlocked:
+            return 0
+        cap = min([g.level - 1 for g in self.closed_gates(node_id)], default=self._curve.max_level)
+        return max(1, min(self.xp_level(node_id), cap))
+
+    def granted(self, node_id: str) -> int:
+        return self._granted().get(node_id, 0)
+
+    def points_in(self, node_id: str) -> int:
+        """The node's level: its own level + what worn wands give."""
+        return self.own_level(node_id) + self.granted(node_id)
+
+    def spent(self, tree: str) -> int:
+        return sum(self.points.get(n.id, 0) + (n.id in self.unlocked) for n in self.nodes_of(tree))
 
     def available(self, tree: str) -> int:
         return max(0, self._profs[tree].level - self.spent(tree))
+
+    def level_of(self, tree: str) -> int:
+        return self._profs[tree].level
+
+    # ---- points
 
     def can_allocate(self, node_id: str) -> Allocate:
         n = self._nodes.get(node_id)
         if n is None:
             return Allocate.UNKNOWN
-        if n.spell is not None and node_id not in self.learned:
-            return Allocate.NOT_LEARNED
+        if n.kind == "active" and node_id in self.unlocked:
+            return Allocate.BY_USE
         if self._profs[n.tree].level < n.layer:
             return Allocate.LAYER_LOCKED
-        if self.points.get(node_id, 0) + (node_id in self.learned) >= n.max_points:
+        if self.missing_requirements(node_id):
+            return Allocate.REQUIRES
+        if n.kind != "active" and self.points.get(node_id, 0) >= n.max_points:
             return Allocate.MAXED_OUT
         if self.available(n.tree) <= 0:
             return Allocate.NO_POINTS
@@ -375,30 +434,87 @@ class SkillTrees:
 
     def allocate(self, node_id: str) -> Allocate:
         r = self.can_allocate(node_id)
-        if r is Allocate.OK:
-            self.points[node_id] = self.points.get(node_id, 0) + 1
+        if r is not Allocate.OK:
+            return r
+        if self.is_active(node_id):
+            self.unlocked.add(node_id)
+            return r
+        gated = {a.id: self.own_level(a.id) for a in self._d.nodes if any(g.node == node_id for g in a.level_gates)}
+        self.points[node_id] = self.points.get(node_id, 0) + 1
+        for a, before in gated.items():  # a gate opened: the levels the XP had built arrive now
+            self._announce(a, before)
         return r
 
-    def restore(self, points: dict[str, int]) -> list[str]:
-        """Re-applies saved points through the normal rules. Returns the nodes that did not fit (bad or old save)."""
-        rejected = []
-        for node_id, pts in points.items():
-            for _ in range(pts):
-                if self.allocate(node_id) is not Allocate.OK:
-                    rejected.append(node_id)
-                    break
-        return rejected
+    def restore(self, points: dict[str, int], unlocked=(), xp: dict[str, float] | None = None) -> list[str]:
+        """Re-applies a save through the normal rules, in as many passes as prerequisites need.
+        Returns the nodes that did not fit (bad or old save)."""
+        self.xp.update({k: max(0.0, float(v)) for k, v in (xp or {}).items() if self.is_active(k)})
+        todo = {k: 1 for k in unlocked if self.is_active(k)} | {k: v for k, v in points.items() if not self.is_active(k)}
+        progress = True
+        while todo and progress:
+            progress = False
+            for node_id in list(todo):
+                while todo.get(node_id, 0) > 0 and self.allocate(node_id) is Allocate.OK:
+                    todo[node_id] -= 1
+                    progress = True
+                if todo.get(node_id) == 0:
+                    del todo[node_id]
+        return sorted(todo)
 
     def respec(self, tree: str) -> None:
+        """Gives back the tree's points. What the actives learned by use stays (unlock them again to use it)."""
         for n in self.nodes_of(tree):
             self.points.pop(n.id, None)
+            self.unlocked.discard(n.id)
+
+    def set_level(self, node_id: str, level: int) -> None:
+        """Debug console and tests: puts a node at ``level`` outside the rules (an active gets the XP of that level,
+        and its gates still apply)."""
+        n = self._nodes[node_id]
+        if n.kind == "active":
+            if level <= 0:
+                self.unlocked.discard(node_id)
+            else:
+                self.unlocked.add(node_id)
+                self.xp[node_id] = float(self._curve.total_for_level(level))
+        elif level <= 0:
+            self.points.pop(node_id, None)
+        else:
+            self.points[node_id] = min(level, n.max_points)
+
+    # ---- XP by use
+
+    def add_xp(self, node_id: str, amount: float) -> None:
+        if amount <= 0 or not self.is_active(node_id):
+            return
+        before = self.own_level(node_id)
+        self.xp[node_id] = self.xp.get(node_id, 0.0) + amount
+        self._announce(node_id, before)
+
+    def _announce(self, node_id: str, before: int) -> None:
+        bus = self._profs.bus
+        after = self.own_level(node_id)
+        if bus is not None and after > before and node_id in self.unlocked:
+            bus.publish(SkillLeveledUp(self._profs.player_id, node_id, after))
+
+    def on_damage_dealt(self, e: DamageDealt) -> None:
+        if e.player_id != self._profs.player_id or not self.is_active(e.skill_id):
+            return
+        amount = self._profs.calc.offense(e.target, e.effective_damage, self.xp_level(e.skill_id))
+        self.add_xp(e.skill_id, amount * self._d.skill_xp_rate)
+
+    def on_practiced(self, e: SkillPracticed) -> None:
+        if e.player_id != self._profs.player_id or not self.is_active(e.skill_id):
+            return
+        calc, lvl = self._profs.calc, self.xp_level(e.skill_id)
+        if not calc.is_trivial(e.target.level, lvl):
+            self.add_xp(e.skill_id, e.target.xp_base * e.share * calc.factor(e.target.level, lvl))
+
+    # ---- effects
 
     def effective_points(self, points: int) -> float:
         n = self._d.diminishing_after
         return points if points <= n else n + (points - n) * 0.5
-
-    def level_of(self, tree: str) -> int:
-        return self._profs[tree].level
 
     def synergies_into(self, node_id: str):
         return [s for s in self._d.synergies if s.target == node_id]
@@ -409,10 +525,10 @@ class SkillTrees:
         return list(dict.fromkeys([*n.stat_ids, *(s.stat for s in self.synergies_into(node_id))]))
 
     def effect_at(self, node_id: str, stat: str, points: int) -> float:
-        """Value of a stat if the node had ``points`` points (tooltips show the next level with this).
+        """Value of a stat if the node had ``points`` levels (tooltips show the next level with this).
 
-        Once learned: fixed ``base`` + per-point ``effects`` with diminishing returns. Synergies always
-        count, with the points currently in the source node.
+        Fixed ``base`` + per-level ``effects`` with diminishing returns. Synergies always count, with the
+        level the source node has now.
         """
         n = self._nodes[node_id]
         value = n.base.get(stat, 0.0) + n.effects.get(stat, 0.0) * self.effective_points(points) if points > 0 else 0.0
@@ -426,18 +542,18 @@ class SkillTrees:
         return self.effect_at(node_id, stat, self.points_in(node_id))
 
     def stat_total(self, stat: str) -> float:
-        """Sum of one stat over every node with points (for generic bonuses such as fasterHitRecovery)."""
+        """Sum of one stat over every node with a level (for generic bonuses such as fasterHitRecovery)."""
         return sum(self.effect(n.id, stat) for n in self._d.nodes if stat in n.stat_ids and self.points_in(n.id) > 0)
 
     def learned_actives(self) -> list[str]:
-        """Active nodes with points, in tree order: what can go on the action bar."""
+        """Active nodes with a level (unlocked, or given by a wand), in tree order: what can go on the bar."""
         return [n.id for n in self._d.nodes if n.kind == "active" and self.points_in(n.id) > 0]
 
 
 class Bind(Enum):
     OK = "ok"
     NOT_ACTIVE = "only active skills go on the bar"
-    NOT_LEARNED = "learn the skill first"
+    NOT_LEARNED = "unlock the skill first"
     BAD_SLOT = "no such slot"
 
 

@@ -13,11 +13,21 @@
       "hovered_border": "#deb85a",
       "text_cursor": "#deb85a"
     },
-    "font": { "name": "noto_sans", "size": "14" }
+    "font": {
+      "name": "noto_sans",
+      "size": "14"
+    }
   },
-  "#tree_header": { "colours": { "normal_text": "#deb85a" }, "font": { "name": "noto_sans", "size": "17", "bold": "1" }, "misc": { "text_horiz_alignment": "left" } },
-  "#node": { "misc": { "text_horiz_alignment": "left" } },
-  "#node_on": { "colours": { "normal_text": "#f0d78a" }, "misc": { "text_horiz_alignment": "left" } },
-  "#node_locked": { "colours": { "normal_text": "#7a7870" }, "misc": { "text_horiz_alignment": "left" } },
-  "#node_info": { "colours": { "normal_text": "#96948c" }, "font": { "name": "noto_sans", "size": "12" }, "misc": { "text_horiz_alignment": "left" } }
+  "#node_info": {
+    "colours": {
+      "normal_text": "#96948c"
+    },
+    "font": {
+      "name": "noto_sans",
+      "size": "12"
+    },
+    "misc": {
+      "text_horiz_alignment": "left"
+    }
+  }
 }

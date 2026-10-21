@@ -129,22 +129,27 @@ def compare_items(data: GameData, item, equipped) -> list[Line]:
     return lines
 
 
-def _spell_status(data: GameData, trees: SkillTrees, node_id: str) -> list[Line]:
-    """Where a spell's level comes from, and how to learn it if it is not learned yet."""
+def _active_status(data: GameData, trees: SkillTrees, node_id: str) -> list[Line]:
+    """An active's level: unlocked or not, its XP by use, what a wand adds and the gates ahead."""
     n = data.node(node_id)
-    school = data.proficiency(n.tree).name
-    wands = [b.name for b in data.items.bases if b.spell == node_id]
-    granted = trees.points_in(node_id) - trees.points.get(node_id, 0) - (node_id in trees.learned)
+    prof = data.proficiency(n.tree).name
+    own, granted = trees.own_level(node_id), trees.granted(node_id)
     out = []
-    if granted > 0:
-        out.append(Line(f"+{granted} from your wand", "stat"))
-    if node_id in trees.learned:
-        out.append(Line("Learned: it works without the wand.", "good"))
-    elif node_id in trees.training:
-        out.append(Line(f"Learning: your next {school} level teaches it for good.", "good"))
+    if node_id in trees.unlocked:
+        extra = f"  (+{granted} from your wand)" if granted else ""
+        out.append(Line(f"Level {own}{extra}  ·  {trees.xp_progress(node_id):.0%} to the next by use", "header"))
+        out.append(Line("It grows only while you use it: each hit gives it XP.", "muted"))
     else:
-        out.append(Line(f"Learn it from a wand ({', '.join(wands)}): cast it while you wear the wand, "
-                        f"then gain a {school} level. Until then it takes no points.", "warn"))
+        out.append(Line(f"Locked: 1 {prof} point unlocks it at level 1; then it levels up by use.", "warn"))
+        if granted:
+            out.append(Line(f"+{granted} from your wand: you can cast it while the wand is worn.", "stat"))
+    held = trees.gate_holding(node_id)
+    if held is not None:
+        out.append(Line(f"Held at level {held.level - 1}: needs {held.points} points in {data.node(held.node).name} "
+                        f"(now {trees.points.get(held.node, 0)}). Its XP keeps building.", "warn"))
+    for g in trees.closed_gates(node_id):
+        if g is not held and g.level > own:
+            out.append(Line(f"Level {g.level} needs {g.points} points in {data.node(g.node).name}.", "muted"))
     return out
 
 
@@ -158,7 +163,7 @@ def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented:
     kind = "Spell" if n.spell else "Active skill" if n.kind == "active" else "Passive"
     lines = [Line(n.name, "title"), Line(f"{kind}  ·  {prof.name} tree  ·  unlocks at {prof.name} level {n.layer}", "subtitle")]
 
-    shown = max(1, pts)  # an unlearned skill is described at its first level
+    shown = max(1, pts)  # a skill with no level yet is described at its first one
     words = {sid: format_value(st, trees.effect_at(node_id, sid, shown), signed=False) for sid, st in stats}
     lines.append(Line(n.description.format_map(words), "body"))
     if not implemented:
@@ -175,14 +180,16 @@ def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented:
             cost = f"Energy: {n.energy_cost:g}  ·  Cooldown: " + (f"{n.cooldown:g} s" if n.cooldown > 0 else f"only the global {gcd:g} s")
         lines.append(Line(cost, "stat"))
 
-    lines.append(Line(f"Points: {pts}/{n.max_points}", "header"))
-    if n.spell:
-        lines += _spell_status(data, trees, node_id)
+    active = n.kind == "active"
+    if active:
+        lines += _active_status(data, trees, node_id)
+    else:
+        lines.append(Line(f"Points: {pts}/{n.max_points}", "header"))
     visible = [(sid, st) for sid, st in stats if st.format != "flag"]
     if pts > 0:
         lines.append(Line(f"Current level ({pts})", "header"))
         lines += [Line(stat_line(st, trees.effect_at(node_id, sid, pts)), "stat") for sid, st in visible]
-    if pts < n.max_points:
+    if active or pts < n.max_points:
         lines.append(Line(f"Next level ({pts + 1})", "header"))
         for sid, st in visible:
             now, nxt = trees.effect_at(node_id, sid, pts), trees.effect_at(node_id, sid, pts + 1)
@@ -191,7 +198,7 @@ def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented:
             delta = f"   ({format_value(st, nxt - now, signed=True, exact=True)})" if pts > 0 and abs(nxt - now) > EPS else ""
             lines.append(Line(stat_line(st, nxt) + delta, "next"))
         if pts + 1 > data.skills.diminishing_after:
-            lines.append(Line(f"From point {data.skills.diminishing_after + 1} on, each point gives half.", "muted"))
+            lines.append(Line(f"From level {data.skills.diminishing_after + 1} on, each level gives half.", "muted"))
     else:
         lines.append(Line("Maxed out.", "good"))
 
@@ -202,16 +209,18 @@ def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented:
             st = data.stat(s.stat)
             source = data.node(s.from_).name
             now = s.per_point * trees.points_in(s.from_)
-            lines.append(Line(f"{format_value(st, s.per_point, signed=True, exact=True)} {st.label} per point in {source}"
+            lines.append(Line(f"{format_value(st, s.per_point, signed=True, exact=True)} {st.label} per level of {source}"
                               f"  (now {format_value(st, now, signed=True, exact=True)})", "stat"))
 
     r = trees.can_allocate(node_id)
-    if r is Allocate.NOT_LEARNED:
-        pass  # _spell_status already says how to learn it
-    elif r is Allocate.LAYER_LOCKED:
+    if r is Allocate.LAYER_LOCKED:
         lines.append(Line(f"Requires {prof.name} level {n.layer} (now {trees.level_of(n.tree)}).", "warn"))
+    elif r is Allocate.REQUIRES:
+        need = ", ".join(data.node(x).name for x in trees.missing_requirements(node_id))
+        lines.append(Line(f"Take {need} first.", "warn"))
     elif r is Allocate.NO_POINTS:
         lines.append(Line(f"No free {prof.name} points.", "muted"))
     elif r is Allocate.OK:
-        lines.append(Line(f"{_plural(trees.available(n.tree), f'free {prof.name} point')} to spend.", "good"))
+        verb = "Click to unlock" if active else "Click to add a point"
+        lines.append(Line(f"{verb}  ·  {_plural(trees.available(n.tree), f'free {prof.name} point')}.", "good"))
     return lines

@@ -40,8 +40,9 @@ from .events import (
     MonsterKilled,
     PlayerDied,
     ProficiencyLeveledUp,
+    SkillLeveledUp,
+    SkillPracticed,
     SkillUsed,
-    SpellLearned,
     StashChanged,
     WaypointReached,
 )
@@ -366,7 +367,7 @@ class MonsterActor:
     burn_left: float = 0.0
     burn_tick: float = 0.0
     burn_owner: int = 0
-    burn_prof: str = ""
+    burn_skill: str = ""  # the spell whose hit set it burning (it gets the XP of the burn)
 
     @property
     def id(self) -> int:
@@ -460,7 +461,7 @@ class World:
         for p in self.players.values():
             p.reset_vitals()
         self.bus.subscribe(ProficiencyLeveledUp, self._on_level_up)
-        self.bus.subscribe(SpellLearned, self._on_spell_learned)
+        self.bus.subscribe(SkillLeveledUp, self._on_skill_level_up)
 
     # ------------------------------------------------------------ areas
 
@@ -698,6 +699,14 @@ class World:
         p.cooldowns.start(skill_id, skill_cooldown(node.cooldown, 0.0))
         p.cooldowns.start("global", self.timing.global_cooldown_seconds)
         self.bus.publish(SkillUsed(p.player_id, skill_id))
+        if node.use_xp > 0:  # a skill that hits nothing (war cry) learns from being used in a fight
+            near = self._nearest_monster(p.x, p.y, self.data.skills.use_xp_radius_tiles)
+            if near is not None:
+                self.bus.publish(SkillPracticed(p.player_id, skill_id, near.monster.xp_info, node.use_xp))
+
+    def _nearest_monster(self, x: float, y: float, radius: float) -> MonsterActor | None:
+        near = [m for m in self.monsters.values() if m.alive and math.hypot(m.x - x, m.y - y) <= radius]
+        return min(near, key=lambda m: math.hypot(m.x - x, m.y - y)) if near else None
 
     # ------------------------------------------------------------ simulation step
 
@@ -1116,7 +1125,7 @@ class World:
                 if not r.hit:
                     self._float(t.x, t.y, "miss", "miss")
                     continue
-                self._damage_monster(p, t, r.final, prof, crit=r.crit)
+                self._damage_monster(p, t, r.final, prof, crit=r.crit, skill=skill)
                 if skill == "frenzy":
                     top = round(s.skills.effect("frenzy", "maxStacks"))
                     p.frenzy_stacks = min(top, p.frenzy_stacks + 1)
@@ -1125,9 +1134,11 @@ class World:
                 self._knock_back(t, p.x, p.y, s.skills.effect("shield_bash", "knockbackTiles"))
                 self._stun_monster(t, s.skills.effect("shield_bash", "stunSeconds"))
 
-    def _damage_monster(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str, crit: bool = False, recover: bool = True) -> None:
+    def _damage_monster(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str, crit: bool = False, recover: bool = True,
+                        skill: str | None = None) -> None:
+        """Every hit on a monster goes through here: XP to ``prof`` and to the active ``skill`` that dealt it."""
         eff = t.monster.take_damage(amount)
-        self.bus.publish(DamageDealt(prof, t.monster.xp_info, eff, p.player_id))
+        self.bus.publish(DamageDealt(prof, t.monster.xp_info, eff, p.player_id, skill or ""))
         if eff > 0 and p.session.gear.dual_wielding:  # Bloodlust
             p.life = min(p.max_life, p.life + eff * p.session.skills.effect("bloodlust", "lifeLeechPct"))
         self._float(t.x, t.y, f"{amount:.0f}{'!' if crit else ''}", "crit" if crit else "damage")
@@ -1491,7 +1502,7 @@ class World:
         proj.hit_ids.add(t.id)
         r = s.combat.resolve_physical(player_attack(s.character, s.skills, s.gear, proj.skill), t.defense, s.combat_rng)
         if r.hit:
-            self._damage_monster(p, t, r.final, proj.prof or "bows", crit=r.crit)
+            self._damage_monster(p, t, r.final, proj.prof or "bows", crit=r.crit, skill=proj.skill)
         else:
             self._float(t.x, t.y, "missed", "miss")
         if proj.pierce:
@@ -1528,10 +1539,10 @@ class World:
             name = p.session.proficiencies[e.proficiency_id].name
             self._float(p.x, p.y, f"{name} {e.new_level}!", "levelup")
 
-    def _on_spell_learned(self, e: SpellLearned) -> None:
+    def _on_skill_level_up(self, e: SkillLeveledUp) -> None:
         p = self.players.get(e.player_id)
         if p is not None:
-            self._float(p.x, p.y, f"Learned {self.data.node(e.node_id).name}!", "levelup")
+            self._float(p.x, p.y, f"{self.data.node(e.skill_id).name} {e.level}!", "levelup")
 
     def _float(self, x: float, y: float, text: str, kind: str) -> None:
         self.bus.publish(FloatingText(x, y, text, kind))

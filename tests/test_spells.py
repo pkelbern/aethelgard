@@ -1,8 +1,8 @@
-"""Spells (Pyromancy): learned from wands, cast in place, fire damage that always hits and is resisted."""
+"""Spells (Pyromancy): unlocked in the tree or cast from a wand, cast in place, fire damage that always hits and is resisted."""
 
 import pytest
 
-from aethelgard.core.events import SpellBurst, SpellLearned
+from aethelgard.core.events import SpellBurst
 from aethelgard.core.items import Item
 from aethelgard.core.progression import Allocate
 from aethelgard.core.session import GameSession
@@ -36,7 +36,7 @@ def level_up(s, tree):
     s.proficiencies._give(prof, s.data.xp_total_by_level[prof.level] - prof.xp, "test")
 
 
-# ---------------------------------------------------------------- learning from a wand
+# ---------------------------------------------------------------- wands and the tree
 
 
 def test_a_worn_wand_lets_you_cast_its_spell_and_puts_it_on_the_bar(data):
@@ -46,44 +46,26 @@ def test_a_worn_wand_lets_you_cast_its_spell_and_puts_it_on_the_bar(data):
     assert s.skills.points_in("fire_bolt") == 1, "the wand's spellLevel"
     assert s.skill_bar.slot_of("fire_bolt") is not None
     s.unequip("offhand")
-    assert s.skills.points_in("fire_bolt") == 0 and s.skill_bar.slot_of("fire_bolt") is None, "not learned: gone with the wand"
+    assert s.skills.points_in("fire_bolt") == 0 and s.skill_bar.slot_of("fire_bolt") is None, "not unlocked: gone with the wand"
 
 
-def test_spells_take_no_points_until_learned(data):
+def test_spells_are_unlocked_in_the_tree_without_any_wand(data):
     s = GameSession(data, 1)
+    assert s.skills.allocate("fireball") is Allocate.LAYER_LOCKED
+    assert s.allocate_skill("fire_bolt") is Allocate.OK and s.skills.points_in("fire_bolt") == 1
+    assert s.skill_bar.slot_of("fire_bolt") is not None
+    s.proficiencies.set_xp("pyromancy", data.xp_total_by_level[5])
+    assert s.skills.allocate("fireball") is Allocate.OK, "Fire Bolt opens Fireball; no wand needed"
     wear_wand(s)
-    assert s.skills.can_allocate("fire_bolt") is Allocate.NOT_LEARNED
-    assert s.skills.can_allocate("kindling") is Allocate.OK, "passives take points as usual"
+    assert s.skills.points_in("fire_bolt") == 2, "a wand adds its level on top"
 
 
-def test_casting_from_the_wand_then_a_level_teaches_the_spell(data):
+def test_casting_from_a_wand_before_unlocking_still_trains_the_spell(data):
     s, w, p, m = pyro_arena(data)
-    learned = []
-    s.bus.subscribe(SpellLearned, learned.append)
-    level_up(s, "pyromancy")
-    assert "fire_bolt" not in s.skills.learned, "a level without casting teaches nothing"
     assert w.apply(UseSkill(0, "fire_bolt", 1)) is None
-    run(w, 0.6)
-    assert "fire_bolt" in s.skills.training
-    level_up(s, "pyromancy")
-    assert [e.node_id for e in learned] == ["fire_bolt"] and "fire_bolt" in s.skills.learned
-    s.unequip("offhand")
-    assert s.skills.points_in("fire_bolt") == 1, "learned: it stays without the wand"
-    assert w.skill_block_reason(p, "fire_bolt") is None
-    assert s.skills.allocate("fire_bolt") is Allocate.OK and s.skills.points_in("fire_bolt") == 2
-    wear_wand(s)
-    assert s.skills.points_in("fire_bolt") == 3, "a wand adds its level on top of a learned spell"
-
-
-def test_learned_spells_survive_a_save(data):
-    s, w, p, m = pyro_arena(data)
-    s.skills.learned.add("fire_bolt")
-    s.skills.training.add("fireball")
-    s.proficiencies.set_xp("pyromancy", data.xp_total_by_level[1])
-    assert s.skills.allocate("fire_bolt") is Allocate.OK
-    back = GameSession.load(data, s.save())
-    assert back.skills.learned == {"fire_bolt"} and back.skills.training == {"fireball"}
-    assert back.skills.points_in("fire_bolt") == s.skills.points_in("fire_bolt") == 3, "1 point + learned + wand"
+    run(w, 1.5)
+    assert s.skills.xp.get("fire_bolt", 0) > 0 and s.skills.own_level("fire_bolt") == 0
+    assert s.allocate_skill("fire_bolt") is Allocate.OK, "the XP waits for the unlock"
 
 
 # ---------------------------------------------------------------- casting
@@ -178,7 +160,7 @@ def test_meteor_lands_after_its_delay_and_leaves_the_ground_burning(data):
 def test_ignite_keeps_burning_after_the_hit(data):
     s, w, p, m = pyro_arena(data, at=(10.0, 5.0))
     s.proficiencies.set_xp("pyromancy", data.xp_total_by_level[5])  # level 6
-    assert s.skills.allocate("ignite") is Allocate.OK
+    s.grant_skill("ignite")
     w.apply(UseSkill(0, "fire_bolt", 1))
     run(w, 1.0)
     assert m.burn_left > 0
@@ -191,7 +173,7 @@ def test_quick_casting_shortens_the_cast(data):
     s, w, p, m = pyro_arena(data)
     base = w.spells.cast_seconds(p)
     s.proficiencies.set_xp("pyromancy", data.xp_total_by_level[11])
-    assert s.skills.allocate("quick_casting") is Allocate.OK
+    s.grant_skill("quick_casting")
     assert w.spells.cast_seconds(p) == pytest.approx(base / 1.04)
 
 
@@ -243,16 +225,15 @@ def test_a_bolt_aimed_at_your_feet_flies_where_you_face(data):
     assert (proj.dir_x, proj.dir_y) == pytest.approx((p.face_x, p.face_y))
 
 
-def test_tooltips_say_how_to_learn_a_spell(data):
+def test_spell_tooltips_say_how_to_unlock_and_what_the_wand_adds(data):
     from aethelgard.core.describe import describe_item, describe_skill
 
     s = GameSession(data, 1)
-    text = " ".join(x.text for x in describe_skill(data, s.skills, "fireball"))
-    assert "Cinder Wand" in text and "takes no points" in text
-    wear_wand(s)
-    s.skills.practice("fire_bolt")
     text = " ".join(x.text for x in describe_skill(data, s.skills, "fire_bolt"))
-    assert "+1 from your wand" in text and "next Pyromancy level" in text
+    assert "1 Pyromancy point unlocks it" in text
+    wear_wand(s)
+    text = " ".join(x.text for x in describe_skill(data, s.skills, "fire_bolt"))
+    assert "+1 from your wand" in text
     wand = " ".join(x.text for x in describe_item(data, Item.plain(data.base("ember_wand"))))
     assert "+1 to Fire Bolt while worn" in wand
 
@@ -276,7 +257,7 @@ def test_ground_spells_need_a_clear_line_of_sight(data):
     w.layout.tiles[2:9, 7] = WALL
     assert "cannot see" in w.apply(UseSkill(0, "fire_wall", None, 9.0, 5.0))
     assert "cannot see" in w.apply(UseSkill(0, "fire_wall", None, 7.0, 5.0)), "not inside a wall either"
-    s.skills.learned.add("fire_bolt")
+    s.grant_skill("fire_bolt")
     assert w.apply(UseSkill(0, "fire_bolt", None, 9.0, 5.0)) is None, "a bolt can be fired at a wall (it just stops there)"
 
 

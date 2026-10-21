@@ -74,7 +74,7 @@ def test_the_archer_walks_closer_when_a_wall_blocks_the_shot(data):
 def test_multishot_fans_out_and_piercing_goes_through(data):
     s, w, p, m = archer(data, monster_dmg=(0.01, 0.01))
     s.proficiencies.set_xp("bows", data.xp_total_by_level[11])
-    s.allocate_skill("multishot")
+    s.grant_skill("multishot")
     assert w.apply(UseSkill(0, "multishot", 1)) is None
     for _ in range(40):
         w.step(DT)
@@ -83,7 +83,7 @@ def test_multishot_fans_out_and_piercing_goes_through(data):
     dirs = {round(pr.dir_y, 3) for pr in w.projectiles.values()}
     assert len(dirs) == 3, "three arrows in a fan"
     w.projectiles.clear()
-    s.allocate_skill("piercing_arrow")
+    s.grant_skill("piercing_arrow")
     from aethelgard.core.monsters import MonsterInstance
     from aethelgard.core.world import MonsterActor
 
@@ -187,7 +187,7 @@ def test_melee_has_the_edge_against_ranged_fighters(data):
 def test_multishot_opens_up_close_and_narrows_far_away(data):
     s, w, p, m = archer(data)
     s.proficiencies.set_xp("bows", data.xp_total_by_level[11])
-    s.allocate_skill("multishot")
+    s.grant_skill("multishot")
     near, mid, far = (w.multishot_spread(p, d) for d in (1.5, 5.0, 14.0))
     assert near > mid > far
     assert near == pytest.approx(70) and far == pytest.approx(12.2, abs=0.2), "3 tiles wide at 14 tiles"

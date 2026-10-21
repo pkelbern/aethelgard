@@ -9,7 +9,7 @@ from enum import Enum
 
 from .combat import CombatMath
 from .data import GameData
-from .events import EventBus, ProficiencyLeveledUp, SpellLearned
+from .events import EventBus
 from .items import GoldDrop, Inventory, Item, ItemDrop, Loadout, LootGenerator, PotionDrop, ScrollDrop
 from .monsters import MonsterFactory, MonsterPack, PackKind, PackSpawner
 from .progression import (
@@ -25,8 +25,8 @@ from .rng import Rng
 from .world_gen import AreaGenerator, AreaLayout
 
 # v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables. v3: + action bar. v4: + waypoints.
-# v5: + spells learned and in training.
-SAVE_VERSION = 5
+# v5: + spells learned and in training. v6: actives unlocked with a point and levelled by use (unlockedSkills, skillXp).
+SAVE_VERSION = 6
 DEFAULT_NAME = "Wanderer"
 
 
@@ -80,15 +80,6 @@ class GameSession:
         self.consumables: Counter[str] = Counter()
         self.waypoints: set[str] = {data.town_id}  # areas whose waypoint this character has touched
         self.gold = 0
-        self.bus.subscribe(ProficiencyLeveledUp, self._on_level_up)
-
-    def _on_level_up(self, e: ProficiencyLeveledUp) -> None:
-        """A level in a tree teaches the spells of that tree cast from a wand since the last one."""
-        if e.player_id != self.player_id:
-            return
-        for node_id in self.skills.learn_on_level_up(e.proficiency_id):
-            self.skill_bar.auto_bind(node_id)
-            self.bus.publish(SpellLearned(node_id, self.player_id))
 
     def enter_area(self, area_id: str, floor: int = 0) -> tuple[AreaLayout, list[MonsterPack]]:
         area = self.data.area(area_id)
@@ -98,11 +89,18 @@ class GameSession:
         return layout, packs
 
     def allocate_skill(self, node_id: str) -> Allocate:
-        """Spends a tree point; a newly learned active goes to the first free slot of the bar."""
+        """Spends a tree point; a newly unlocked active goes to the first free slot of the bar."""
         r = self.skills.allocate(node_id)
         if r is Allocate.OK:
             self.skill_bar.auto_bind(node_id)
         return r
+
+    def grant_skill(self, node_id: str, level: int = 1) -> None:
+        """Debug console and tests: the node at ``level`` without the rules (see ``SkillTrees.set_level``)."""
+        self.skills.set_level(node_id, level)
+        self.skill_bar.drop_unusable()
+        if self.skills.points_in(node_id) > 0 and self.skills.is_active(node_id):
+            self.skill_bar.auto_bind(node_id)
 
     def missing_requirements(self, item) -> dict[str, int]:
         """Attribute → how much is required, for each requirement the character does not meet yet."""
@@ -198,8 +196,8 @@ class GameSession:
                 "gold": self.gold,
                 "proficiencyXp": {p.id: p.xp for p in self.proficiencies},
                 "skillPoints": dict(self.skills.points),
-                "learnedSpells": sorted(self.skills.learned),
-                "spellsInTraining": sorted(self.skills.training),
+                "unlockedSkills": sorted(self.skills.unlocked),
+                "skillXp": dict(self.skills.xp),
                 "skillBar": self.skill_bar.to_list(),
                 "gear": self.gear.to_dict(),
                 "inventory": self.inventory.to_list(),
@@ -224,12 +222,9 @@ class GameSession:
         for pid, xp in raw.get("proficiencyXp", {}).items():
             if pid in s.proficiencies:
                 s.proficiencies.set_xp(pid, xp)
-        spells = {n.id for n in data.skills.nodes if n.spell is not None}
-        s.skills.learned = {x for x in raw.get("learnedSpells", []) if x in spells}  # before the points, which need it
-        s.skills.training = {x for x in raw.get("spellsInTraining", []) if x in spells} - s.skills.learned
         if "gear" in raw:  # v1 saves keep the starting gear; worn wands count for the bar below
             s.gear = Loadout.from_dict(data, raw["gear"])
-        s.skills.restore(raw.get("skillPoints", {}))
+        s.skills.restore(*_skills_from_save(s, raw))
         if "skillBar" in raw:
             s.skill_bar.restore(raw["skillBar"])
         else:  # v1/v2 saves: learned actives fill the bar in tree order
@@ -239,3 +234,20 @@ class GameSession:
         known = {a.id for a in data.all_areas if a.waypoint}
         s.waypoints |= {w for w in raw.get("waypoints", []) if w in known}
         return s
+
+
+def _skills_from_save(s: GameSession, raw: dict) -> tuple[dict[str, int], list[str], dict[str, float]]:
+    """(passive points, unlocked actives, active XP) from any save version.
+
+    Before v6 an active's level was the points put in it (+1 for a spell learned from a wand): it comes back
+    unlocked, with the XP of that level, and the other points return to the tree to be spent again."""
+    points = dict(raw.get("skillPoints", {}))
+    if raw.get("version", 1) >= 6:
+        return points, raw.get("unlockedSkills", []), raw.get("skillXp", {})
+    unlocked, xp = [], {}
+    for node_id in set(points) | set(raw.get("learnedSpells", [])):
+        if s.skills.is_active(node_id):
+            level = points.pop(node_id, 0) + (node_id in raw.get("learnedSpells", []))
+            unlocked.append(node_id)
+            xp[node_id] = s.proficiencies.curve.total_for_level(level)
+    return points, unlocked, xp

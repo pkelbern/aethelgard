@@ -1,6 +1,8 @@
 {
- "_comment": "Trees per proficiency. layer = proficiency level that unlocks the node. effects = value gained PER POINT; after 'diminishingAfter' points the gain is halved. base = fixed value the node has once learned, not multiplied by points (Wide Slash arc, Shield Bash stun, Bulwark 3 s + 0.2 s per point). synergies: bonus THIS node gets per point invested in 'from'. cooldown = cooldown in seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); the keys for each slot are in ui/keys.json. spell = the node is a spell (cast: bolt | ball | wall | meteor; element; look = how the client draws it). A spell takes no points until it is learned: cast it from a wand that carries it (items.json bases 'spell'); the next level of its proficiency then teaches it (1 free point), and from then on it works without the wand and takes points like any skill. A worn wand also adds its spellLevel. damageMin/damageMax = fire damage of one hit, raised by Intelligence (balance.json attributes) and fire damage bonuses.",
+ "_comment": "Trees per proficiency; each tree gets 1 point per level of its proficiency. layer = proficiency level that opens the node. requires = nodes that must be taken first (an active needs the actives before it unlocked; a passive needs a point in the passives before it). PASSIVES take points: one level per point, up to maxPoints. ACTIVES cost 1 point to unlock and then level up ONLY BY USE: each hit of the skill gives it skillXpRate x the proficiency XP of that hit, on the proficiency XP curve (curves.json), with no other cap. levelGates hold an active below 'level' until 'node' has 'points' (its XP keeps building; the levels arrive when the gate opens). useXp = for actives that hit nothing (Bulwark, War Cry): XP per use as a share of the XP of the nearest monster within useXpRadiusTiles. effects = value gained PER LEVEL; after 'diminishingAfter' levels the gain is halved. base = fixed value the node has from its first level (Wide Slash arc, Shield Bash stun). synergies: bonus THIS node gets per level of 'from'. cooldown = seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); keys in ui/keys.json. spell = the node is a spell (cast: bolt | ball | wall | meteor; element; look = how the client draws it). A worn wand that carries a spell (items.json bases 'spell') adds its spellLevel to it and lets you cast it even before it is unlocked. damageMin/damageMax = fire damage of one hit, raised by Intelligence (balance.json attributes) and fire damage bonuses.",
  "diminishingAfter": 8,
+ "skillXpRate": 0.75,
+ "useXpRadiusTiles": 8,
  "barSlots": 6,
  "nodes": [
   {
@@ -11,13 +13,24 @@
    "description": "A focused strike against one enemy that deals {damagePct} more damage and gains {accuracyPct} accuracy.",
    "layer": 1,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 3,
    "effects": {
     "damagePct": 0.15,
     "accuracyPct": 0.1
    },
-   "cooldown": 0.0
+   "cooldown": 0.0,
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "sharp_blade",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "sharp_blade",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "sharp_blade",
@@ -39,7 +52,6 @@
    "description": "Sweeps every enemy in a {arcDegrees} arc in front of you, aimed at the mouse, dealing {damagePct} more damage.",
    "layer": 6,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 5,
    "effects": {
     "damagePct": 0.1
@@ -47,7 +59,22 @@
    "cooldown": 2.0,
    "base": {
     "arcDegrees": 120
-   }
+   },
+   "requires": [
+    "precise_strike"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "bleed",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "bleed",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "bleed",
@@ -60,7 +87,10 @@
    "effects": {
     "bleedChance": 0.03,
     "bleedDamagePct": 0.05
-   }
+   },
+   "requires": [
+    "sharp_blade"
+   ]
   },
   {
    "id": "charge",
@@ -70,7 +100,6 @@
    "description": "Rush up to {rangeTiles} toward the target and strike it, dealing {damagePct} more damage.",
    "layer": 12,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 6,
    "effects": {
     "damagePct": 0.2
@@ -78,7 +107,22 @@
    "cooldown": 6.0,
    "base": {
     "rangeTiles": 6
-   }
+   },
+   "requires": [
+    "wide_slash"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "combat_rhythm",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "combat_rhythm",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "combat_rhythm",
@@ -93,7 +137,10 @@
    },
    "base": {
     "maxStacks": 5
-   }
+   },
+   "requires": [
+    "bleed"
+   ]
   },
   {
    "id": "whirlwind",
@@ -103,13 +150,27 @@
    "description": "Spin while you hold the key, hitting every enemy around you with {damagePct} more damage. Drains Energy every second.",
    "layer": 18,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 4,
    "channeled": true,
    "effects": {
     "damagePct": 0.12
    },
-   "cooldown": 0.0
+   "cooldown": 0.0,
+   "requires": [
+    "charge"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "killing_blow",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "killing_blow",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "killing_blow",
@@ -124,7 +185,10 @@
    },
    "base": {
     "lowLifeThreshold": 0.3
-   }
+   },
+   "requires": [
+    "combat_rhythm"
+   ]
   },
   {
    "id": "defensive_stance",
@@ -148,7 +212,6 @@
    "description": "Slam one enemy with your shield for {damagePct} more damage, knocking it back {knockbackTiles} and stunning it for {stunSeconds}. Unique monsters and bosses are pushed and stunned for half as long.",
    "layer": 1,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 4,
    "effects": {
     "damagePct": 0.1
@@ -157,7 +220,19 @@
    "base": {
     "stunSeconds": 0.6,
     "knockbackTiles": 1.5
-   }
+   },
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "defensive_stance",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "defensive_stance",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "parry",
@@ -170,7 +245,10 @@
    "effects": {
     "perfectWindowSeconds": 0.02,
     "counterDamagePct": 0.25
-   }
+   },
+   "requires": [
+    "defensive_stance"
+   ]
   },
   {
    "id": "heavy_shield",
@@ -183,7 +261,10 @@
    "effects": {
     "shieldArmorPct": 0.08,
     "guardArcDegrees": 6
-   }
+   },
+   "requires": [
+    "defensive_stance"
+   ]
   },
   {
    "id": "bulwark",
@@ -193,7 +274,6 @@
    "description": "For {durationSeconds} your raised guard covers all around you (360°) and blocks without spending Energy. Hold the guard key to make use of it.",
    "layer": 12,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 10,
    "effects": {
     "durationSeconds": 0.2
@@ -203,7 +283,23 @@
     "fullCircleGuard": 1,
     "freeBlocks": 1,
     "durationSeconds": 3
-   }
+   },
+   "requires": [
+    "shield_bash"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "heavy_shield",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "heavy_shield",
+     "points": 10
+    }
+   ],
+   "useXp": 0.3
   },
   {
    "id": "riposte",
@@ -215,7 +311,10 @@
    "maxPoints": 10,
    "effects": {
     "damageAfterBlockPct": 0.08
-   }
+   },
+   "requires": [
+    "parry"
+   ]
   },
   {
    "id": "shield_throw",
@@ -225,7 +324,6 @@
    "description": "Throw your shield in a straight line toward the mouse, up to {rangeTiles}. On a hit it flies on to the nearest enemy within {bounceRangeTiles}, bouncing {bounces} times; each hit deals {damagePct} more damage. Needs a shield.",
    "layer": 18,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 8,
    "effects": {
     "damagePct": 0.15
@@ -236,7 +334,22 @@
     "projectileSpeed": 12,
     "rangeTiles": 8,
     "bounceRangeTiles": 5
-   }
+   },
+   "requires": [
+    "bulwark"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "heavy_shield",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "heavy_shield",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "bastion",
@@ -248,7 +361,10 @@
    "maxPoints": 10,
    "effects": {
     "allResistWithShield": 0.03
-   }
+   },
+   "requires": [
+    "heavy_shield"
+   ]
   },
   {
    "id": "iron_skin",
@@ -285,7 +401,10 @@
    "effects": {
     "ccReduction": 0.05,
     "fasterHitRecovery": 0.05
-   }
+   },
+   "requires": [
+    "iron_skin"
+   ]
   },
   {
    "id": "second_wind",
@@ -301,7 +420,10 @@
    "base": {
     "threshold": 0.25,
     "cooldownSeconds": 60
-   }
+   },
+   "requires": [
+    "recovery"
+   ]
   },
   {
    "id": "war_cry",
@@ -311,7 +433,6 @@
    "description": "Enemies within {radiusTiles} deal {enemyDamageReduction} less damage for {durationSeconds}.",
    "layer": 12,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 8,
    "effects": {
     "enemyDamageReduction": 0.03
@@ -320,7 +441,20 @@
    "base": {
     "durationSeconds": 6,
     "radiusTiles": 5
-   }
+   },
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "steadfast",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "steadfast",
+     "points": 10
+    }
+   ],
+   "useXp": 0.3
   },
   {
    "id": "elemental_resistance",
@@ -332,7 +466,10 @@
    "maxPoints": 10,
    "effects": {
     "elementalResist": 0.03
-   }
+   },
+   "requires": [
+    "iron_skin"
+   ]
   },
   {
    "id": "unshakable",
@@ -347,7 +484,10 @@
    },
    "base": {
     "deferSeconds": 3
-   }
+   },
+   "requires": [
+    "steadfast"
+   ]
   },
   {
    "id": "colossus",
@@ -360,7 +500,10 @@
    "effects": {
     "maxLifePct": 0.04,
     "damagePerMissingLife10Pct": 0.01
-   }
+   },
+   "requires": [
+    "second_wind"
+   ]
   },
   {
    "id": "double_strike",
@@ -369,14 +512,25 @@
    "shortName": "Double",
    "layer": 1,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 3,
    "cooldown": 0.0,
    "description": "Strike one enemy with both weapons in the same swing: one hit with each hand, {damagePct} more damage each. Needs two weapons.",
    "effects": {
     "damagePct": 0.12,
     "accuracyPct": 0.05
-   }
+   },
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "off_hand_training",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "off_hand_training",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "off_hand_training",
@@ -397,7 +551,6 @@
    "shortName": "Frenzy",
    "layer": 6,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 4,
    "cooldown": 0.0,
    "description": "Hit with both weapons for {damagePct} more damage. Every hit grants {attackSpeedPerStackPct} attack speed for {durationSeconds}, stacking up to {maxStacks} times. Needs two weapons.",
@@ -408,7 +561,22 @@
    "base": {
     "durationSeconds": 4,
     "maxStacks": 5
-   }
+   },
+   "requires": [
+    "double_strike"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "ambidexterity",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "ambidexterity",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "ambidexterity",
@@ -420,7 +588,10 @@
    "description": "{dualAttackSpeedPct} attack speed while holding two weapons.",
    "effects": {
     "dualAttackSpeedPct": 0.03
-   }
+   },
+   "requires": [
+    "off_hand_training"
+   ]
   },
   {
    "id": "whirling_blades",
@@ -429,7 +600,6 @@
    "shortName": "Whirl",
    "layer": 12,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 7,
    "cooldown": 3.0,
    "description": "Spin once, hitting every enemy around you ({arcDegrees}) with both weapons for {damagePct} more damage. Needs two weapons.",
@@ -438,7 +608,22 @@
    },
    "base": {
     "arcDegrees": 360
-   }
+   },
+   "requires": [
+    "frenzy"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "blade_guard",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "blade_guard",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "blade_guard",
@@ -450,7 +635,10 @@
    "description": "With two weapons you cannot raise a guard, but you can turn blows aside: {deflectChance} chance to deflect a melee hit completely.",
    "effects": {
     "deflectChance": 0.02
-   }
+   },
+   "requires": [
+    "ambidexterity"
+   ]
   },
   {
    "id": "blade_dance",
@@ -459,7 +647,6 @@
    "shortName": "Dance",
    "layer": 18,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 10,
    "cooldown": 8.0,
    "description": "Dash through up to {rangeTiles}, striking every enemy on the way with both weapons for {damagePct} more damage. Needs two weapons.",
@@ -468,7 +655,22 @@
    },
    "base": {
     "rangeTiles": 5
-   }
+   },
+   "requires": [
+    "whirling_blades"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "bloodlust",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "bloodlust",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "bloodlust",
@@ -480,7 +682,10 @@
    "description": "While holding two weapons, {lifeLeechPct} of the damage you deal comes back as life.",
    "effects": {
     "lifeLeechPct": 0.01
-   }
+   },
+   "requires": [
+    "blade_guard"
+   ]
   },
   {
    "id": "power_shot",
@@ -489,14 +694,25 @@
    "shortName": "Power",
    "layer": 1,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 3,
    "cooldown": 0.0,
    "description": "A drawn-out shot: one arrow with {damagePct} more damage and {accuracyPct} accuracy. Needs a bow.",
    "effects": {
     "damagePct": 0.15,
     "accuracyPct": 0.1
-   }
+   },
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "steady_aim",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "steady_aim",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "steady_aim",
@@ -517,7 +733,6 @@
    "shortName": "Multi",
    "layer": 6,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 5,
    "cooldown": 2.0,
    "description": "Fire {arrows} arrows in a fan toward the target, each with {damagePct} more damage. The fan covers about {spreadTiles} across where the target stands: wide up close, narrow far away. Needs a bow.",
@@ -530,7 +745,22 @@
     "spreadTiles": 3,
     "minSpreadDegrees": 8,
     "maxSpreadDegrees": 70
-   }
+   },
+   "requires": [
+    "power_shot"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "eagle_eye",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "eagle_eye",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "eagle_eye",
@@ -543,7 +773,10 @@
    "effects": {
     "bowRangeTiles": 0.3,
     "bowAccuracyPct": 0.04
-   }
+   },
+   "requires": [
+    "steady_aim"
+   ]
   },
   {
    "id": "piercing_arrow",
@@ -552,13 +785,27 @@
    "shortName": "Pierce",
    "layer": 12,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 6,
    "cooldown": 3.0,
    "description": "An arrow that goes through every enemy in its line, {damagePct} more damage to each. Needs a bow.",
    "effects": {
     "damagePct": 0.12
-   }
+   },
+   "requires": [
+    "multishot"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "steady_aim",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "steady_aim",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "quick_draw",
@@ -570,7 +817,10 @@
    "description": "{bowAttackSpeedPct} attack speed with bows.",
    "effects": {
     "bowAttackSpeedPct": 0.03
-   }
+   },
+   "requires": [
+    "eagle_eye"
+   ]
   },
   {
    "id": "rain_of_arrows",
@@ -579,7 +829,6 @@
    "shortName": "Rain",
    "layer": 18,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 10,
    "cooldown": 8.0,
    "description": "Arrows fall on an area of {radiusTiles} radius for {durationSeconds}, {damagePct} more damage. Needs a bow.",
@@ -589,7 +838,22 @@
    "base": {
     "radiusTiles": 3,
     "durationSeconds": 3
-   }
+   },
+   "requires": [
+    "piercing_arrow"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "quick_draw",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "quick_draw",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "hunters_mark",
@@ -601,7 +865,10 @@
    "description": "{bowCritChance} critical chance with bows.",
    "effects": {
     "bowCritChance": 0.02
-   }
+   },
+   "requires": [
+    "quick_draw"
+   ]
   },
   {
    "id": "fire_bolt",
@@ -610,7 +877,6 @@
    "shortName": "Bolt",
    "layer": 1,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 2.5,
    "cooldown": 0.0,
    "spell": {
@@ -628,7 +894,19 @@
     "damageMax": 3.5,
     "projectileSpeed": 12,
     "rangeTiles": 14
-   }
+   },
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "kindling",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "kindling",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "kindling",
@@ -649,7 +927,6 @@
    "shortName": "Ball",
    "layer": 6,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 5,
    "cooldown": 0.0,
    "spell": {
@@ -668,7 +945,22 @@
     "radiusTiles": 1.5,
     "projectileSpeed": 10,
     "rangeTiles": 14
-   }
+   },
+   "requires": [
+    "fire_bolt"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "kindling",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "kindling",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "ignite",
@@ -684,7 +976,10 @@
    "base": {
     "burnPctOfHit": 0.04,
     "burnSeconds": 3
-   }
+   },
+   "requires": [
+    "kindling"
+   ]
   },
   {
    "id": "fire_wall",
@@ -693,7 +988,6 @@
    "shortName": "Wall",
    "layer": 12,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 12,
    "cooldown": 2.0,
    "spell": {
@@ -710,7 +1004,22 @@
     "lengthTiles": 5,
     "durationSeconds": 3.5,
     "rangeTiles": 12
-   }
+   },
+   "requires": [
+    "fireball"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "ignite",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "ignite",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "quick_casting",
@@ -722,7 +1031,10 @@
    "description": "{fasterCastPct} faster casting.",
    "effects": {
     "fasterCastPct": 0.04
-   }
+   },
+   "requires": [
+    "ignite"
+   ]
   },
   {
    "id": "meteor",
@@ -731,7 +1043,6 @@
    "shortName": "Meteor",
    "layer": 18,
    "kind": "active",
-   "maxPoints": 15,
    "energyCost": 16,
    "cooldown": 3.0,
    "spell": {
@@ -753,7 +1064,22 @@
     "durationSeconds": 3,
     "damagePerSecond": 6,
     "rangeTiles": 14
-   }
+   },
+   "requires": [
+    "fire_wall"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "searing_heat",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "searing_heat",
+     "points": 10
+    }
+   ]
   },
   {
    "id": "searing_heat",
@@ -765,7 +1091,10 @@
    "description": "Your fire ignores {fireResistPierce} of the enemy's fire resistance (never below zero).",
    "effects": {
     "fireResistPierce": 0.03
-   }
+   },
+   "requires": [
+    "quick_casting"
+   ]
   }
  ],
  "synergies": [

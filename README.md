@@ -55,9 +55,8 @@ O jogo é todo em inglês. Ao reabrir, o personagem volta **na vila** com os mes
 |---|---|
 | Andar / atacar | Clique esquerdo no chão / no monstro |
 | Guarda com escudo | Segurar **Espaço** (o escudo aponta para o mouse) |
-| Habilidades | **Q** Precise Strike · **W** Shield Bash · **E** Wide Slash · **R** Bulwark |
-| Gastar ponto de árvore | **1** Sharp Blade · **2** Precise Strike · **3** Defensive Stance · **4** Shield Bash · **5** Iron Skin · **6** Recovery · **7** Parry |
-| Árvores de habilidade (janela) | **T** |
+| Habilidades | **1–6** (barra de atalhos; clique num atalho para escolher a habilidade) |
+| Árvores de habilidade | **T**: clique num nó para gastar ponto; ativos custam 1 ponto e sobem pelo uso; mouse em cima + **1–6** põe na barra |
 | Mapa grande | **Tab** (o mapa pequeno fica no canto) |
 | Salvar | **F5** ou `save` no console (o jogo também salva ao sair) |
 | Console de depuração | **F1** (digite `help`; `bag` lista mochila e equipamento, `load` recarrega o save) |

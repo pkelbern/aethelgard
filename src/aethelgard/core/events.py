@@ -45,6 +45,7 @@ class DamageDealt:
     target: MonsterXpInfo
     effective_damage: float
     player_id: int = 0
+    skill_id: str = ""  # the active skill that dealt it ("" = a plain attack): that skill gains XP too
 
 
 @dataclass(frozen=True)
@@ -88,11 +89,22 @@ class ProficiencyLeveledUp:
 
 
 @dataclass(frozen=True)
-class SpellLearned:
-    """A spell cast from a wand is now the character's own (its tree gained a level)."""
+class SkillPracticed:
+    """An active that deals no damage (war cry, bulwark) was used near ``target``: it gains ``share`` of its XP."""
 
-    node_id: str
-    player_id: int = 0
+    player_id: int
+    skill_id: str
+    target: MonsterXpInfo
+    share: float
+
+
+@dataclass(frozen=True)
+class SkillLeveledUp:
+    """An active skill reached a new level by use."""
+
+    player_id: int
+    skill_id: str
+    level: int
 
 
 @dataclass(frozen=True)

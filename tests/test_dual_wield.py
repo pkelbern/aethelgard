@@ -62,7 +62,7 @@ def test_dual_wield_skills_need_two_weapons(data):
 def test_frenzy_stacks_attack_speed_then_fades(data):
     s, w, p, m = dual(data, monster_dmg=(0.01, 0.01))
     s.proficiencies.set_xp("dual_wield", data.xp_total_by_level[5])
-    s.allocate_skill("frenzy")
+    s.grant_skill("frenzy")
     from aethelgard.core.world import UseSkill
 
     before = w.attack_speed(p)
@@ -77,7 +77,7 @@ def test_frenzy_stacks_attack_speed_then_fades(data):
 def test_whirling_blades_hits_all_around_with_both_hands(data):
     s, w, p, m = dual(data, monster_dmg=(0.01, 0.01), at=(4.0, 5.0))  # behind the player
     s.proficiencies.set_xp("dual_wield", data.xp_total_by_level[11])
-    s.allocate_skill("whirling_blades")
+    s.grant_skill("whirling_blades")
     hits = []
     s.bus.subscribe(DamageDealt, hits.append)
     from aethelgard.core.world import UseSkill

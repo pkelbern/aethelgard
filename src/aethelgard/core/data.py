@@ -479,7 +479,7 @@ ELEMENTS = ("fire",)
 
 @dataclass
 class SpellDef:
-    """A node that is a spell: learned from a wand (never bought with points first), deals elemental damage."""
+    """A node that is a spell: an active skill that deals elemental damage. A wand lets you cast it while worn."""
 
     cast: str = "bolt"  # bolt | ball | wall | meteor
     element: str = "fire"
@@ -487,7 +487,24 @@ class SpellDef:
 
 
 @dataclass
+class LevelGate:
+    """An active skill cannot pass ``level - 1`` until ``node`` has ``points`` (its XP keeps building meanwhile)."""
+
+    level: int = 10
+    node: str = ""
+    points: int = 1
+
+
+@dataclass
 class SkillNodeDef:
+    """A node of a proficiency tree.
+
+    Passives are bought with tree points, one level per point, up to ``max_points``. An active costs one
+    point to unlock and then levels up by use only (its own XP, see ``SkillTrees``); ``level_gates`` hold it
+    back until a passive is high enough. ``requires``: nodes that must be unlocked (an active) or have a
+    point (a passive) before this one can be taken.
+    """
+
     id: str = ""
     tree: str = ""
     name: str = ""
@@ -500,8 +517,11 @@ class SkillNodeDef:
     short_name: str = ""
     description: str = ""
     effects: dict[str, float] = field(default_factory=dict)  # per point
-    base: dict[str, float] = field(default_factory=dict)  # fixed once learned
+    base: dict[str, float] = field(default_factory=dict)  # fixed from the first level
     spell: SpellDef | None = None
+    requires: list[str] = field(default_factory=list)
+    level_gates: list[LevelGate] = field(default_factory=list)
+    use_xp: float = 0  # actives that deal no damage (war cry): skill XP per use, as a share of a nearby monster's XP
 
     @property
     def stat_ids(self) -> list[str]:
@@ -520,6 +540,8 @@ class SynergyDef:
 @dataclass
 class SkillsData:
     diminishing_after: int = 8
+    skill_xp_rate: float = 1.0  # active skill XP = this × the proficiency XP its hits give
+    use_xp_radius_tiles: float = 8.0  # how near a monster must be for a utility active to teach anything
     bar_slots: int = 6
     nodes: list[SkillNodeDef] = field(default_factory=list)
     synergies: list[SynergyDef] = field(default_factory=list)
@@ -912,6 +934,37 @@ def _validate_stats(d: GameData) -> list[str]:
     return errors
 
 
+def _validate_skill_links(d: GameData) -> list[str]:
+    """Prerequisites in the same tree, never at a higher layer, with no cycle; gates only on actives."""
+    errors, nodes = [], {n.id: n for n in d.skills.nodes}
+    for n in d.skills.nodes:
+        for r in n.requires:
+            req = nodes.get(r)
+            if req is None:
+                errors.append(f"skills: node '{n.id}' requires missing node '{r}'")
+            elif req.tree != n.tree:
+                errors.append(f"skills: node '{n.id}' requires '{r}' from another tree")
+            elif req.layer > n.layer:
+                errors.append(f"skills: node '{n.id}' requires '{r}', which is in a later layer")
+        if n.level_gates and n.kind != "active":
+            errors.append(f"skills: only actives have levelGates ('{n.id}' is {n.kind})")
+        for g in n.level_gates:
+            if g.node not in nodes or nodes[g.node].kind != "passive":
+                errors.append(f"skills: gate of '{n.id}' needs a passive node, not '{g.node}'")
+            elif not 1 <= g.points <= nodes[g.node].max_points:
+                errors.append(f"skills: gate of '{n.id}' asks {g.points} points of '{g.node}' (it has {nodes[g.node].max_points})")
+        if n.use_xp < 0:
+            errors.append(f"skills: node '{n.id}' has negative useXp")
+
+    def cycle(node_id: str, seen: tuple[str, ...]) -> bool:
+        if node_id in seen:
+            return True
+        return any(cycle(r, (*seen, node_id)) for r in nodes[node_id].requires if r in nodes)
+
+    errors += [f"skills: node '{n.id}' requires itself through a cycle" for n in d.skills.nodes if cycle(n.id, ())]
+    return errors
+
+
 def validate(d: GameData) -> list[str]:
     """Data consistency: fail early, on load, instead of in the middle of a game."""
     errors: list[str] = []
@@ -992,8 +1045,7 @@ def validate(d: GameData) -> list[str]:
                 errors.append(f"skills: spell '{n.id}' has unknown cast '{n.spell.cast}' (one of {', '.join(SPELL_CASTS)})")
             if n.spell.element not in ELEMENTS:
                 errors.append(f"skills: spell '{n.id}' has unknown element '{n.spell.element}'")
-            if not any(b.spell == n.id for b in d.items.bases):
-                errors.append(f"skills: spell '{n.id}' can only be learned from a wand, and no wand has it")
+    errors += _validate_skill_links(d)
     for b in d.items.bases:
         if b.spell is not None and (b.spell not in node_ids or d.node(b.spell).spell is None):
             errors.append(f"items: wand '{b.id}' gives '{b.spell}', which is not a spell")
