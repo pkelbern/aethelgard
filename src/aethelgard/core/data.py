@@ -188,6 +188,12 @@ class GuardParams:
 
 
 @dataclass
+class BowParams:
+    arrow_speed: float = 14
+    arrow_radius: float = 0.12
+
+
+@dataclass
 class TownPortalParams:
     cooldown_seconds: float = 5.0
 
@@ -230,6 +236,7 @@ class BalanceData:
     collision: CollisionParams = field(default_factory=CollisionParams)
     dual_wield: DualWieldParams = field(default_factory=DualWieldParams)
     town_portal: TownPortalParams = field(default_factory=TownPortalParams)
+    bow: BowParams = field(default_factory=BowParams)
     loot: LootParams = field(default_factory=LootParams)
 
 
@@ -496,7 +503,8 @@ class AffixDef:
     slots: list[str] = field(default_factory=list)  # item types it may roll on (bases' 'slot')
 
     def fits(self, base) -> bool:
-        return base.slot in self.slots if self.slots else bool(set(self.tags) & set(base.tags))
+        """Its item type is listed AND it shares a tag (keeps blade affixes off bows and the reverse)."""
+        return (not self.slots or base.slot in self.slots) and bool(set(self.tags) & set(base.tags))
 
 
 @dataclass
@@ -511,6 +519,8 @@ class ItemBaseDef:
     armor: float = 0
     guard_efficiency: float = 0
     block_reduction: float = 0
+    two_handed: bool = False  # bows: no shield, no second weapon
+    range_tiles: float = 0  # bows: how far it shoots
     size: list[int] = field(default_factory=lambda: [1, 1])
     req: dict[str, int] = field(default_factory=dict)
 
@@ -582,6 +592,7 @@ class ConsumableDef:
 class ItemsData:
     inventory: InventorySize = field(default_factory=InventorySize)
     starting_gear: list[str] = field(default_factory=list)
+    starting_backpack: list[str] = field(default_factory=list)
     slot_names: dict[str, str] = field(default_factory=dict)  # item type (base 'slot') → name in tooltips
     consumables: dict[str, ConsumableDef] = field(default_factory=dict)
     equipment: dict[str, EquipSlotDef] = field(default_factory=dict)
@@ -845,7 +856,8 @@ def validate(d: GameData) -> list[str]:
     if len({a.id for a in d.items.affixes}) != len(d.items.affixes):
         errors.append("items: duplicate affix ids")
     base_ids = {b.id for b in d.items.bases}
-    errors += [f"items: starting gear '{b}' is not a base" for b in d.items.starting_gear if b not in base_ids]
+    errors += [f"items: starting gear '{b}' is not a base" for b in d.items.starting_gear + d.items.starting_backpack if b not in base_ids]
+    errors += [f"items: bow '{b.id}' needs rangeTiles" for b in d.items.bases if "bow" in b.tags and b.range_tiles <= 0]
     errors += [f"items: base '{b.id}' uses slot '{b.slot}' with no entry in slotNames" for b in d.items.bases if b.slot not in d.items.slot_names]
     accepted = {t for e in d.items.equipment.values() for t in e.accepts}
     errors += [f"items: no equipment slot accepts '{b.slot}' (base '{b.id}')" for b in d.items.bases if b.slot not in accepted]

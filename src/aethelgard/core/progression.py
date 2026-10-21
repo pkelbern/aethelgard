@@ -271,7 +271,8 @@ def compute_level(levels: list[int], secondary_weight: float) -> int:
     ordered = sorted(levels, reverse=True)
     if not ordered:
         return 1
-    return ordered[0] + math.floor(secondary_weight * sum(ordered[1:]))
+    # proficiencies never used (still level 1) add nothing: a new proficiency must not raise everyone's level
+    return ordered[0] + math.floor(secondary_weight * sum(lv for lv in ordered[1:] if lv > 1))
 
 
 def compute_title(levels: list[tuple[str, int]], pd: ProficienciesData) -> str:

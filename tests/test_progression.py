@@ -21,8 +21,8 @@ def calc(d):
 
 def test_data_loads_and_is_valid(data):
     assert validate(data) == []
-    assert len(data.proficiencies.proficiencies) == 4, "Blades, Shield, Armor, Dual Wield"
-    assert len(data.skills.nodes) == 32, "8 nodes per tree"
+    assert len(data.proficiencies.proficiencies) == 5, "Blades, Shield, Armor, Dual Wield, Archery"
+    assert len(data.skills.nodes) == 40, "8 nodes per tree"
     assert all(n.cooldown >= 0 for n in data.skills.nodes if n.kind == "active")
     assert data.town_id == "village"
 
@@ -132,6 +132,13 @@ def test_attributes_from_the_profile(data):
     assert (a.str, a.dex, a.vit) == (18, 14, 10)
     assert s.character.level == 5
     assert s.character.max_life == pytest.approx(50 + 40 + 15)
+
+
+def test_unused_proficiencies_do_not_raise_the_level(data):
+    from aethelgard.core.progression import compute_level
+
+    assert compute_level([1, 1, 1, 1, 1], 0.25) == 1, "a new character is level 1 however many proficiencies exist"
+    assert compute_level([13, 9, 7, 1, 1], 0.25) == compute_level([13, 9, 7], 0.25) == 17
 
 
 def test_tree_layers_points_synergies(data):

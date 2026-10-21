@@ -61,6 +61,11 @@
     "_comment": "Two one-hand weapons (GDD 7, D2 style): swings alternate main → off; each hand uses its own weapon. The off hand deals offHandDamageMult of its damage (Off-Hand Training adds to it, never above 1). No guard and no Shield actives without a shield.",
     "offHandDamageMult": 0.7
   },
+  "bow": {
+    "_comment": "Bows (two-handed): the attack fires an arrow at the target's position when it is within the bow's rangeTiles and in sight. arrowSpeed in tiles/s.",
+    "arrowSpeed": 14,
+    "arrowRadius": 0.12
+  },
   "townPortal": {
     "_comment": "Always available, no scroll (GDD 10.4): opens where you stand, unless you are in town; walking into it takes you to town, and the one in town brings you back. cooldownSeconds between two portals.",
     "cooldownSeconds": 5.0

@@ -19,7 +19,7 @@ from ..core.progression import Allocate
 if TYPE_CHECKING:
     from .app import Game
 
-COL_W = 300  # one column per proficiency tree (proficiencies.json order)
+COL_W = 300  # one column per proficiency tree (proficiencies.json order), narrower when they do not fit
 TREE_H = 540
 PICKER_W = 300
 
@@ -139,7 +139,12 @@ class GameUI:
 
     @property
     def tree_size(self) -> tuple[int, int]:
-        return (len(self.tree_order) * COL_W + 30, TREE_H)
+        return (len(self.tree_order) * self.col_w + 30, TREE_H)
+
+    @property
+    def col_w(self) -> int:
+        W, _ = self.manager.window_resolution
+        return min(COL_W, (W - 40) // max(1, len(self.tree_order)))
 
     def refresh_tree_if_open(self) -> None:
         """After points or keys change elsewhere (console, action bar), so the window never shows stale data."""
@@ -159,7 +164,7 @@ class GameUI:
             win = UIWindow(pygame.Rect(pos, self.tree_size), self.manager, window_display_title=title, object_id="#tree_window")
         self._node_buttons.clear()
         self._node_rows.clear()
-        col_w = COL_W
+        col_w = self.col_w
         for i, tree in enumerate(self.tree_order):
             prof = s.proficiencies[tree]
             x = 10 + i * col_w

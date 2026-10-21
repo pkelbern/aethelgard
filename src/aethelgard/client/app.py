@@ -412,7 +412,7 @@ class Game:
         if skill is None:
             self.hud.add(f"Key {self.keys.slot_label(slot)} is empty: click the slot to choose a skill.", C.MUTED)
             return
-        target = self.hovered or self.nearest_monster()
+        target = self.hovered or self.nearest_monster(max(3.0, self.world.player_reach(self.player)))  # a bow reaches farther
         gx, gy = self.mouse_grid()
         msg = self.world.apply(UseSkill(self.session.player_id, skill, target.id if target else None, gx, gy))
         if msg:
@@ -796,7 +796,7 @@ class Game:
         if off_swing:  # the left arm strikes: the figure is drawn mirrored, weapons swapped
             layers = self.sprites.lib.swap_hands(layers)
         self.sprites.draw_actor(self.screen, self.cam, ("p", p.player_id), p, layers, scale=self.sprites.lib.draw_scale("player"),
-                                guarding=p.guarding, mirrored=off_swing)
+                                guarding=p.guarding, mirrored=off_swing, attack_anim="shoot" if p.session.gear.has_bow else "swing")
         if p.guarding and p.state != "dead":
             self._draw_guard_arc(p, sx, sy)
 

@@ -37,6 +37,8 @@ class Projectile:
     attack: AttackerStats | None = None  # a monster's shot keeps its numbers even if the shooter dies
     info: MonsterXpInfo | None = None
     skill: str | None = None  # the player's skill that fired it
+    prof: str | None = None  # proficiency that gets the XP of a player's shot (Archery for arrows)
+    pierce: bool = False  # goes on through every enemy in its line (Piercing Arrow)
     bounces_left: int = 0
     bounce_range: float = 0.0
     traveled: float = 0.0

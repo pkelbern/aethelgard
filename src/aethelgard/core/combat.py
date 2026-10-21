@@ -184,12 +184,20 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: 
     if hand == "off" and gear.dual_wielding:  # the weaker hand (Off-Hand Training narrows the gap)
         mult = min(1.0, sheet.data.balance.dual_wield.off_hand_damage_mult + skills.effect("off_hand_training", "offHandDamagePct"))
         dmg_min, dmg_max = dmg_min * mult, dmg_max * mult
-    bonus = a.str * 0.01 + skills.effect("sharp_blade", "swordDamagePct")
+    bonus = a.str * 0.01
     acc = BASE_ACCURACY + a.dex * 5
+    crit = min(0.5, a.dex * 0.002)
+    tags = w.base.tags if w else []
+    if "sword" in tags:  # Sharp Blade: one-hand blades only
+        bonus += skills.effect("sharp_blade", "swordDamagePct")
+    if "bow" in tags:
+        bonus += skills.effect("steady_aim", "bowDamagePct")
+        acc *= 1 + skills.effect("eagle_eye", "bowAccuracyPct")
+        crit += skills.effect("hunters_mark", "bowCritChance")
     if skill:
         bonus += skills.effect(skill, "damagePct")
         acc *= 1 + skills.effect(skill, "accuracyPct")
-    return AttackerStats(sheet.level, acc, dmg_min, dmg_max, bonus, min(0.5, a.dex * 0.002))
+    return AttackerStats(sheet.level, acc, dmg_min, dmg_max, bonus, min(0.75, crit))
 
 
 def player_defense(sheet, skills, gear: Loadout) -> DefenderStats:

@@ -1,5 +1,5 @@
 {
-  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Dual Wield gets XP from off-hand swings and from its own skills (main-hand swings feed Blades).",
+  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Skills always feed their own tree.",
   "proficiencies": [
     {
       "id": "blades",
@@ -53,6 +53,20 @@
       },
       "weaponTags": [
         "sword"
+      ]
+    },
+    {
+      "id": "bows",
+      "name": "Archery",
+      "xpSource": "offense",
+      "attributes": {
+        "str": 0,
+        "dex": 3,
+        "vit": 0,
+        "int": 0
+      },
+      "weaponTags": [
+        "bow"
       ]
     }
   ],
@@ -122,6 +136,40 @@
         "dual_wield"
       ],
       "title": "Marauder"
+    },
+    {
+      "ids": [
+        "bows"
+      ],
+      "title": "Archer"
+    },
+    {
+      "ids": [
+        "blades",
+        "bows"
+      ],
+      "title": "Ranger"
+    },
+    {
+      "ids": [
+        "shield",
+        "bows"
+      ],
+      "title": "Warden"
+    },
+    {
+      "ids": [
+        "armor",
+        "bows"
+      ],
+      "title": "Hunter"
+    },
+    {
+      "ids": [
+        "dual_wield",
+        "bows"
+      ],
+      "title": "Stalker"
     }
   ],
   "titleSecondaryThreshold": 0.5,

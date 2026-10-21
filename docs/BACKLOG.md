@@ -10,7 +10,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M0 – Base | 4 | 0 | 8 | 2.5 |
 | M1 – Combate | 6 | 6 | 14 | 4.5 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
-| M3 – Árvores | 2 | 2 | 8 | 8 |
+| M3 – Árvores | 2 | 3 | 9 | 8 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 2 | 8 | 6 |
 | M6 – Loot | 2 | 4 | 8 | 3.5 |
@@ -110,7 +110,10 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Afixos da Firmeza (recuperação de golpe), do Reflexo (recuperação de bloqueio), Expedito (recarga); ligar os afixos ao personagem quando o inventário existir.
 
 - [ ] **M3-08** Duas armas e árvore Dual Wield _(código, ~3 d)_ — **escrito, validar**  
-  4ª proficiência (XP pelos golpes da mão secundária e pelas habilidades da árvore; perfil 1 FOR / 2 DES). Mão secundária com 70% do dano (balance.dualWield). Árvore: Double Strike (golpe com as duas armas), Off-Hand Training, Frenzy (acúmulos de velocidade), Ambidexterity, Whirling Blades (360° com as duas), Blade Guard (desvio de golpes corpo a corpo), Blade Dance (falta implementar), Bloodlust (roubo de vida). Títulos Twinblade, Blademaster, Skirmisher, Marauder.
+  4ª proficiência (XP de todos os golpes com duas armas e das habilidades da árvore — Lâminas é só para uma lâmina sem par; perfil 1 FOR / 2 DES). Mão secundária com 70% do dano (balance.dualWield). Árvore: Double Strike (golpe com as duas armas), Off-Hand Training, Frenzy (acúmulos de velocidade), Ambidexterity, Whirling Blades (360° com as duas), Blade Guard (desvio de golpes corpo a corpo), Blade Dance (falta implementar), Bloodlust (roubo de vida). Títulos Twinblade, Blademaster, Skirmisher, Marauder.
+
+- [ ] **M3-09** Arcos e árvore Archery _(código, ~3 d)_ — **escrito, validar**  
+  5ª proficiência (todo tiro de arco; 3 DES por nível). Arco é de duas mãos (tira escudo e segunda arma; mochila cheia recusa), atira flecha reta de longe com linha de visão. Árvore: Power Shot, Steady Aim, Multishot (leque), Eagle Eye (alcance), Piercing Arrow (atravessa), Quick Draw, Rain of Arrows (falta implementar), Hunter's Mark. 4 bases de arco. Personagem novo leva um arco e uma segunda espada na mochila. Falta: arte do arco equipado (sprites.json gear).
 
 ## M4 – Monstros
 

@@ -23,7 +23,7 @@
    "id": "sharp_blade",
    "tree": "blades",
    "name": "Sharp Blade",
-   "description": "Your sword cuts deeper: {swordDamagePct} more damage with swords. Also boosts Shield Bash.",
+   "description": "Your one-hand blade cuts deeper: {swordDamagePct} more damage with swords and daggers (not bows). Also boosts Shield Bash and Double Strike.",
    "layer": 1,
    "kind": "passive",
    "maxPoints": 10,
@@ -481,6 +481,125 @@
    "effects": {
     "lifeLeechPct": 0.01
    }
+  },
+  {
+   "id": "power_shot",
+   "tree": "bows",
+   "name": "Power Shot",
+   "shortName": "Power",
+   "layer": 1,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 3,
+   "cooldown": 0.0,
+   "description": "A drawn-out shot: one arrow with {damagePct} more damage and {accuracyPct} accuracy. Needs a bow.",
+   "effects": {
+    "damagePct": 0.15,
+    "accuracyPct": 0.1
+   }
+  },
+  {
+   "id": "steady_aim",
+   "tree": "bows",
+   "name": "Steady Aim",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{bowDamagePct} more damage with bows.",
+   "effects": {
+    "bowDamagePct": 0.06
+   }
+  },
+  {
+   "id": "multishot",
+   "tree": "bows",
+   "name": "Multishot",
+   "shortName": "Multi",
+   "layer": 6,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 5,
+   "cooldown": 2.0,
+   "description": "Fire {arrows} arrows in a {spreadDegrees} fan toward the target, each with {damagePct} more damage. Needs a bow.",
+   "effects": {
+    "damagePct": 0.08,
+    "arrows": 0.2
+   },
+   "base": {
+    "arrows": 3,
+    "spreadDegrees": 40
+   }
+  },
+  {
+   "id": "eagle_eye",
+   "tree": "bows",
+   "name": "Eagle Eye",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Your arrows fly {bowRangeTiles} farther and gain {bowAccuracyPct} accuracy.",
+   "effects": {
+    "bowRangeTiles": 0.3,
+    "bowAccuracyPct": 0.04
+   }
+  },
+  {
+   "id": "piercing_arrow",
+   "tree": "bows",
+   "name": "Piercing Arrow",
+   "shortName": "Pierce",
+   "layer": 12,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 6,
+   "cooldown": 3.0,
+   "description": "An arrow that goes through every enemy in its line, {damagePct} more damage to each. Needs a bow.",
+   "effects": {
+    "damagePct": 0.12
+   }
+  },
+  {
+   "id": "quick_draw",
+   "tree": "bows",
+   "name": "Quick Draw",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{bowAttackSpeedPct} attack speed with bows.",
+   "effects": {
+    "bowAttackSpeedPct": 0.03
+   }
+  },
+  {
+   "id": "rain_of_arrows",
+   "tree": "bows",
+   "name": "Rain of Arrows",
+   "shortName": "Rain",
+   "layer": 18,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 10,
+   "cooldown": 8.0,
+   "description": "Arrows fall on an area of {radiusTiles} radius for {durationSeconds}, {damagePct} more damage. Needs a bow.",
+   "effects": {
+    "damagePct": 0.1
+   },
+   "base": {
+    "radiusTiles": 3,
+    "durationSeconds": 3
+   }
+  },
+  {
+   "id": "hunters_mark",
+   "tree": "bows",
+   "name": "Hunter's Mark",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{bowCritChance} critical chance with bows.",
+   "effects": {
+    "bowCritChance": 0.02
+   }
   }
  ],
  "synergies": [
@@ -541,6 +660,24 @@
   {
    "target": "whirling_blades",
    "from": "wide_slash",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "multishot",
+   "from": "power_shot",
+   "stat": "damagePct",
+   "perPoint": 0.03
+  },
+  {
+   "target": "piercing_arrow",
+   "from": "steady_aim",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "rain_of_arrows",
+   "from": "multishot",
    "stat": "damagePct",
    "perPoint": 0.04
   }

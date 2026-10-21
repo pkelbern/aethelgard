@@ -1,10 +1,11 @@
 {
- "_comment": "Bases, affixes and drop rules. An affix only rolls on item types listed in its slots (no attack speed on body armor, no movement speed on a weapon); tags are kept for older rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears. rareNames = parts of rare item names: '<first> <second>'.",
+ "_comment": "Bases, affixes and drop rules. An affix only rolls on item types listed in its slots (no attack speed on body armor, no movement speed on a weapon); tags are kept for older rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears; startingBackpack = bases it carries. twoHanded (bows) = takes both hands: no shield and no second weapon. rangeTiles = how far a bow shoots. rareNames = parts of rare item names: '<first> <second>'.",
  "inventory": {
   "columns": 10,
   "rows": 6
  },
  "startingGear": ["short_sword", "buckler", "leather_armor"],
+ "startingBackpack": ["short_bow", "short_sword"],
  "trade": {
   "_comment": "Vendor prices. Item price = (basePrice + perItemLevel x iLvl + perAffix x affixes) x rarityMult[rarity]; the vendor pays sellFraction of that. The stock (stockSize items, normal and magic only, iLvl = character level) is rolled again every time you come to town. Consumables cost their own 'price'. npcRangeTiles = how close you must stand to trade or use the stash.",
   "basePrice": 20,
@@ -83,6 +84,58 @@
  },
  "bases": [
   {
+   "id": "short_bow",
+   "name": "Short Bow",
+   "slot": "mainhand",
+   "tags": ["bow"],
+   "twoHanded": true,
+   "rangeTiles": 7,
+   "level": 1,
+   "dmgMin": 2,
+   "dmgMax": 6,
+   "size": [2, 3],
+   "req": {"str": 0, "dex": 0}
+  },
+  {
+   "id": "hunters_bow",
+   "name": "Hunter's Bow",
+   "slot": "mainhand",
+   "tags": ["bow"],
+   "twoHanded": true,
+   "rangeTiles": 7.5,
+   "level": 4,
+   "dmgMin": 3,
+   "dmgMax": 8,
+   "size": [2, 3],
+   "req": {"str": 0, "dex": 15}
+  },
+  {
+   "id": "long_bow",
+   "name": "Long Bow",
+   "slot": "mainhand",
+   "tags": ["bow"],
+   "twoHanded": true,
+   "rangeTiles": 8.5,
+   "level": 9,
+   "dmgMin": 4,
+   "dmgMax": 11,
+   "size": [2, 3],
+   "req": {"str": 10, "dex": 25}
+  },
+  {
+   "id": "composite_bow",
+   "name": "Composite Bow",
+   "slot": "mainhand",
+   "tags": ["bow"],
+   "twoHanded": true,
+   "rangeTiles": 8,
+   "level": 13,
+   "dmgMin": 5,
+   "dmgMax": 14,
+   "size": [2, 3],
+   "req": {"str": 15, "dex": 35}
+  },
+ {
    "id": "long_dagger",
    "name": "Long Dagger",
    "slot": "mainhand",
@@ -474,6 +527,7 @@
     }
    ],
    "tags": [
+    "bow",
     "sword"
    ],
    "slots": ["mainhand"]
@@ -521,6 +575,7 @@
     }
    ],
    "tags": [
+    "bow",
     "sword",
     "jewelry",
     "armor"
@@ -546,6 +601,7 @@
     }
    ],
    "tags": [
+    "bow",
     "sword",
     "jewelry"
    ],
@@ -565,6 +621,7 @@
     }
    ],
    "tags": [
+    "bow",
     "sword",
     "armor"
    ],
@@ -633,6 +690,7 @@
     }
    ],
    "tags": [
+    "bow",
     "sword",
     "armor",
     "jewelry"
@@ -658,6 +716,7 @@
     }
    ],
    "tags": [
+    "bow",
     "sword",
     "armor",
     "shield",

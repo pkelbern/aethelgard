@@ -62,13 +62,15 @@ from .world_gen import AreaLayout, Exit, ExitKind
 TARGET_SKILLS = {"precise_strike", "shield_bash", "double_strike", "frenzy"}
 AREA_SKILLS = {"wide_slash", "whirling_blades"}
 TWO_HAND_HITS = {"double_strike", "frenzy", "whirling_blades"}  # one hit with each weapon in the same swing
+BOW_SKILLS = {"power_shot", "multishot", "piercing_arrow"}  # fire arrows; aimed at a target or at the mouse
 SELF_SKILLS = {"bulwark"}
 PROJECTILE_SKILLS = {"shield_throw"}
-IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS
+IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS | BOW_SKILLS
 # Passives whose effect the rules already read (combat.py, world.py); the rest are M3-05.
 IMPLEMENTED_PASSIVES = {
     "sharp_blade", "defensive_stance", "parry", "heavy_shield", "iron_skin", "recovery", "steadfast",
     "off_hand_training", "ambidexterity", "blade_guard", "bloodlust",
+    "steady_aim", "eagle_eye", "quick_draw", "hunters_mark",
 }
 
 
@@ -563,6 +565,10 @@ class World:
             return f"{node.name}: needs a shield"
         if node.tree == "dual_wield" and node.kind == "active" and not s.gear.dual_wielding:
             return f"{node.name}: needs two weapons"
+        if node.tree == "bows" and node.kind == "active" and not s.gear.has_bow:
+            return f"{node.name}: needs a bow"
+        if node.tree == "blades" and node.kind == "active" and not s.gear.has_blade:
+            return f"{node.name}: needs a one-hand blade"
         if skill_id not in IMPLEMENTED_SKILLS:
             return f"{node.name}: not implemented yet"
         if not p.cooldowns.ready(skill_id):
@@ -590,6 +596,12 @@ class World:
                 if abs(dx) + abs(dy) > 1e-6:
                     n = math.hypot(dx, dy)
                     p.face_x, p.face_y = dx / n, dy / n
+            p.path.clear()
+            p.target_id = None
+            p.pending_skill = cmd.skill_id
+            return None
+        if cmd.skill_id in BOW_SKILLS and (cmd.target_id is None or cmd.target_id not in self.monsters) and cmd.x is not None:
+            self._face(p, cmd.x - p.x, cmd.y - p.y)  # no target: shoot toward the mouse, from where you stand
             p.path.clear()
             p.target_id = None
             p.pending_skill = cmd.skill_id
@@ -673,8 +685,9 @@ class World:
                     p.target_id = None  # a skill is a single swing
             return
 
-        # area skill: starts in place
-        if p.pending_skill in AREA_SKILLS and not p.guarding:
+        # area skill (or a bow skill aimed at the ground): starts in place
+        in_place = p.pending_skill in AREA_SKILLS or (p.pending_skill in BOW_SKILLS and p.target_id is None)
+        if in_place and not p.guarding:
             if p.cooldowns.ready("global") and self.skill_block_reason(p, p.pending_skill) is None:
                 self._begin_attack(p, None, p.pending_skill)
             p.pending_skill = None
@@ -689,7 +702,7 @@ class World:
             t = self.monsters.get(p.target_id)
             if t is None or not t.alive:
                 p.target_id = p.pending_skill = None
-            elif math.hypot(t.x - p.x, t.y - p.y) <= MELEE_RANGE:
+            elif self.in_reach(p, t):
                 p.path.clear()
                 self._face(p, t.x - p.x, t.y - p.y)
                 if p.cooldowns.ready("global") and p.cooldowns.ready("attack"):
@@ -903,12 +916,28 @@ class World:
             if start_cooldown:
                 p.cooldowns.start("guard_raise", self.data.balance.guard.guard_raise_cooldown_seconds)
 
+    def player_reach(self, p: PlayerActor) -> float:
+        """Melee reach, or the bow's range (+ Eagle Eye)."""
+        s = p.session
+        if s.gear.has_bow:
+            return s.gear.main_hand.base.range_tiles + s.skills.effect("eagle_eye", "bowRangeTiles")
+        return MELEE_RANGE
+
+    def in_reach(self, p: PlayerActor, t: MonsterActor) -> bool:
+        """Close enough to strike, or (with a bow) in range and in sight."""
+        d = math.hypot(t.x - p.x, t.y - p.y)
+        if not p.session.gear.has_bow:
+            return d <= MELEE_RANGE
+        return d <= self.player_reach(p) and line_of_sight(self.layout, (p.x, p.y), (t.x, t.y))
+
     def attack_speed(self, p: PlayerActor) -> float:
         """Attack speed bonus: generic, plus Ambidexterity with two weapons, plus Frenzy stacks."""
         t = p.session.skills
         ias = t.stat_total("attackSpeedPct")
         if p.session.gear.dual_wielding:
             ias += t.effect("ambidexterity", "dualAttackSpeedPct")
+        if p.session.gear.has_bow:
+            ias += t.effect("quick_draw", "bowAttackSpeedPct")
         return ias + p.frenzy_stacks * t.effect("frenzy", "attackSpeedPerStackPct")
 
     def _begin_attack(self, p: PlayerActor, target_id: int | None, skill: str | None) -> None:
@@ -928,6 +957,9 @@ class World:
     def _player_hit(self, p: PlayerActor) -> None:
         s = p.session
         skill = p.attack_skill
+        if s.gear.has_bow:
+            self._shoot_arrows(p, skill)
+            return
         targets: list[MonsterActor] = []
         if skill in AREA_SKILLS:
             arc = s.skills.effect(skill, "arcDegrees")  # fixed arc (base); points raise the damage
@@ -939,8 +971,8 @@ class World:
             t = self.monsters.get(p.attack_target) if p.attack_target is not None else None
             if t and t.alive and math.hypot(t.x - p.x, t.y - p.y) <= MELEE_RANGE + 0.6:
                 targets.append(t)
-        # XP: a skill feeds its own tree; a plain swing feeds Blades, or Dual Wield when it is the off hand
-        prof = self.data.node(skill).tree if skill else ("dual_wield" if p.attack_hand == "off" else "blades")
+        # XP: a skill feeds its own tree; a plain swing feeds Dual Wield with two weapons, otherwise Blades
+        prof = self.data.node(skill).tree if skill else ("dual_wield" if s.gear.dual_wielding else "blades")
         hands = ("main", "off") if skill in TWO_HAND_HITS else (p.attack_hand,)
         for t in targets:
             for hand in hands:
@@ -1221,6 +1253,25 @@ class World:
                             owner="monster", owner_id=m.id, magic=d.magic, attack=m.attack, info=m.monster.xp_info)
         proj.aim(target.x, target.y)
 
+    def _shoot_arrows(self, p: PlayerActor, skill: str | None) -> None:
+        """A bow's shot: toward the target where it is now (or where the player faces), in straight lines."""
+        s, b = p.session, self.data.balance.bow
+        t = self.monsters.get(p.attack_target) if p.attack_target is not None else None
+        if t is not None and t.alive:
+            self._face(p, t.x - p.x, t.y - p.y)
+        base = math.atan2(p.face_y, p.face_x)
+        count, spread = 1, 0.0
+        if skill == "multishot":
+            count = max(1, math.floor(s.skills.effect("multishot", "arrows") + 1e-9))
+            spread = math.radians(s.skills.effect("multishot", "spreadDegrees"))
+        reach = self.player_reach(p) + 1.0
+        for k in range(count):
+            a = base + (spread * (k / (count - 1) - 0.5) if count > 1 else 0.0)
+            proj = self._launch(x=p.x, y=p.y, speed=b.arrow_speed, radius=b.arrow_radius, max_range=reach, look="arrow",
+                                owner="player", owner_id=p.player_id, skill=skill, prof=self.data.node(skill).tree if skill else "bows",
+                                pierce=skill == "piercing_arrow")
+            proj.dir_x, proj.dir_y = math.cos(a), math.sin(a)
+
     def _throw_shield(self, p: PlayerActor, cmd: UseSkill) -> str | None:
         s = p.session
         if p.busy or p.state == "attacking" or not p.cooldowns.ready("global"):
@@ -1232,7 +1283,7 @@ class World:
         e = s.skills.effect
         self._commit_skill(p, "shield_throw")
         proj = self._launch(x=p.x, y=p.y, speed=e("shield_throw", "projectileSpeed"), radius=0.25, max_range=e("shield_throw", "rangeTiles"),
-                            look="shield", owner="player", owner_id=p.player_id, skill="shield_throw",
+                            look="shield", owner="player", owner_id=p.player_id, skill="shield_throw", prof="shield",
                             bounces_left=math.floor(e("shield_throw", "bounces") + 1e-9), bounce_range=e("shield_throw", "bounceRangeTiles"))
         proj.aim(tx, ty)
         self._face(p, proj.dir_x, proj.dir_y)
@@ -1272,9 +1323,11 @@ class World:
         proj.hit_ids.add(t.id)
         r = s.combat.resolve_physical(player_attack(s.character, s.skills, s.gear, proj.skill), t.defense, s.combat_rng)
         if r.hit:
-            self._damage_monster(p, t, r.final, self.data.node(proj.skill).tree, crit=r.crit)
+            self._damage_monster(p, t, r.final, proj.prof or "bows", crit=r.crit)
         else:
             self._float(t.x, t.y, "missed", "miss")
+        if proj.pierce:
+            return True  # goes on through the line; hit_ids keeps it from hitting the same one twice
         if proj.bounces_left <= 0:
             return False
         nxt = min((m for m in self.monsters.values() if m.alive and m.id not in proj.hit_ids

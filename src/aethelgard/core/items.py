@@ -319,6 +319,15 @@ class Loadout:
         return self.off_hand is not None and "shield" in self.off_hand.base.tags
 
     @property
+    def has_bow(self) -> bool:
+        return self.main_hand is not None and "bow" in self.main_hand.base.tags
+
+    @property
+    def has_blade(self) -> bool:
+        """A one-hand blade in the main hand (Blades skills need it)."""
+        return self.main_hand is not None and "sword" in self.main_hand.base.tags
+
+    @property
     def dual_wielding(self) -> bool:
         return self.main_hand is not None and self.off_hand is not None and self.off_hand.base.dmg_max > 0
 

@@ -27,7 +27,7 @@ def test_off_hand_is_weaker_and_training_closes_the_gap(data):
     assert player_attack(s.character, s.skills, s.gear, None, "off").dmg_max <= 6, "never above full damage"
 
 
-def test_plain_swings_feed_blades_and_off_hand_swings_feed_dual_wield(data):
+def test_with_two_weapons_every_swing_feeds_only_dual_wield(data):
     s, w, p, m = dual(data, monster_dmg=(0.01, 0.01))
     profs = []
     s.bus.subscribe(DamageDealt, lambda e: profs.append(e.proficiency_id))
@@ -35,8 +35,8 @@ def test_plain_swings_feed_blades_and_off_hand_swings_feed_dual_wield(data):
 
     w.apply(AttackTarget(0, 1))
     run(w, 4)
-    assert "blades" in profs and "dual_wield" in profs
-    assert s.proficiencies["dual_wield"].xp > 0
+    assert profs and set(profs) == {"dual_wield"}, "Blades is for one blade used alone"
+    assert s.proficiencies["dual_wield"].xp > 0 and s.proficiencies["blades"].xp == 0
 
 
 def test_double_strike_hits_with_both_weapons_in_one_swing(data):

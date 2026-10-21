@@ -67,6 +67,7 @@ def test_newer_saves_are_refused(data):
 
 def test_collect_puts_each_drop_in_its_place(data):
     s = GameSession(data, 1)
+    s.inventory.items.clear()  # start from an empty backpack (new characters carry a bow and a sword)
     s.inventory.capacity = 1
     item = Item.plain(data.base("helm"))
     assert s.collect(GoldDrop(12)) and s.gold == 12
@@ -77,6 +78,7 @@ def test_collect_puts_each_drop_in_its_place(data):
 
 def test_kills_drop_loot_on_the_ground_and_picking_it_up_fills_the_backpack(data):
     s = GameSession(data, 9)
+    s.inventory.items.clear()  # start from an empty backpack (new characters carry a bow and a sword)
     w = World([s])
     w.enter_area("crypt", 2)  # the boss always drops magic items
     picked = []
@@ -158,6 +160,7 @@ def test_save_dir_can_be_overridden(monkeypatch, tmp_path):
 
 def test_equipping_swaps_in_place_and_checks_requirements(data):
     s = GameSession(data, 1)
+    s.inventory.items.clear()  # start from an empty backpack (new characters carry a bow and a sword)
     w = World([s])
     w.enter_area(data.town_id)
     round_shield = Item.plain(data.base("round_shield"))  # needs 20 Strength

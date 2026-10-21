@@ -10,7 +10,7 @@ from enum import Enum
 from .combat import CombatMath
 from .data import GameData
 from .events import EventBus
-from .items import GoldDrop, Inventory, ItemDrop, Loadout, LootGenerator, PotionDrop, ScrollDrop
+from .items import GoldDrop, Inventory, Item, ItemDrop, Loadout, LootGenerator, PotionDrop, ScrollDrop
 from .monsters import MonsterFactory, MonsterPack, PackKind, PackSpawner
 from .progression import (
     Allocate,
@@ -74,6 +74,8 @@ class GameSession:
         self.area_gen = AreaGenerator(data)
         self.gear = Loadout.starting(data)
         self.inventory = Inventory.for_data(data)
+        for base_id in data.items.starting_backpack:  # a bow and a second sword to try other weapons
+            self.inventory.add(Item.plain(data.base(base_id)))
         self.consumables: Counter[str] = Counter()
         self.waypoints: set[str] = {data.town_id}  # areas whose waypoint this character has touched
         self.gold = 0
@@ -111,11 +113,25 @@ class GameSession:
         if missing:
             need = ", ".join(f"{v} {self.data.stat(k).label}" for k, v in missing.items())
             return Equip.REQUIREMENTS, f"{item.name} needs {need}"
+        slot = slot or self.gear.auto_slot(item)
+        # two hands: a bow pushes out the off hand; a shield or second weapon pushes out a bow
+        main = self.gear.main_hand
+        bumped = None
+        if item.base.two_handed and slot == "mainhand":
+            bumped = "offhand"
+        elif slot == "offhand" and main is not None and main.base.two_handed:
+            bumped = "mainhand"
+        extra = self.gear.get(bumped) if bumped else None
+        if extra is not None and len(self.inventory.items) - 1 + (self.gear.get(slot) is not None) + 1 > self.inventory.capacity:
+            return Equip.BACKPACK_FULL, f"Backpack full: no room for your {extra.name}"
         previous = self.gear.equip(item, slot)
         if previous is None:
             self.inventory.items.pop(index)
         else:
             self.inventory.items[index] = previous  # a swap never needs a free cell
+        if extra is not None:
+            del self.gear.slots[bumped]
+            self.inventory.add(extra)
         return Equip.OK, f"Equipped {item.name}"
 
     def unequip(self, slot: str) -> tuple[Equip, str]:

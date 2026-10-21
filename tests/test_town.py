@@ -78,6 +78,7 @@ def test_waypoints_are_saved(data):
 
 def test_stash_moves_items_and_gold_only_beside_it(data):
     s, w, p = in_town(data)
+    s.inventory.items.clear()  # start from an empty backpack (new characters carry a bow and a sword)
     s.gold = 100
     s.inventory.add(Item.plain(data.base("ring")))
     p.x, p.y = 1.0, 1.0
