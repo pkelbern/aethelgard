@@ -1,4 +1,4 @@
-"""Projectiles: arrows, magic bolts and the thrown shield (GDD 8 and 6.3).
+"""Projectiles: arrows, magic bolts, spells and the thrown shield (GDD 8 and 6.3).
 
 They fly in a straight line from where they were fired toward where the target WAS, and never
 steer: stepping out of the line dodges them. Walls stop them. The world moves them and decides
@@ -39,6 +39,8 @@ class Projectile:
     skill: str | None = None  # the player's skill that fired it
     prof: str | None = None  # proficiency that gets the XP of a player's shot (Archery for arrows)
     pierce: bool = False  # goes on through every enemy in its line (Piercing Arrow)
+    element: str | None = None  # a spell (fire): always hits, resisted instead of armored (core/spells.py)
+    burst_radius: float = 0.0  # Fireball: bursts over this radius on the first enemy, a wall or the end of its flight
     bounces_left: int = 0
     bounce_range: float = 0.0
     traveled: float = 0.0

@@ -73,6 +73,16 @@
     { "id": "int",                        "label": "Intelligence",                         "format": "flat" },
     { "id": "fireDamage",                 "label": "fire damage",                          "format": "flat" },
     { "id": "magicFind",                  "label": "magic find",                           "format": "pct" },
-    { "id": "maxLife",                    "label": "life",                                 "format": "flat" }
+    { "id": "maxLife",                    "label": "life",                                 "format": "flat" },
+    { "id": "damageMin"                  , "label": "minimum damage"                      , "format": "flat", "signed": false },
+    { "id": "damageMax"                  , "label": "maximum damage"                      , "format": "flat", "signed": false },
+    { "id": "damagePerSecond"            , "label": "damage per second"                   , "format": "flat", "signed": false },
+    { "id": "fireDamagePct"              , "label": "fire damage"                         , "format": "pct" },
+    { "id": "burnPctOfHit"               , "label": "of the hit as burning"               , "format": "pct" },
+    { "id": "burnSeconds"                , "label": "burning time"                        , "format": "seconds", "signed": false },
+    { "id": "fasterCastPct"              , "label": "faster cast"                         , "format": "pct" },
+    { "id": "fireResistPierce"           , "label": "enemy fire resistance ignored"       , "format": "pct" },
+    { "id": "lengthTiles"                , "label": "length"                              , "format": "tiles", "signed": false },
+    { "id": "delaySeconds"               , "label": "delay"                               , "format": "seconds", "signed": false }
   ]
 }

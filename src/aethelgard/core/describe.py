@@ -72,6 +72,11 @@ def describe_item(data: GameData, item, missing: dict[str, int] | None = None) -
             lines.append(Line(stat_line(data.stat("blockReduction"), b.block_reduction), "stat"))
         if b.guard_efficiency > 0:
             lines.append(Line(stat_line(data.stat("guardEfficiency"), b.guard_efficiency), "stat"))
+    if b.spell:
+        spell = data.node(b.spell)
+        school = data.proficiency(spell.tree).name
+        lines.append(Line(f"+{b.spell_level} to {spell.name} while worn", "next"))
+        lines.append(Line(f"Cast {spell.name} with it, then gain a {school} level to learn the spell for good.", "muted"))
     lines += [Line(stat_line(data.stat(a.affix.stat), a.value), "next") for a in item.affixes]
     lines.append(Line(f"Item level {item.item_level}", "muted"))
     missing = missing or {}
@@ -113,6 +118,25 @@ def compare_items(data: GameData, item, equipped) -> list[Line]:
     return lines
 
 
+def _spell_status(data: GameData, trees: SkillTrees, node_id: str) -> list[Line]:
+    """Where a spell's level comes from, and how to learn it if it is not learned yet."""
+    n = data.node(node_id)
+    school = data.proficiency(n.tree).name
+    wands = [b.name for b in data.items.bases if b.spell == node_id]
+    granted = trees.points_in(node_id) - trees.points.get(node_id, 0) - (node_id in trees.learned)
+    out = []
+    if granted > 0:
+        out.append(Line(f"+{granted} from your wand", "stat"))
+    if node_id in trees.learned:
+        out.append(Line("Learned: it works without the wand.", "good"))
+    elif node_id in trees.training:
+        out.append(Line(f"Learning: your next {school} level teaches it for good.", "good"))
+    else:
+        out.append(Line(f"Learn it from a wand ({', '.join(wands)}): cast it while you wear the wand, "
+                        f"then gain a {school} level. Until then it takes no points.", "warn"))
+    return out
+
+
 def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented: bool = True) -> list[Line]:
     """Everything the player needs to decide on a point: effect in words, numbers now and next, cost, synergies."""
     n = data.node(node_id)
@@ -120,7 +144,7 @@ def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented:
     pts = trees.points_in(node_id)
     stats = [(sid, data.stat(sid)) for sid in trees.stats_of(node_id)]
 
-    kind = "Active skill" if n.kind == "active" else "Passive"
+    kind = "Spell" if n.spell else "Active skill" if n.kind == "active" else "Passive"
     lines = [Line(n.name, "title"), Line(f"{kind}  ·  {prof.name} tree  ·  unlocks at {prof.name} level {n.layer}", "subtitle")]
 
     shown = max(1, pts)  # an unlearned skill is described at its first level
@@ -128,6 +152,9 @@ def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented:
     lines.append(Line(n.description.format_map(words), "body"))
     if not implemented:
         lines.append(Line("Not in the prototype yet: points can be spent, the effect comes later.", "warn"))
+    if n.spell:
+        lines.append(Line(f"{n.spell.element.title()} damage: always hits and ignores armor; the enemy's {n.spell.element} resistance "
+                          "takes its share. Intelligence raises it.", "muted"))
 
     if n.kind == "active":
         if n.channeled:
@@ -138,6 +165,8 @@ def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented:
         lines.append(Line(cost, "stat"))
 
     lines.append(Line(f"Points: {pts}/{n.max_points}", "header"))
+    if n.spell:
+        lines += _spell_status(data, trees, node_id)
     visible = [(sid, st) for sid, st in stats if st.format != "flag"]
     if pts > 0:
         lines.append(Line(f"Current level ({pts})", "header"))
@@ -166,7 +195,9 @@ def describe_skill(data: GameData, trees: SkillTrees, node_id: str, implemented:
                               f"  (now {format_value(st, now, signed=True, exact=True)})", "stat"))
 
     r = trees.can_allocate(node_id)
-    if r is Allocate.LAYER_LOCKED:
+    if r is Allocate.NOT_LEARNED:
+        pass  # _spell_status already says how to learn it
+    elif r is Allocate.LAYER_LOCKED:
         lines.append(Line(f"Requires {prof.name} level {n.layer} (now {trees.level_of(n.tree)}).", "warn"))
     elif r is Allocate.NO_POINTS:
         lines.append(Line(f"No free {prof.name} points.", "muted"))

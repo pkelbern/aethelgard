@@ -178,24 +178,17 @@ class GuardProfile:
     block_reduction: float = 0.0
 
 
-BASE_ACCURACY = 20.0
-DEFENSE_PER_DEX = 2.0
-ACCURACY_PER_DEX = 5.0
-CRIT_PER_DEX = 0.002
-DAMAGE_PER_STR = 0.01
-
-
 def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: str = "main") -> AttackerStats:
-    """STR: +1% damage per point. DEX: +5 accuracy and +0.2% crit per point (GDD 4.2)."""
-    a = sheet.attributes
+    """STR: damage per point. DEX: accuracy and crit per point (GDD 4.2; balance.json attributes)."""
+    a, ap = sheet.attributes, sheet.data.balance.attributes
     w = gear.weapon(hand)
     dmg_min, dmg_max = (w.base.dmg_min, w.base.dmg_max) if w else (1, 2)
     if hand == "off" and gear.dual_wielding:  # the weaker hand (Off-Hand Training narrows the gap)
         mult = min(1.0, sheet.data.balance.dual_wield.off_hand_damage_mult + skills.effect("off_hand_training", "offHandDamagePct"))
         dmg_min, dmg_max = dmg_min * mult, dmg_max * mult
-    bonus = a.str * DAMAGE_PER_STR
-    acc = BASE_ACCURACY + a.dex * ACCURACY_PER_DEX
-    crit = min(0.5, a.dex * CRIT_PER_DEX)
+    bonus = a.str * ap.damage_per_str
+    acc = ap.base_accuracy + a.dex * ap.accuracy_per_dex
+    crit = min(0.5, a.dex * ap.crit_per_dex)
     tags = w.base.tags if w else []
     if "sword" in tags:  # Sharp Blade: one-hand blades only
         bonus += skills.effect("sharp_blade", "swordDamagePct")
@@ -212,7 +205,7 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: 
 def player_defense(sheet, skills, gear: Loadout) -> DefenderStats:
     # Iron Skin raises all armor; Heavy Shield only the shield's own (nothing without a shield)
     armor = gear.armor * (1 + skills.effect("iron_skin", "armorPct")) + gear.shield_armor * skills.effect("heavy_shield", "shieldArmorPct")
-    return DefenderStats(sheet.level, sheet.attributes.dex * DEFENSE_PER_DEX, armor)
+    return DefenderStats(sheet.level, sheet.attributes.dex * sheet.data.balance.attributes.defense_per_dex, armor)
 
 
 def player_guard(skills, gear: Loadout, g: GuardParams) -> GuardProfile:

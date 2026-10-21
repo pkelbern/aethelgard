@@ -41,6 +41,7 @@ from .events import (
     PlayerDied,
     ProficiencyLeveledUp,
     SkillUsed,
+    SpellLearned,
     StashChanged,
     WaypointReached,
 )
@@ -50,6 +51,7 @@ from .pathfinding import find_path
 from .projectiles import Projectile, line_of_sight
 from .rng import Rng
 from .session import Equip, GameSession
+from .spells import SpellCaster
 from .timing import (
     Cooldowns,
     monster_hit_recovery,
@@ -67,12 +69,14 @@ TWO_HAND_HITS = {"double_strike", "frenzy", "whirling_blades"}  # one hit with e
 BOW_SKILLS = {"power_shot", "multishot", "piercing_arrow"}  # fire arrows; aimed at a target or at the mouse
 SELF_SKILLS = {"bulwark"}
 PROJECTILE_SKILLS = {"shield_throw"}
-IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS | BOW_SKILLS
+SPELL_SKILLS = {"fire_bolt", "fireball", "fire_wall", "meteor"}  # cast in place toward a point (core/spells.py)
+IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS | BOW_SKILLS | SPELL_SKILLS
 # Passives whose effect the rules already read (combat.py, world.py); the rest are M3-05.
 IMPLEMENTED_PASSIVES = {
     "sharp_blade", "defensive_stance", "parry", "heavy_shield", "iron_skin", "recovery", "steadfast",
     "off_hand_training", "ambidexterity", "blade_guard", "bloodlust",
     "steady_aim", "eagle_eye", "quick_draw", "hunters_mark",
+    "kindling", "ignite", "quick_casting", "searing_heat",
 }
 
 
@@ -355,6 +359,11 @@ class MonsterActor:
     base_speed: float = 3.75  # tiles/s before the type's moveSpeed (balance.json → movement)
     swing_seconds: float = 0.6  # longest swing animation (balance.json → timing.monsterSwingSeconds)
     buffs: dict[str, float] = field(default_factory=dict)  # from leader auras, refreshed every step
+    burn_dps: float = 0.0  # Ignite: fire damage per second while burn_left > 0 (core/spells.py)
+    burn_left: float = 0.0
+    burn_tick: float = 0.0
+    burn_owner: int = 0
+    burn_prof: str = ""
 
     @property
     def id(self) -> int:
@@ -385,6 +394,10 @@ class MonsterActor:
     @property
     def ranged(self) -> bool:
         return self.monster.type.projectile is not None
+
+    def resist(self, element: str) -> float:
+        """Share of that element's spell damage it ignores: its type's, plus modifiers (Fire Enchanted)."""
+        return self.monster.type.resist.get(element, 0.0) + self.stat(f"{element}Resist")
 
     @property
     def defense(self):
@@ -427,6 +440,7 @@ class World:
         self.monsters: dict[int, MonsterActor] = {}
         self.projectiles: dict[int, Projectile] = {}
         self._next_projectile = 1
+        self.spells = SpellCaster(self)
         self.ground: dict[int, GroundItem] = {}
         self._next_ground = 1
         self.portals: dict[int, TownPortal] = {}
@@ -441,6 +455,7 @@ class World:
         for p in self.players.values():
             p.reset_vitals()
         self.bus.subscribe(ProficiencyLeveledUp, self._on_level_up)
+        self.bus.subscribe(SpellLearned, self._on_spell_learned)
 
     # ------------------------------------------------------------ areas
 
@@ -460,6 +475,7 @@ class World:
             self.monsters, self.ground = {}, {}
         self.layout, self.area_id, self.floor = layout, area_id, floor
         self.projectiles.clear()
+        self.spells.clear()
         if area_id == self.data.town_id:  # the merchant has new wares every time you come back
             self._town_visits += 1
             level = max(p.session.character.level for p in self.players.values())
@@ -606,6 +622,8 @@ class World:
             return f"{node.name}: needs a bow"
         if node.tree == "blades" and node.kind == "active" and not s.gear.has_blade:
             return f"{node.name}: needs a one-hand blade"
+        if node.spell is not None and p.guarding:
+            return f"{node.name}: lower your guard to cast"
         if skill_id not in IMPLEMENTED_SKILLS:
             return f"{node.name}: not implemented yet"
         if not p.cooldowns.ready(skill_id):
@@ -633,6 +651,17 @@ class World:
                 if abs(dx) + abs(dy) > 1e-6:
                     n = math.hypot(dx, dy)
                     p.face_x, p.face_y = dx / n, dy / n
+            p.path.clear()
+            p.target_id = None
+            p.pending_skill = cmd.skill_id
+            return None
+        if cmd.skill_id in SPELL_SKILLS:  # cast from where you stand, toward the target or the mouse
+            t = self.monsters.get(cmd.target_id) if cmd.target_id is not None else None
+            ax, ay = (t.x, t.y) if t is not None else (cmd.x, cmd.y)
+            if ax is None or ay is None:
+                return "no target"
+            self._face(p, ax - p.x, ay - p.y)
+            p.aim_x, p.aim_y = ax, ay
             p.path.clear()
             p.target_id = None
             p.pending_skill = cmd.skill_id
@@ -668,6 +697,7 @@ class World:
             if m.alive:
                 self._step_monster(m, dt)
         self._step_projectiles(dt)
+        self.spells.step(dt)
 
     def _step_player(self, p: PlayerActor, dt: float) -> None:
         if p.state == "dead":
@@ -715,7 +745,8 @@ class World:
         # attack in progress
         if p.state == "attacking":
             p.attack_elapsed += dt
-            if not p.attack_hit_done and p.attack_elapsed >= p.attack_duration * self.timing.attack_hit_fraction:
+            release = self.data.balance.magic.cast_release_fraction if p.attack_skill in SPELL_SKILLS else self.timing.attack_hit_fraction
+            if not p.attack_hit_done and p.attack_elapsed >= p.attack_duration * release:
                 p.attack_hit_done = True
                 self._player_hit(p)
             if p.attack_elapsed >= p.attack_duration:
@@ -725,7 +756,8 @@ class World:
             return
 
         # area skill (or a bow skill aimed at the ground): starts in place
-        in_place = p.pending_skill in AREA_SKILLS or (p.pending_skill in BOW_SKILLS and p.target_id is None)
+        in_place = (p.pending_skill in AREA_SKILLS or p.pending_skill in SPELL_SKILLS
+                    or (p.pending_skill in BOW_SKILLS and p.target_id is None))
         if in_place and not p.guarding:
             if p.cooldowns.ready("global") and self.skill_block_reason(p, p.pending_skill) is None:
                 self._begin_attack(p, None, p.pending_skill)
@@ -989,7 +1021,8 @@ class World:
         ias = self.attack_speed(p)
         p.state = "attacking"
         p.attack_elapsed = 0.0
-        p.attack_duration = self.timing.attack_seconds / (1 + ias)
+        spell = skill in SPELL_SKILLS
+        p.attack_duration = self.spells.cast_seconds(p) if spell else self.timing.attack_seconds / (1 + ias)
         p.attack_hit_done = False
         p.attack_skill = skill
         p.attack_target = target_id
@@ -1002,6 +1035,9 @@ class World:
     def _player_hit(self, p: PlayerActor) -> None:
         s = p.session
         skill = p.attack_skill
+        if skill in SPELL_SKILLS:
+            self.spells.release(p, skill)
+            return
         if s.gear.has_bow:
             self._shoot_arrows(p, skill)
             return
@@ -1045,7 +1081,7 @@ class World:
                 self._knock_back(t, p.x, p.y, s.skills.effect("shield_bash", "knockbackTiles"))
                 self._stun_monster(t, s.skills.effect("shield_bash", "stunSeconds"))
 
-    def _damage_monster(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str, crit: bool = False) -> None:
+    def _damage_monster(self, p: PlayerActor, t: MonsterActor, amount: float, prof: str, crit: bool = False, recover: bool = True) -> None:
         eff = t.monster.take_damage(amount)
         self.bus.publish(DamageDealt(prof, t.monster.xp_info, eff, p.player_id))
         if eff > 0 and p.session.gear.dual_wielding:  # Bloodlust
@@ -1055,7 +1091,7 @@ class World:
         if not t.alive:
             self._kill(t, p)
             return
-        rec = monster_hit_recovery(self.timing, amount, t.monster.max_hp, t.monster.rank.id)
+        rec = monster_hit_recovery(self.timing, amount, t.monster.max_hp, t.monster.rank.id) if recover else 0.0
         if rec > 0 and t.state != "stunned":
             t.state, t.state_left = "hit_recovery", rec
             t.attack_elapsed, t.attack_hit_done = 0.0, False  # swing interrupted
@@ -1363,6 +1399,8 @@ class World:
         for proj in list(self.projectiles.values()):
             if not self._fly(proj, dt):
                 del self.projectiles[proj.id]
+                if proj.element is not None:
+                    self.spells.projectile_end(proj)  # a Fireball bursts on walls and at the end of its flight
 
     def _fly(self, proj: Projectile, dt: float) -> bool:
         """Moves one projectile. False when it is gone (hit, wall, out of range)."""
@@ -1384,6 +1422,8 @@ class World:
         return not proj.spent
 
     def _player_projectile_hit(self, proj: Projectile, t: MonsterActor) -> bool:
+        if proj.element is not None:
+            return self.spells.projectile_hit(proj, t)
         p = self.players.get(proj.owner_id)
         if p is None:
             return False
@@ -1427,6 +1467,11 @@ class World:
             p.life = min(p.max_life, p.life + p.max_life * self.data.balance.character.level_up_heal_pct)
             name = p.session.proficiencies[e.proficiency_id].name
             self._float(p.x, p.y, f"{name} {e.new_level}!", "levelup")
+
+    def _on_spell_learned(self, e: SpellLearned) -> None:
+        p = self.players.get(e.player_id)
+        if p is not None:
+            self._float(p.x, p.y, f"Learned {self.data.node(e.node_id).name}!", "levelup")
 
     def _float(self, x: float, y: float, text: str, kind: str) -> None:
         self.bus.publish(FloatingText(x, y, text, kind))

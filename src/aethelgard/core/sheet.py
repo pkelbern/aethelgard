@@ -10,16 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .combat import (
-    ACCURACY_PER_DEX,
-    BASE_ACCURACY,
-    CRIT_PER_DEX,
-    DAMAGE_PER_STR,
-    DEFENSE_PER_DEX,
-    player_attack,
-    player_defense,
-    player_guard,
-)
+from .combat import player_attack, player_defense, player_guard
 from .describe import Line
 
 
@@ -47,7 +38,7 @@ def _num(v: float) -> str:
 def character_sheet(world, player) -> list[Section]:
     s = player.session
     d = s.data
-    c = d.balance.character
+    c, ap = d.balance.character, d.balance.attributes
     sheet, a = s.character, s.character.attributes
     lvl = sheet.level
     mon = d.monster_level(max(1, lvl))
@@ -86,10 +77,10 @@ def character_sheet(world, player) -> list[Section]:
     # ---- attributes
     sec = Section("Attributes")
     attr_help = {
-        "str": f"+{_pct(DAMAGE_PER_STR)} damage per point. Item requirements.",
-        "dex": f"+{_num(ACCURACY_PER_DEX)} accuracy, +{_pct(CRIT_PER_DEX)} critical chance and +{_num(DEFENSE_PER_DEX)} defense per point.",
+        "str": f"+{_pct(ap.damage_per_str)} damage per point. Item requirements.",
+        "dex": f"+{_num(ap.accuracy_per_dex)} accuracy, +{_pct(ap.crit_per_dex)} critical chance and +{_num(ap.defense_per_dex)} defense per point.",
         "vit": f"+{_num(c.life_per_vit)} life per point and +1 Energy per 2 points.",
-        "int": f"+{_num(c.energy_per_int)} Energy per point.",
+        "int": f"+{_num(c.energy_per_int)} Energy and +{_pct(ap.spell_damage_per_int)} spell damage per point.",
     }
     for k in ("str", "dex", "vit", "int"):
         v = getattr(a, k)
@@ -142,10 +133,17 @@ def character_sheet(world, player) -> list[Section]:
                          "attack speed comes from items, Ambidexterity, Quick Draw and Frenzy stacks.", "muted"),
                     Line("Basic attacks only, before the monster's armor.", "muted")]))
     sec.rows.append(Row("Accuracy", f"{atk.accuracy:.0f}", [Line("Accuracy", "title"),
-                    Line(f"{_num(BASE_ACCURACY)} + {_num(ACCURACY_PER_DEX)} per Dexterity ({a.dex}), raised by skills.", "body"),
+                    Line(f"{_num(ap.base_accuracy)} + {_num(ap.accuracy_per_dex)} per Dexterity ({a.dex}), raised by skills.", "body"),
                     Line(f"Chance to hit a level {mon.level} monster: {_pct(hit)} (always between 5% and 95%).", "next")]))
     sec.rows.append(Row("Critical chance", _pct(atk.crit_chance), [Line("Critical chance", "title"),
-                    Line(f"{_pct(CRIT_PER_DEX)} per Dexterity, plus Hunter's Mark with bows.", "body")]))
+                    Line(f"{_pct(ap.crit_per_dex)} per Dexterity, plus Hunter's Mark with bows.", "body")]))
+    from_int = a.int * ap.spell_damage_per_int
+    fire = s.skills.stat_total("fireDamagePct")
+    sec.rows.append(Row("Spell damage", f"+{_pct(from_int + fire)}", [Line("Spell damage", "title"),
+                    Line(f"{_pct(ap.spell_damage_per_int)} per Intelligence ({a.int}): +{_pct(from_int)}. "
+                         f"Fire spells: +{_pct(fire)} more from Kindling.", "body"),
+                    Line("Spells always hit and ignore armor; the enemy's resistance to the element takes its share. "
+                         "Learn spells from wands (hover a spell in the skill trees).", "muted")]))
     reach = world.player_reach(player)
     sec.rows.append(Row("Reach", f"{reach:.1f} tiles", [Line("Reach", "title"),
                     Line("How far you strike from: a bow's range (Eagle Eye adds to it), or arm's length in melee, "
@@ -157,7 +155,7 @@ def character_sheet(world, player) -> list[Section]:
     df = player_defense(sheet, s.skills, gear)
     dodge = 1 - cm.hit_chance(mon.accuracy, df.defense, mon.level, lvl)
     sec.rows.append(Row("Defense", f"{df.defense:.0f}", [Line("Defense", "title"),
-                    Line(f"{_num(DEFENSE_PER_DEX)} per Dexterity. It makes enemies miss.", "body"),
+                    Line(f"{_num(ap.defense_per_dex)} per Dexterity. It makes enemies miss.", "body"),
                     Line(f"A level {mon.level} monster misses you {_pct(dodge)} of the time (never with your guard up and facing it).", "next")]))
     red = cm.armor_reduction(df.armor, mon.level)
     sec.rows.append(Row("Armor", f"{df.armor:.0f}", [Line("Armor", "title"),

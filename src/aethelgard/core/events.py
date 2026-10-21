@@ -88,6 +88,24 @@ class ProficiencyLeveledUp:
 
 
 @dataclass(frozen=True)
+class SpellLearned:
+    """A spell cast from a wand is now the character's own (its tree gained a level)."""
+
+    node_id: str
+    player_id: int = 0
+
+
+@dataclass(frozen=True)
+class SpellBurst:
+    """A spell went off at (x, y): a fireball bursting, a meteor landing. For the client's effects."""
+
+    x: float
+    y: float
+    radius: float
+    look: str
+
+
+@dataclass(frozen=True)
 class FloatingText:
     x: float
     y: float

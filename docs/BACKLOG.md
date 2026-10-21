@@ -10,7 +10,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M0 – Base | 4 | 0 | 8 | 2.5 |
 | M1 – Combate | 6 | 9 | 17 | 4.7 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
-| M3 – Árvores | 2 | 3 | 9 | 8 |
+| M3 – Árvores | 2 | 4 | 12 | 18 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 2 | 8 | 6 |
 | M6 – Loot | 2 | 4 | 8 | 3.5 |
@@ -121,6 +121,13 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M3-09** Arcos e árvore Archery _(código, ~3 d)_ — **escrito, validar**  
   5ª proficiência (todo tiro de arco; 3 DES por nível). Arco é de duas mãos (tira escudo e segunda arma; mochila cheia recusa), atira flecha reta de longe com linha de visão. Árvore: Power Shot, Steady Aim, Multishot (leque que abre perto e fecha longe: cobre spreadTiles de largura na distância do alvo, entre 8° e 70°), Eagle Eye (alcance), Piercing Arrow (atravessa), Quick Draw, Rain of Arrows (falta implementar), Hunter's Mark. 4 bases de arco. Personagem novo leva um arco e uma segunda espada na mochila. Falta: arte do arco equipado (sprites.json gear).
 
+- [ ] **M3-10** Magia: base e escola Pyromancy (fogo, dano em área) _(código, ~4 d)_ — **escrito, validar**  
+  6ª proficiência (perfil 3 INT; XP do dano das magias). Magias se aprendem com varinhas: a varinha (mão secundária, slot 'wand') dá o nível da magia enquanto está equipada; lançar a magia com ela a coloca "em treino", e o próximo nível da escola a ensina (1 ponto grátis), daí funciona sem varinha e aceita pontos; varinha equipada soma o nível dela. Magia sempre acerta, ignora armadura e sofre a resistência do alvo (zumbi −25%, esqueletos −10%, xamã e necromante +20%, Fire Enchanted +50%); +1% de dano mágico por INT (balance.json attributes). Árvore: Fire Bolt, Kindling, Fireball (explode em área), Ignite (queima), Fire Wall, Quick Casting, Meteor, Searing Heat. Varinhas: Ember (Fire Bolt, nível 1, todo personagem novo leva uma), Cinder (Fireball, iLvl 5), Blaze (Fire Wall, iLvl 10), Star (Meteor, iLvl 16). Títulos Pyromancer, Arcane Blade, Battlemage, Hellknight, Flamedancer, Flame Archer. core/spells.py; cliente em client/spell_view.py (fogo no chão, explosões, meteoro caindo, monstros queimando). Validar no jogo: custo de Energia e dano do Fire Bolt nos níveis 1–6.
+- [ ] **M3-11** Escola de suporte (cura e bênçãos) _(código, ~3 d)_  
+  Mesmo modelo da Pyromancy (aprende pela varinha). A definir: nome, nós, como ganha XP (vida curada? tempo de bênção em combate?).
+- [ ] **M3-12** Escola de defesa (barreiras e proteções) _(código, ~3 d)_  
+  Mesmo modelo; XP pelo dano que as barreiras absorvem (como a Armadura).
+
 ## M4 – Monstros
 
 **Pronto quando:** Spawns seguem a distribuição; modificadores e IA por arquétipo
@@ -193,7 +200,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 **Pronto quando:** 5 pessoas de fora terminam o Ato 1; feedback coletado
 
 - [ ] **M7-10** Ficha do personagem (C) _(UI, ~1 d)_ — **escrito, validar**  
-  core/sheet.py monta as linhas com as mesmas fórmulas do combate (nível, título, ouro, proficiências com XP, atributos, vida/energia e regeneração, dano, DPS médio (ataques/s × dano médio com críticos × chance de acerto), precisão com chance de acerto contra monstro do mesmo nível, crítico, alcance, defesa com chance de errar, armadura com redução, bloqueio). Passar o mouse numa linha explica de onde vem o número. Regeneração de Energia (2%/s, 0,5%/s com guarda) foi para balance.json. Falta: as constantes de atributo (5 precisão/DES, 0,2% crítico/DES, 1% dano/FOR) têm nome em combat.py mas ainda não estão num JSON.
+  core/sheet.py monta as linhas com as mesmas fórmulas do combate (nível, título, ouro, proficiências com XP, atributos, vida/energia e regeneração, dano, DPS médio (ataques/s × dano médio com críticos × chance de acerto), precisão com chance de acerto contra monstro do mesmo nível, crítico, alcance, defesa com chance de errar, armadura com redução, bloqueio). Passar o mouse numa linha explica de onde vem o número. Regeneração de Energia (2%/s, 0,5%/s com guarda) foi para balance.json. O que cada ponto de atributo faz (precisão, crítico e defesa por DES, dano por FOR, dano mágico por INT) está em balance.json attributes.
 - [ ] **M7-01** Direção de arte e pipeline 3D → sprite _(arte, ~5 d)_  
   Definir paleta e escala; protótipo de personagem em 8 direções renderizado no Blender.
 - [ ] **M7-02** Tileset dos 3 biomas do Ato 1 _(arte, ~5 d)_ — **escrito, validar**  

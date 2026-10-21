@@ -1,5 +1,5 @@
 {
-  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C).",
+  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C). Pyromancy = fire spells: XP from every spell of its tree, cast from a wand or learned (spells are learned from wands, see skills.json).",
   "proficiencies": [
     {
       "id": "blades",
@@ -73,6 +73,21 @@
         "bow"
       ],
       "description": "XP from every arrow that hits, and from Archery skills."
+    },
+    {
+      "id": "pyromancy",
+      "name": "Pyromancy",
+      "xpSource": "offense",
+      "attributes": {
+        "str": 0,
+        "dex": 0,
+        "vit": 0,
+        "int": 3
+      },
+      "weaponTags": [
+        "wand"
+      ],
+      "description": "XP from fire damage dealt with Pyromancy spells, cast from a wand or learned."
     }
   ],
   "titles": [
@@ -175,6 +190,47 @@
         "bows"
       ],
       "title": "Stalker"
+    },
+    {
+      "ids": [
+        "pyromancy"
+      ],
+      "title": "Pyromancer"
+    },
+    {
+      "ids": [
+        "blades",
+        "pyromancy"
+      ],
+      "title": "Arcane Blade"
+    },
+    {
+      "ids": [
+        "shield",
+        "pyromancy"
+      ],
+      "title": "Battlemage"
+    },
+    {
+      "ids": [
+        "armor",
+        "pyromancy"
+      ],
+      "title": "Hellknight"
+    },
+    {
+      "ids": [
+        "dual_wield",
+        "pyromancy"
+      ],
+      "title": "Flamedancer"
+    },
+    {
+      "ids": [
+        "bows",
+        "pyromancy"
+      ],
+      "title": "Flame Archer"
     }
   ],
   "titleSecondaryThreshold": 0.5,

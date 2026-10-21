@@ -1,5 +1,5 @@
 {
- "_comment": "Trees per proficiency. layer = proficiency level that unlocks the node. effects = value gained PER POINT; after 'diminishingAfter' points the gain is halved. base = fixed value the node has once learned, not multiplied by points (Wide Slash arc, Shield Bash stun, Bulwark 3 s + 0.2 s per point). synergies: bonus THIS node gets per point invested in 'from'. cooldown = cooldown in seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); the keys for each slot are in ui/keys.json.",
+ "_comment": "Trees per proficiency. layer = proficiency level that unlocks the node. effects = value gained PER POINT; after 'diminishingAfter' points the gain is halved. base = fixed value the node has once learned, not multiplied by points (Wide Slash arc, Shield Bash stun, Bulwark 3 s + 0.2 s per point). synergies: bonus THIS node gets per point invested in 'from'. cooldown = cooldown in seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); the keys for each slot are in ui/keys.json. spell = the node is a spell (cast: bolt | ball | wall | meteor; element; look = how the client draws it). A spell takes no points until it is learned: cast it from a wand that carries it (items.json bases 'spell'); the next level of its proficiency then teaches it (1 free point), and from then on it works without the wand and takes points like any skill. A worn wand also adds its spellLevel. damageMin/damageMax = fire damage of one hit, raised by Intelligence (balance.json attributes) and fire damage bonuses.",
  "diminishingAfter": 8,
  "barSlots": 6,
  "nodes": [
@@ -602,6 +602,170 @@
    "effects": {
     "bowCritChance": 0.02
    }
+  },
+  {
+   "id": "fire_bolt",
+   "tree": "pyromancy",
+   "name": "Fire Bolt",
+   "shortName": "Bolt",
+   "layer": 1,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 2.5,
+   "cooldown": 0.0,
+   "spell": {
+    "cast": "bolt",
+    "element": "fire",
+    "look": "firebolt"
+   },
+   "description": "A bolt of fire flies straight toward where you aim and burns the first enemy it meets for {damageMin}–{damageMax} fire damage. Spells always hit and armor does not stop them.",
+   "effects": {
+    "damageMin": 1.5,
+    "damageMax": 2.5
+   },
+   "base": {
+    "damageMin": 1.5,
+    "damageMax": 3.5,
+    "projectileSpeed": 12,
+    "rangeTiles": 14
+   }
+  },
+  {
+   "id": "kindling",
+   "tree": "pyromancy",
+   "name": "Kindling",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{fireDamagePct} fire damage.",
+   "effects": {
+    "fireDamagePct": 0.07
+   }
+  },
+  {
+   "id": "fireball",
+   "tree": "pyromancy",
+   "name": "Fireball",
+   "shortName": "Ball",
+   "layer": 6,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 5,
+   "cooldown": 0.0,
+   "spell": {
+    "cast": "ball",
+    "element": "fire",
+    "look": "fireball"
+   },
+   "description": "A ball of fire that bursts on the first enemy or wall it meets, or where its flight ends: {damageMin}–{damageMax} fire damage to every enemy within {radiusTiles}.",
+   "effects": {
+    "damageMin": 3,
+    "damageMax": 5
+   },
+   "base": {
+    "damageMin": 5,
+    "damageMax": 9,
+    "radiusTiles": 1.5,
+    "projectileSpeed": 10,
+    "rangeTiles": 14
+   }
+  },
+  {
+   "id": "ignite",
+   "tree": "pyromancy",
+   "name": "Ignite",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Fire hits set the enemy burning: it takes {burnPctOfHit} of the hit again over {burnSeconds}.",
+   "effects": {
+    "burnPctOfHit": 0.06
+   },
+   "base": {
+    "burnPctOfHit": 0.04,
+    "burnSeconds": 3
+   }
+  },
+  {
+   "id": "fire_wall",
+   "tree": "pyromancy",
+   "name": "Fire Wall",
+   "shortName": "Wall",
+   "layer": 12,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 12,
+   "cooldown": 2.0,
+   "spell": {
+    "cast": "wall",
+    "element": "fire",
+    "look": "fire_wall"
+   },
+   "description": "A wall of flames {lengthTiles} long rises across your aim where you point (up to {rangeTiles} away) for {durationSeconds}. Enemies in it take {damagePerSecond} fire damage per second.",
+   "effects": {
+    "damagePerSecond": 4
+   },
+   "base": {
+    "damagePerSecond": 8,
+    "lengthTiles": 5,
+    "durationSeconds": 3.5,
+    "rangeTiles": 12
+   }
+  },
+  {
+   "id": "quick_casting",
+   "tree": "pyromancy",
+   "name": "Quick Casting",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{fasterCastPct} faster casting.",
+   "effects": {
+    "fasterCastPct": 0.04
+   }
+  },
+  {
+   "id": "meteor",
+   "tree": "pyromancy",
+   "name": "Meteor",
+   "shortName": "Meteor",
+   "layer": 18,
+   "kind": "active",
+   "maxPoints": 15,
+   "energyCost": 16,
+   "cooldown": 3.0,
+   "spell": {
+    "cast": "meteor",
+    "element": "fire",
+    "look": "meteor"
+   },
+   "description": "After {delaySeconds} a meteor falls where you point (up to {rangeTiles} away): {damageMin}–{damageMax} fire damage within {radiusTiles}, and the ground burns for {durationSeconds} ({damagePerSecond} per second).",
+   "effects": {
+    "damageMin": 10,
+    "damageMax": 14,
+    "damagePerSecond": 2
+   },
+   "base": {
+    "damageMin": 30,
+    "damageMax": 46,
+    "radiusTiles": 2.5,
+    "delaySeconds": 1.2,
+    "durationSeconds": 3,
+    "damagePerSecond": 6,
+    "rangeTiles": 14
+   }
+  },
+  {
+   "id": "searing_heat",
+   "tree": "pyromancy",
+   "name": "Searing Heat",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Your fire ignores {fireResistPierce} of the enemy's fire resistance (never below zero).",
+   "effects": {
+    "fireResistPierce": 0.03
+   }
   }
  ],
  "synergies": [
@@ -682,6 +846,30 @@
    "from": "multishot",
    "stat": "damagePct",
    "perPoint": 0.04
+  },
+  {
+   "target": "fire_bolt",
+   "from": "fireball",
+   "stat": "damagePct",
+   "perPoint": 0.06
+  },
+  {
+   "target": "fireball",
+   "from": "fire_bolt",
+   "stat": "damagePct",
+   "perPoint": 0.06
+  },
+  {
+   "target": "fire_wall",
+   "from": "ignite",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "meteor",
+   "from": "fireball",
+   "stat": "damagePct",
+   "perPoint": 0.05
   }
  ]
 }

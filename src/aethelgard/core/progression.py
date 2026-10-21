@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
@@ -301,17 +302,28 @@ class Allocate(Enum):
     NO_POINTS = "no points left in this tree"
     LAYER_LOCKED = "layer still locked"
     MAXED_OUT = "already maxed out"
+    NOT_LEARNED = "learn this spell from a wand first"
     UNKNOWN = "unknown node"
 
 
 class SkillTrees:
-    """1 point per proficiency level in its own tree, level 1 included (GDD 6.1)."""
+    """1 point per proficiency level in its own tree, level 1 included (GDD 6.1).
 
-    def __init__(self, data: SkillsData, profs: ProficiencySet):
+    Spells (nodes with ``spell``) are learned from wands: while a wand is worn its spell has the wand's
+    levels (``granted``, read from the gear every time); casting it from the wand puts it in training,
+    and the next level of its proficiency teaches it for good (``learned``: 1 free level, then it takes
+    points like any node). ``points_in`` adds all three, so every rule that reads a node's level
+    (effects, the action bar, the cast) sees the same number.
+    """
+
+    def __init__(self, data: SkillsData, profs: ProficiencySet, granted: Callable[[], dict[str, int]] | None = None):
         self._d = data
         self._profs = profs
         self._nodes = {n.id: n for n in data.nodes}
-        self.points: dict[str, int] = {}
+        self._granted = granted or dict
+        self.points: dict[str, int] = {}  # spent tree points
+        self.learned: set[str] = set()  # spells learned for good (1 free level each)
+        self.training: set[str] = set()  # spells cast from a wand, learned at the next level of their tree
 
     def node(self, node_id: str):
         return self._nodes[node_id]
@@ -320,10 +332,29 @@ class SkillTrees:
         return [n for n in self._d.nodes if n.tree == tree]
 
     def points_in(self, node_id: str) -> int:
-        return self.points.get(node_id, 0)
+        """The node's level: spent points, +1 when the spell is learned, + what worn wands give."""
+        return self.points.get(node_id, 0) + (node_id in self.learned) + self._granted().get(node_id, 0)
 
     def spent(self, tree: str) -> int:
-        return sum(self.points_in(n.id) for n in self.nodes_of(tree))
+        return sum(self.points.get(n.id, 0) for n in self.nodes_of(tree))
+
+    # ---- spells
+
+    def is_spell(self, node_id: str) -> bool:
+        n = self._nodes.get(node_id)
+        return n is not None and n.spell is not None
+
+    def practice(self, node_id: str) -> None:
+        """A spell was cast without being learned (from a wand): the next level of its tree teaches it."""
+        if self.is_spell(node_id) and node_id not in self.learned:
+            self.training.add(node_id)
+
+    def learn_on_level_up(self, tree: str) -> list[str]:
+        """Called when ``tree`` gains a level: every spell of it in training is learned. Returns them."""
+        new = sorted(n for n in self.training if self._nodes[n].tree == tree)
+        self.learned.update(new)
+        self.training.difference_update(new)
+        return new
 
     def available(self, tree: str) -> int:
         return max(0, self._profs[tree].level - self.spent(tree))
@@ -332,9 +363,11 @@ class SkillTrees:
         n = self._nodes.get(node_id)
         if n is None:
             return Allocate.UNKNOWN
+        if n.spell is not None and node_id not in self.learned:
+            return Allocate.NOT_LEARNED
         if self._profs[n.tree].level < n.layer:
             return Allocate.LAYER_LOCKED
-        if self.points_in(node_id) >= n.max_points:
+        if self.points.get(node_id, 0) + (node_id in self.learned) >= n.max_points:
             return Allocate.MAXED_OUT
         if self.available(n.tree) <= 0:
             return Allocate.NO_POINTS
@@ -343,7 +376,7 @@ class SkillTrees:
     def allocate(self, node_id: str) -> Allocate:
         r = self.can_allocate(node_id)
         if r is Allocate.OK:
-            self.points[node_id] = self.points_in(node_id) + 1
+            self.points[node_id] = self.points.get(node_id, 0) + 1
         return r
 
     def restore(self, points: dict[str, int]) -> list[str]:
@@ -394,7 +427,7 @@ class SkillTrees:
 
     def stat_total(self, stat: str) -> float:
         """Sum of one stat over every node with points (for generic bonuses such as fasterHitRecovery)."""
-        return sum(self.effect(nid, stat) for nid in self.points if stat in self._nodes[nid].stat_ids)
+        return sum(self.effect(n.id, stat) for n in self._d.nodes if stat in n.stat_ids and self.points_in(n.id) > 0)
 
     def learned_actives(self) -> list[str]:
         """Active nodes with points, in tree order: what can go on the action bar."""
@@ -462,9 +495,13 @@ class SkillBar:
         slot = self.slots.index(None)
         return slot if self.bind(slot, node_id) is Bind.OK else None
 
+    def drop_unusable(self) -> None:
+        """Empties the slots whose skill has no level any more (respec, a wand taken off)."""
+        self.slots = [x if x is not None and self.can_bind(i, x) is Bind.OK else None for i, x in enumerate(self.slots)]
+
     def sync(self) -> None:
         """Drops skills that are no longer learned (respec) and fills free slots with learned actives."""
-        self.slots = [x if x is not None and self.can_bind(i, x) is Bind.OK else None for i, x in enumerate(self.slots)]
+        self.drop_unusable()
         for node_id in self._trees.learned_actives():
             self.auto_bind(node_id)
 

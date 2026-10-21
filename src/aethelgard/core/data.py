@@ -117,7 +117,24 @@ class LevelFactorParams:
 
 @dataclass
 class AttributeParams:
+    """What each attribute point does (GDD 4.2)."""
+
     points_per_proficiency_level: int = 3
+    base_accuracy: float = 20.0
+    damage_per_str: float = 0.01  # +1% physical damage
+    accuracy_per_dex: float = 5.0
+    crit_per_dex: float = 0.002
+    defense_per_dex: float = 2.0
+    spell_damage_per_int: float = 0.01  # +1% spell damage
+
+
+@dataclass
+class MagicParams:
+    """Spells (core/spells.py): cast time, and how often fire on the ground and burning deal their damage."""
+
+    cast_seconds: float = 0.5
+    cast_release_fraction: float = 0.5  # the spell leaves the hand at this share of the cast
+    tick_seconds: float = 0.5  # fire walls, burning ground and burning monsters hurt in steps this long
 
 
 @dataclass
@@ -258,6 +275,7 @@ class BalanceData:
     town_portal: TownPortalParams = field(default_factory=TownPortalParams)
     bow: BowParams = field(default_factory=BowParams)
     loot: LootParams = field(default_factory=LootParams)
+    magic: MagicParams = field(default_factory=MagicParams)
 
 
 # ---------------------------------------------------------------- monsters
@@ -346,6 +364,7 @@ class MonsterTypeDef:
     collides: bool = True  # False: passes through bodies (must be explicit in monsters.json)
     projectile: ProjectileDef | None = None  # ranged attacker
     leader: LeaderDef | None = None  # spawns only at the head of a pack and buffs the others
+    resist: dict[str, float] = field(default_factory=dict)  # element → share of spell damage it ignores (negative = weak)
 
 
 @dataclass
@@ -452,6 +471,19 @@ class ProficienciesData:
     default_title: str = ""
 
 
+SPELL_CASTS = ("bolt", "ball", "wall", "meteor")  # how a spell is delivered (core/spells.py)
+ELEMENTS = ("fire",)
+
+
+@dataclass
+class SpellDef:
+    """A node that is a spell: learned from a wand (never bought with points first), deals elemental damage."""
+
+    cast: str = "bolt"  # bolt | ball | wall | meteor
+    element: str = "fire"
+    look: str = ""  # how the client draws its projectile or zone
+
+
 @dataclass
 class SkillNodeDef:
     id: str = ""
@@ -467,6 +499,7 @@ class SkillNodeDef:
     description: str = ""
     effects: dict[str, float] = field(default_factory=dict)  # per point
     base: dict[str, float] = field(default_factory=dict)  # fixed once learned
+    spell: SpellDef | None = None
 
     @property
     def stat_ids(self) -> list[str]:
@@ -548,6 +581,8 @@ class ItemBaseDef:
     block_reduction: float = 0
     two_handed: bool = False  # bows: no shield, no second weapon
     range_tiles: float = 0  # bows: how far it shoots
+    spell: str | None = None  # wands: the spell (skills.json node) it lets you cast while equipped
+    spell_level: int = 0  # wands: levels of that spell it gives while equipped
     size: list[int] = field(default_factory=lambda: [1, 1])
     req: dict[str, int] = field(default_factory=dict)
 
@@ -869,6 +904,22 @@ def validate(d: GameData) -> list[str]:
             errors.append(f"skills: node '{n.id}' in missing tree '{n.tree}'")
         if n.kind == "active" and n.cooldown < 0:
             errors.append(f"skills: node '{n.id}' has a negative cooldown")
+        if n.spell is not None:
+            if n.kind != "active":
+                errors.append(f"skills: spell '{n.id}' must be active")
+            if n.spell.cast not in SPELL_CASTS:
+                errors.append(f"skills: spell '{n.id}' has unknown cast '{n.spell.cast}' (one of {', '.join(SPELL_CASTS)})")
+            if n.spell.element not in ELEMENTS:
+                errors.append(f"skills: spell '{n.id}' has unknown element '{n.spell.element}'")
+            if not any(b.spell == n.id for b in d.items.bases):
+                errors.append(f"skills: spell '{n.id}' can only be learned from a wand, and no wand has it")
+    for b in d.items.bases:
+        if b.spell is not None and (b.spell not in node_ids or d.node(b.spell).spell is None):
+            errors.append(f"items: wand '{b.id}' gives '{b.spell}', which is not a spell")
+        if b.spell is not None and b.spell_level < 1:
+            errors.append(f"items: wand '{b.id}' needs spellLevel >= 1")
+    for t in d.monsters.types:
+        errors += [f"monsters: '{t.id}' resists unknown element '{e}'" for e in t.resist if e not in ELEMENTS]
     for s in d.skills.synergies:
         if s.target not in node_ids or s.from_ not in node_ids:
             errors.append(f"skills: synergy {s.from_} → {s.target} references a missing node")

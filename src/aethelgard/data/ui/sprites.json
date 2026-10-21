@@ -113,7 +113,8 @@
       "buckler": "flare/loot/buckler", "round_shield": "flare/loot/buckler", "kite_shield": "flare/loot/shield", "tower_shield": "flare/loot/shield",
       "leather_armor": "flare/loot/leather_armor", "studded_leather": "flare/loot/leather_armor", "chain_mail": "flare/loot/steel_armor",
       "scale_mail": "flare/loot/steel_armor", "plate_mail": "flare/loot/steel_armor", "helm": "flare/loot/clothes", "gloves": "flare/loot/clothes",
-      "boots": "flare/loot/boots", "belt": "flare/loot/belt", "ring": "flare/loot/ring", "amulet": "flare/loot/gem"
+      "boots": "flare/loot/boots", "belt": "flare/loot/belt", "ring": "flare/loot/ring", "amulet": "flare/loot/gem",
+      "ember_wand": "flare/loot/wand", "cinder_wand": "flare/loot/wand", "blaze_wand": "flare/loot/rod", "star_wand": "flare/loot/rod"
     },
     "gold": { "1": "flare/loot/coins5", "25": "flare/loot/coins25", "100": "flare/loot/coins100" },
     "potions": { "life": "flare/loot/hp_potion", "energy": "flare/loot/mp_potion" },
@@ -122,7 +123,7 @@
   "projectiles": {
     "_comment": "Shots in flight, by the 'look' of the shot (monsters.json projectile.look, the shield throw is 'shield'). sheet = a Flare power animation, 8 directions; scale as for loot.",
     "scale": 0.5556,
-    "looks": { "arrow": "flare/powers/arrows", "bolt": "flare/powers/plasmaball" }
+    "looks": { "arrow": "flare/powers/arrows", "bolt": "flare/powers/plasmaball", "firebolt": "flare/powers/fireball", "fireball": "flare/powers/fireball" }
   },
   "slotLayers": { "mainhand": ["main"], "offhand": ["off"] },
   "mirroredLayers": { "offhand": { "main": "off" } },

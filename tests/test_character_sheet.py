@@ -85,3 +85,10 @@ def test_average_hit_is_the_mean_of_real_hits(data):
     target = DefenderStats(level=1, defense=0, armor=0)
     mean = sum(s.combat.resolve_physical(atk, target, rng, always_hit=True).raw for _ in range(n)) / n
     assert mean == pytest.approx(s.combat.average_hit(atk), rel=0.02)
+
+
+def test_sheet_shows_spell_damage_from_intelligence(data):
+    s, w, p, rows = sheet_of(data)
+    a = s.character.attributes
+    assert rows["Spell damage"].value == f"+{a.int * data.balance.attributes.spell_damage_per_int * 100:.0f}%"
+    assert "Pyromancy" in rows

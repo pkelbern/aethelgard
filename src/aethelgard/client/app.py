@@ -18,6 +18,7 @@ from ..core.events import (
     MonsterKilled,
     PlayerDied,
     ProficiencyLeveledUp,
+    SpellLearned,
     StashChanged,
     WaypointReached,
 )
@@ -49,6 +50,7 @@ from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
+from .spell_view import SpellView
 from .sprites import ActorSprites, ArtDownload, EffectArt, SpriteLibrary
 from .tilemap import MapArt
 from .tooltip import draw_panel, draw_tooltip
@@ -111,6 +113,7 @@ class Game:
         self.sprites = ActorSprites(SpriteLibrary(art_dir=art_dir))
         self.art = ArtDownload(self.sprites.lib)
         self.effects = EffectArt(self.sprites.lib)
+        self.spell_view = SpellView(self)
         self.ground_view.art = self.effects
         self.big_map = False
         self.floaters: list[Floater] = []
@@ -218,6 +221,8 @@ class Game:
         bus.subscribe(PlayerDied, self._on_death)
         bus.subscribe(MonsterKilled, self._on_monster_killed)
         bus.subscribe(WaypointReached, self._on_waypoint)
+        bus.subscribe(SpellLearned, lambda e: self.hud.add(f"You learned {self.data.node(e.node_id).name}: it no longer needs the wand.", C.GOLD))
+        self.spell_view.listen(bus)
         bus.subscribe(StashChanged, lambda e: self.stash_store.save_stash(self.world.stash))
         self.world.stash = self.stash_store.load_stash(self.data)  # the same file for every character
 
@@ -425,7 +430,10 @@ class Game:
         if skill is None:
             self.hud.add(f"Key {self.keys.slot_label(slot)} is empty: click the slot to choose a skill.", C.MUTED)
             return
-        target = self.hovered or self.nearest_monster(max(3.0, self.world.player_reach(self.player)))  # a bow reaches farther
+        if self.data.node(skill).spell is not None:  # spells go where the mouse points, or at the monster under it
+            target = self.hovered
+        else:
+            target = self.hovered or self.nearest_monster(max(3.0, self.world.player_reach(self.player)))  # a bow reaches farther
         gx, gy = self.mouse_grid()
         msg = self.world.apply(UseSkill(self.session.player_id, skill, target.id if target else None, gx, gy))
         if msg:
@@ -705,6 +713,7 @@ class Game:
         self.sprites.draw_corpses(screen, cam, self.vision.sees)  # bodies lie under what they dropped
         self.ground_view.draw_shapes(screen, cam, drops)
         self._draw_portal()
+        self.spell_view.draw_ground(screen)
 
         # walls, trees and actors in depth order: what is nearer the camera covers what is behind (as in D2).
         # Monsters outside the field of view are not drawn.
@@ -729,6 +738,7 @@ class Game:
         for proj in self.world.projectiles.values():
             self._draw_projectile(proj)
         self.map.draw_exit_labels(screen, cam, self.fonts["small"], self.area_names, self.vision.explored)
+        self.spell_view.draw_bursts(screen)
         self.ground_view.draw_labels(screen, cam, drops, self.keys.held("showItems"), self.hovered_drop, pygame.mouse.get_pos())
 
         for f in self.floaters:
@@ -822,6 +832,8 @@ class Game:
         tx, ty = self.cam.to_screen(proj.x - proj.dir_x * 0.8, proj.y - proj.dir_y * 0.8)
         head, tail = (sx, sy - lift), (tx, ty - lift)
         screen = self.screen
+        if self.spell_view.draw_projectile(screen, proj, head, tail):
+            return
         if proj.look == "arrow":
             pygame.draw.line(screen, (0, 0, 0), tail, head, 5)
             pygame.draw.line(screen, (226, 206, 160), tail, head, 3)
@@ -859,9 +871,14 @@ class Game:
             layers = self.sprites.lib.swap_hands(layers)
         lib = self.sprites.lib
         self.sprites.draw_actor(self.screen, self.cam, ("p", p.player_id), p, layers, scale=lib.look_scale("player", layers),
-                                guarding=p.guarding, mirrored=off_swing, attack_anim="shoot" if p.session.gear.has_bow else "swing")
+                                guarding=p.guarding, mirrored=off_swing, attack_anim=self._player_attack_anim(p))
         if p.guarding and p.state != "dead":
             self._draw_guard_arc(p, sx, sy)
+
+    def _player_attack_anim(self, p) -> str:
+        if p.attack_skill is not None and self.data.node(p.attack_skill).spell is not None:
+            return "cast"
+        return "shoot" if p.session.gear.has_bow else "swing"
 
     def _draw_guard_arc(self, p, sx: int, sy: int) -> None:
         """Where the guard covers: the arc in front, or a full ring while Bulwark is up."""
@@ -939,6 +956,7 @@ class Game:
         else:  # the sprite's own swing shows the attack coming
             box = self.sprites.draw_actor(screen, self.cam, ("m", m.id), m, layers,
                                           attack_anim=self.sprites.lib.attack_anim(m.monster.type.id), scale=self.monster_scale(m))
+        self.spell_view.draw_burning(screen, m, sx, sy)
         top = min(box.top, sy - 2 * r) + 6
         frac = m.monster.hp / m.monster.max_hp
         pygame.draw.rect(screen, (0, 0, 0), (sx - 16, top - 10, 32, 4))
@@ -971,6 +989,7 @@ class Game:
             self.hud.add(note, C.GOLD if self.art.state == "done" else C.LIFE)
             self._build_map()
         self.ui.update(DT)
+        self.spell_view.update(DT)
         for f in self.floaters:
             f.life -= DT
         self.floaters = [f for f in self.floaters if f.life > 0]

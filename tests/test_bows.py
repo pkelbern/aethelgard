@@ -20,9 +20,9 @@ def archer(data, at=(10.0, 5.0), **kw):
     return s, w, p, m
 
 
-def test_new_characters_carry_a_bow_and_a_second_sword(data):
+def test_new_characters_carry_a_bow_a_second_sword_and_a_wand(data):
     s = GameSession(data, 1)
-    assert [i.base.id for i in s.inventory.items] == ["short_bow", "short_sword"]
+    assert [i.base.id for i in s.inventory.items] == ["short_bow", "short_sword", "ember_wand"]
     assert s.gear.main_hand.base.id == "short_sword" and s.gear.has_shield
 
 

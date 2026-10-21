@@ -1,11 +1,11 @@
 {
- "_comment": "Bases, affixes and drop rules. An affix only rolls on item types listed in its slots (no attack speed on body armor, no movement speed on a weapon); tags are kept for older rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears; startingBackpack = bases it carries. twoHanded (bows) = takes both hands: no shield and no second weapon. rangeTiles = how far a bow shoots (14 tiles reach the edge of a 1280x720 screen). rareNames = parts of rare item names: '<first> <second>'.",
+ "_comment": "Bases, affixes and drop rules. An affix only rolls on item types listed in its slots (no attack speed on body armor, no movement speed on a weapon); tags are kept for older rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears; startingBackpack = bases it carries. twoHanded (bows) = takes both hands: no shield and no second weapon. rangeTiles = how far a bow shoots (14 tiles reach the edge of a 1280x720 screen). rareNames = parts of rare item names: '<first> <second>'. Wands (slot 'wand', worn in the off hand) carry a spell: while worn you can cast it at spellLevel (plus your own points in it), and casting it is how you learn it (skills.json).",
  "inventory": {
   "columns": 10,
   "rows": 6
  },
  "startingGear": ["short_sword", "buckler", "leather_armor"],
- "startingBackpack": ["short_bow", "short_sword"],
+ "startingBackpack": ["short_bow", "short_sword", "ember_wand"],
  "trade": {
   "_comment": "Vendor prices. Item price = (basePrice + perItemLevel x iLvl + perAffix x affixes) x rarityMult[rarity]; the vendor pays sellFraction of that. The stock (stockSize items, normal and magic only, iLvl = character level) is rolled again every time you come to town. Consumables cost their own 'price'. npcRangeTiles = how close you must stand to trade or use the stash.",
   "basePrice": 20,
@@ -27,14 +27,14 @@
   "neck":     { "name": "Amulet",     "accepts": ["neck"] },
   "mainhand": { "name": "Weapon",     "accepts": ["mainhand"] },
   "body":     { "name": "Body Armor", "accepts": ["body"] },
-  "offhand":  { "name": "Off Hand",   "accepts": ["offhand", "mainhand"] },
+  "offhand":  { "name": "Off Hand",   "accepts": ["offhand", "mainhand", "wand"] },
   "hands":    { "name": "Gloves",     "accepts": ["hands"] },
   "waist":    { "name": "Belt",       "accepts": ["waist"] },
   "ring1":    { "name": "Ring",       "accepts": ["ring"] },
   "ring2":    { "name": "Ring",       "accepts": ["ring"] },
   "feet":     { "name": "Boots",      "accepts": ["feet"] }
  },
- "slotNames": {"mainhand": "Weapon", "offhand": "Shield", "body": "Body Armor", "head": "Helm", "hands": "Gloves", "feet": "Boots", "waist": "Belt", "ring": "Ring", "neck": "Amulet"},
+ "slotNames": {"mainhand": "Weapon", "offhand": "Shield", "body": "Body Armor", "head": "Helm", "hands": "Gloves", "feet": "Boots", "waist": "Belt", "ring": "Ring", "neck": "Amulet", "wand": "Wand"},
  "rareNames": {
   "first": ["Ruin", "Fury", "Shadow", "Death", "Sorrow", "Storm", "Raven", "Moon", "Thorn", "Ember"],
   "second": ["Bite", "Ward", "Cry", "Veil", "Fang", "Mark", "Crown", "Edge", "Hide", "Oath"]
@@ -505,6 +505,80 @@
     1
    ],
    "req": {}
+  },
+  {
+   "id": "ember_wand",
+   "name": "Ember Wand",
+   "slot": "wand",
+   "tags": [
+    "wand",
+    "fire"
+   ],
+   "level": 1,
+   "spell": "fire_bolt",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {}
+  },
+  {
+   "id": "cinder_wand",
+   "name": "Cinder Wand",
+   "slot": "wand",
+   "tags": [
+    "wand",
+    "fire"
+   ],
+   "level": 5,
+   "spell": "fireball",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 15
+   }
+  },
+  {
+   "id": "blaze_wand",
+   "name": "Blaze Wand",
+   "slot": "wand",
+   "tags": [
+    "wand",
+    "fire"
+   ],
+   "level": 10,
+   "spell": "fire_wall",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 25
+   }
+  },
+  {
+   "id": "star_wand",
+   "name": "Star Wand",
+   "slot": "wand",
+   "tags": [
+    "wand",
+    "fire"
+   ],
+   "level": 16,
+   "spell": "meteor",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 35
+   }
   }
  ],
  "affixes": [

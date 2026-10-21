@@ -331,6 +331,14 @@ class Loadout:
     def dual_wielding(self) -> bool:
         return self.main_hand is not None and self.off_hand is not None and self.off_hand.base.dmg_max > 0
 
+    def granted_spells(self) -> dict[str, int]:
+        """Spell → levels from worn wands (items.json bases 'spell' and 'spellLevel')."""
+        out: dict[str, int] = {}
+        for i in self.slots.values():
+            if i.base.spell:
+                out[i.base.spell] = out.get(i.base.spell, 0) + i.base.spell_level
+        return out
+
     def weapon(self, hand: str = "main") -> Item | None:
         """The weapon that swings this time: ``main``, or ``off`` when holding two weapons."""
         return self.off_hand if hand == "off" and self.dual_wielding else self.main_hand

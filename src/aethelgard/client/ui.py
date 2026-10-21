@@ -168,7 +168,7 @@ class GameUI:
         for i, tree in enumerate(self.tree_order):
             prof = s.proficiencies[tree]
             x = 10 + i * col_w
-            UILabel(pygame.Rect(x, 6, col_w - 10, 26), f"{prof.name} {prof.level}  ·  {s.skills.available(tree)} point(s)",
+            UILabel(pygame.Rect(x, 6, col_w - 10, 26), f"{prof.name} {prof.level}  ·  {s.skills.available(tree)} free",
                     self.manager, container=win, object_id="#tree_header")
             for j, node in enumerate(sorted(s.skills.nodes_of(tree), key=lambda n: (n.layer, n.kind != "active", n.name))):
                 y = 40 + j * 56

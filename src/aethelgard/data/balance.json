@@ -23,7 +23,14 @@
     }
   },
   "attributes": {
-    "pointsPerProficiencyLevel": 3
+    "_comment": "What each attribute point does (GDD 4.2). Strength: physical damage. Dexterity: accuracy, critical chance, defense. Intelligence: spell damage (and Energy, in character). Vitality: life (in character).",
+    "pointsPerProficiencyLevel": 3,
+    "baseAccuracy": 20,
+    "damagePerStr": 0.01,
+    "accuracyPerDex": 5,
+    "critPerDex": 0.002,
+    "defensePerDex": 2,
+    "spellDamagePerInt": 0.01
   },
   "character": {
     "secondaryProficiencyWeight": 0.25,
@@ -130,5 +137,11 @@
     "globalCooldownSeconds": 0.2,
     "monsterSwingSeconds": 0.6,
     "_monsterSwing": "A monster's swing (wind-up, hit at half, follow-through) lasts at most monsterSwingSeconds; the rest of its attack interval (1.4 s / attackRate, then x1.3) is a pause between swings, so slow attackers hit as rarely as before but no longer move in slow motion."
+  },
+  "magic": {
+    "_comment": "Spells (skills.json nodes with 'spell'). A cast lasts castSeconds / (1 + faster cast), and the spell leaves the hand at castReleaseFraction of it. Spells always hit and ignore armor; the target's resistance to the element takes its share (resist cap in combat). Fire walls, burning ground and burning monsters deal their damage every tickSeconds.",
+    "castSeconds": 0.5,
+    "castReleaseFraction": 0.5,
+    "tickSeconds": 0.5
   }
 }
