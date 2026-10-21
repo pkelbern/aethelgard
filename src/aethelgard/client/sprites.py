@@ -109,6 +109,7 @@ class SpriteLibrary:
         self.gear: dict[str, dict[str, str]] = self.cfg["gear"]
         self.order = {DIRECTION_NAMES.index(name): layers for name, layers in self.cfg["layerOrder"].items()}
         self._sheets: dict[str, SpriteSheet | None] = {}  # None = not on disk (tried once; see forget_missing)
+        self._scales: dict[tuple, float] = {}
         self._root = sprites_dir(self.art_dir)
 
     def sheet(self, sheet_id: str) -> SpriteSheet | None:
@@ -187,8 +188,42 @@ class SpriteLibrary:
     def attack_anim(self, look_id: str) -> str:
         return self.looks.get(look_id, {}).get("attack", "swing")
 
-    def draw_scale(self, look_id: str) -> float:
-        return self.looks.get(look_id, {}).get("drawScale", 1.0)
+    # ---- size on screen: every look is scaled to a target height, so packs drawn at different sizes match
+
+    def target_height(self, look_id: str) -> float:
+        """Standing height on screen in px: the hero's (``sizes.heroHeightPx``) × the look's ``height``."""
+        sizes = self.cfg.get("sizes", {})
+        return sizes.get("heroHeightPx", 94) * self.looks.get(look_id, {}).get("height", sizes.get("defaultHeight", 1.0))
+
+    def stand_height(self, sheet_ids) -> float | None:
+        """Height of the figure standing (feet to the top of the first stance frame, median of the 8 facings),
+        the tallest of the sheets. None while a sheet is missing."""
+        best = 0.0
+        for sid in sheet_ids:
+            sheet = self.sheet(sid)
+            if sheet is None:
+                return None
+            anim = self.anim_for(sheet, "stance")
+            tops = sorted(r[5] for r in sheet.anims[anim]["rects"][0] if r[3] > 0)
+            if tops:
+                best = max(best, tops[len(tops) // 2])
+        return best or None
+
+    def look_scale(self, look_id: str, layers: dict[str, str] | None = None) -> float:
+        """Scale that makes this look ``target_height`` tall. Weapons do not count (a raised sword is not the body)."""
+        layers = layers if layers is not None else self.looks.get(look_id, {}).get("layers", {})
+        body = tuple(sorted(s for k, s in layers.items() if k not in ("main", "off")))
+        key = (look_id, body)
+        if key not in self._scales:
+            h = self.stand_height(body)
+            if h is None:
+                return self.missing_scale(look_id)  # not downloaded yet: the stand-in's size; try again next time
+            self._scales[key] = self.target_height(look_id) / h
+        return self._scales[key]
+
+    def missing_scale(self, look_id: str) -> float:
+        """Scale of the magenta stand-in so it is as tall as the look would be."""
+        return self.target_height(look_id) / MISSING_SIZE[1]
 
 
 # ---------------------------------------------------------------- actors on screen

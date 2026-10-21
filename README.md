@@ -33,7 +33,7 @@ Opções: `--seed 42` (mundo fixo), `--area plains` (começar numa área), `--ne
 **Arte:** os sprites não estão no repositório. Toda vez que o jogo abre, ele confere se todas as folhas de sprite
 estão na pasta de arte; se falta alguma, mostra uma tela de carregamento e baixa só o que falta (na primeira vez,
 uns 65 MB: personagens e mortos-vivos do repositório do Flare, lobos do OpenGameArt). Esc começa a jogar na hora e
-o download continua por trás. Se uma fonte falhar, a tela mostra o motivo (R tenta de novo, Enter joga assim).
+o download continua por trás. Quando a conversão muda numa versão nova do jogo, a arte é baixada de novo na abertura. Se uma fonte falhar, a tela mostra o motivo (R tenta de novo, Enter joga assim).
 O que não tem sprite aparece como um retângulo xadrez magenta com "?". O terminal também mostra a conferência
 (`[art] … 38/38 sheets ready`). A arte fica na pasta do usuário (`%APPDATA%\Aethelgard\art`,
 `~/Library/Application Support/Aethelgard/art` ou `~/.local/share/aethelgard/art`). Para baixar à mão:
@@ -134,7 +134,8 @@ docs/       GDD, planilha, backlog, arquitetura
 - **Arte de terceiros (CC-BY-SA 3.0):** personagens e mortos-vivos do jogo livre
   [Flare](https://github.com/flareteam/flare-game) (Clint Bellanger, Justin Jacobs e colaboradores); lobos de
   [Wolf monsters animated](https://opengameart.org/content/wolf-monsters-animated) (Danimal; modelo de Micket, CC0;
-  texturas de p0ss). Não fazem parte deste repositório: são baixados quando o jogo abre (fontes em
+  texturas de p0ss); javali de [Boar enemies](https://opengameart.org/content/boar-enemies) (Danimal; modelo de
+  Myname; **CC-BY-SA 4.0**). Não fazem parte deste repositório: são baixados quando o jogo abre (fontes em
   `data/ui/sprites.json`), reduzidos e reempacotados, com `ATTRIBUTION.md` e a licença em cada pasta da arte. Cada arquivo está em
   [`docs/licencas_assets.csv`](docs/licencas_assets.csv).
 - **Arte e som próprios:** ainda não há. Quando houver, terão licença própria (veja o backlog M8-07).

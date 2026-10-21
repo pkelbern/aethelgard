@@ -64,13 +64,22 @@ def sheets_in_use(cfg: dict) -> list[str]:
     return sorted(found)
 
 
-def sheet_ready(art_dir: Path, sheet: str) -> bool:
+def sheet_ready(art_dir: Path, sheet: str, version: int = 0) -> bool:
+    """Both files there and built by the current import (``import.version``): older sheets are rebuilt."""
     base = sprites_dir(art_dir) / sheet
-    return base.with_suffix(".json").is_file() and base.with_suffix(".png").is_file()
+    if not (base.with_suffix(".json").is_file() and base.with_suffix(".png").is_file()):
+        return False
+    if not version:
+        return True
+    try:
+        return json.loads(base.with_suffix(".json").read_text(encoding="utf-8")).get("version", 1) == version
+    except (OSError, ValueError):
+        return False
 
 
 def missing_sheets(cfg: dict, art_dir: Path) -> list[str]:
-    return [s for s in sheets_in_use(cfg) if not sheet_ready(art_dir, s)]
+    version = cfg["import"].get("version", 0)
+    return [s for s in sheets_in_use(cfg) if not sheet_ready(art_dir, s, version)]
 
 
 def source_for(sheet: str, cfg: dict) -> tuple[str, dict, str]:
@@ -159,7 +168,7 @@ def fetch_art(cfg: dict, art_dir: Path, fetch: Fetch, *, rebuild: bool = False, 
     with tempfile.TemporaryDirectory(prefix="aethelgard-art-") as tmp:
         run = _Run(cfg, Path(tmp), fetch, report, workers)
         sources = cfg["import"]["sources"]
-        run.total = sum(2 * len(g) if sources[k]["kind"] == "repo" else 1 for k, g in groups.items())  # repo: .txt + image
+        run.total = sum(2 * len(g) if sources[k]["kind"] == "repo" else len(_urls(sources[k])) for k, g in groups.items())  # repo: .txt + image
         jobs: list[Job] = []
         for prefix, group in groups.items():
             src = sources[prefix]
@@ -214,17 +223,26 @@ def _prepare_repo(run: _Run, prefix: str, src: dict, sheets: list[str]) -> list[
     return [Job(s, paths[s], files[images[s]], scale) for s in sheets]
 
 
+def _urls(src: dict) -> list[str]:
+    return list(src.get("urls") or [src["url"]])
+
+
 def _prepare_archive(run: _Run, prefix: str, src: dict, sheets: list[str]) -> list[Job]:
-    """Downloads the pack once, opens it and finds each sheet's animation file and image by name."""
-    url = src["url"]
-    name = PurePosixPath(url.split("?")[0]).name or "pack"
+    """Downloads the pack's files once (archives are opened, loose files kept) and finds each sheet's
+    animation file and image by name."""
     folder = run.raw / prefix
-    folder.mkdir(parents=True, exist_ok=True)
-    archive = folder / name
-    archive.write_bytes(run.fetch(url))
-    run.step()
     unpacked = folder / "files"
-    extract(archive, unpacked)
+    unpacked.mkdir(parents=True, exist_ok=True)
+    for i, url in enumerate(_urls(src)):
+        name = PurePosixPath(url.split("?")[0]).name or f"file{i}"
+        data = run.fetch(url)
+        run.step()
+        if name.lower().endswith((".7z", ".zip", ".tar", ".tar.gz", ".tgz")):
+            archive = folder / name
+            archive.write_bytes(data)
+            extract(archive, unpacked / f"{i}")
+        else:
+            (unpacked / name).write_bytes(data)
     files = sorted(p for p in unpacked.rglob("*") if p.is_file())
     pngs = [p for p in files if p.suffix.lower() == ".png"]
     for p in files:  # the pack's own license/credits travel with the art
@@ -341,8 +359,12 @@ def convert_sheet(job: Job, cfg: dict, out: Path) -> tuple[int, int]:
             if w <= 0 or h <= 0 or key in frames or not bounds.contains((x, y, w, h)):
                 continue
             sw, sh = max(1, round(w * job.scale)), max(1, round(h * job.scale))
-            frames[key] = pygame.transform.smoothscale(src.subsurface((x, y, w, h)), (sw, sh))
-            offsets[key] = (round(ox * job.scale), round(oy * job.scale))
+            frame = pygame.transform.smoothscale(src.subsurface((x, y, w, h)), (sw, sh))
+            box = frame.get_bounding_rect(min_alpha=8)  # trim the empty margin: grid packs have a lot of it
+            if box.w == 0 or box.h == 0:
+                continue
+            frames[key] = frame.subsurface(box).copy()
+            offsets[key] = (round(ox * job.scale) - box.x, round(oy * job.scale) - box.y)
     if not frames:
         raise ValueError("no usable frames (animation names or image size do not match)")
 
@@ -367,7 +389,8 @@ def convert_sheet(job: Job, cfg: dict, out: Path) -> tuple[int, int]:
     target.parent.mkdir(parents=True, exist_ok=True)
     save_png(atlas, target.with_suffix(".png"), imp.get("colors", 256))
     tmp = target.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps({"image": target.with_suffix(".png").name, "anims": out_anims}, separators=(",", ":")), encoding="utf-8")
+    meta = {"version": imp.get("version", 1), "image": target.with_suffix(".png").name, "anims": out_anims}
+    tmp.write_text(json.dumps(meta, separators=(",", ":")), encoding="utf-8")
     os.replace(tmp, target)  # the .json appears last: the sheet is complete
     return len(keys), height
 

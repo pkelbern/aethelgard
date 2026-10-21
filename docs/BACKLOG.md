@@ -193,7 +193,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M7-02** Tileset dos 3 biomas do Ato 1 _(arte, ~5 d)_  
   Planície, caverna, cripta (packs licenciados ou próprios).
 - [ ] **M7-03** Sprites do guerreiro e das 3 famílias _(arte, ~10 d)_  
-  Parado, andar, atacar ×2, bloquear, ser atingido, morrer. Protótipo com a arte do Flare (M7-09) cobre o guerreiro, Mortos-vivos e Saqueadores. Lobo e Lobo Alfa: pacote 'Wolf monsters animated' (Danimal, CC-BY-SA, OpenGameArt), baixado quando o jogo abre. Falta: Javali, 2ª variação de ataque e a arte própria (M7-01). Validar no jogo os nomes dos arquivos dentro do pacote dos lobos (escolhidos por padrão de nome).
+  Parado, andar, atacar ×2, bloquear, ser atingido, morrer. Protótipo com a arte do Flare (M7-09) cobre o guerreiro, Mortos-vivos e Saqueadores. Lobo e Lobo Alfa: pacote 'Wolf monsters animated' (Danimal, CC-BY-SA, OpenGameArt), baixado quando o jogo abre. Javali: 'Boar enemies' (Danimal, CC-BY-SA 4.0). Tamanhos igualados pela altura em pé, na proporção do Diablo 2 (herói ≈ 94 px). Falta: 2ª variação de ataque e a arte própria (M7-01). Validar no jogo os nomes dos arquivos dentro do pacote dos lobos (escolhidos por padrão de nome).
 - [ ] **M7-04** Áudio: impactos, bloqueio, drops, level up, música _(áudio, ~4 d)_  
   Prioridade nos sons de feedback de combate.
 - [ ] **M7-05** Menus: título, opções, novo jogo/continuar _(UI, ~2 d)_  

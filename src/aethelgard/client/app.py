@@ -792,7 +792,10 @@ class Game:
         return self.sprites.lib.layers(m.monster.type.id)
 
     def monster_scale(self, m: MonsterActor) -> float:
-        return m.monster.rank.size_mult * self.sprites.lib.draw_scale(m.monster.type.id)
+        """Size on screen: the look scaled to its target height (sprites.json → sizes), times the rank's size."""
+        lib, tid = self.sprites.lib, m.monster.type.id
+        layers = self.monster_layers(m)
+        return m.monster.rank.size_mult * (lib.look_scale(tid, layers) if layers is not None else lib.missing_scale(tid))
 
     def _draw_player(self, p) -> None:
         layers = self.player_layers(p)
@@ -803,7 +806,8 @@ class Game:
         off_swing = p.state == "attacking" and p.attack_hand == "off" and p.session.gear.dual_wielding
         if off_swing:  # the left arm strikes: the figure is drawn mirrored, weapons swapped
             layers = self.sprites.lib.swap_hands(layers)
-        self.sprites.draw_actor(self.screen, self.cam, ("p", p.player_id), p, layers, scale=self.sprites.lib.draw_scale("player"),
+        lib = self.sprites.lib
+        self.sprites.draw_actor(self.screen, self.cam, ("p", p.player_id), p, layers, scale=lib.look_scale("player", layers),
                                 guarding=p.guarding, mirrored=off_swing, attack_anim="shoot" if p.session.gear.has_bow else "swing")
         if p.guarding and p.state != "dead":
             self._draw_guard_arc(p, sx, sy)

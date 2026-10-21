@@ -1,7 +1,9 @@
 {
-  "_comment": "How actors look (client only; the core never reads this). A look is a set of layers, one sprite sheet each; single-sheet monsters use one 'body' layer. layerOrder = drawing order per facing (art compass: map +x = E), from back to front; layers it does not name are drawn last. looks.player is the bare character; gear adds or replaces layers by item base id (equipped items, slot by slot); slotLayers limits what an item may draw from each equipment slot. mirroredLayers: the art has no left-hand weapons, so a weapon in the off hand draws its main-hand art seen in a mirror (sheet id 'mirror:<sheet>': the mirrored facing, flipped); on the off hand's swing the whole figure is drawn mirrored with the weapons swapped, so the left arm is the one that strikes. looks.<monster type id> = that monster (bosses use their baseType); a type without a look, or whose sheets are missing, is drawn as a magenta checkerboard with '?'. attack = animation of the attack (swing | shoot | cast). fallbacks = animation to use when a sheet lacks one (packs often have no hit or block). drawScale × rank sizeMult = size on screen. strideTiles = tiles walked per run cycle (feet do not slide at any speed). corpseSeconds = how long a dead monster stays on the floor (the last 1.5 s it fades). hitFlash = brightness added while in hit recovery or stunned. ART IS NOT IN THE REPOSITORY: when the game opens it checks every sheet and downloads the missing ones into the per-user folder (<user data>/art/sprites; AETHELGARD_ART_DIR overrides); by hand: python -m aethelgard.tools.fetch_art. import = settings of that tool. sources: one per sheet-id prefix. kind 'repo' = files fetched one by one from base (pinned commit): folders maps the id to the folder of its animation file, imageRoot = what the animation's image= is relative to. kind 'archive' = a .7z/.zip pack: sheets maps the rest of the id to globs on file names, tried in order (the first that matches wins): animation (Flare .txt, compressed or grid format) and image (omit = the image the animation names; a glob picks a recolor); exclude = names never used for that sheet. scale: the Flare art is drawn for 192×96 tiles, ours are 64×32, so 1/3. colors = palette size of the PNGs, 0 = full color. Credits and license of each source are written next to its sheets (ATTRIBUTION.md) and listed in docs/licencas_assets.csv.",
+  "_comment": "How actors look (client only; the core never reads this). A look is a set of layers, one sprite sheet each; single-sheet monsters use one 'body' layer. layerOrder = drawing order per facing (art compass: map +x = E), from back to front; layers it does not name are drawn last. looks.player is the bare character; gear adds or replaces layers by item base id (equipped items, slot by slot); slotLayers limits what an item may draw from each equipment slot. mirroredLayers: the art has no left-hand weapons, so a weapon in the off hand draws its main-hand art seen in a mirror (sheet id 'mirror:<sheet>': the mirrored facing, flipped); on the off hand's swing the whole figure is drawn mirrored with the weapons swapped, so the left arm is the one that strikes. looks.<monster type id> = that monster (bosses use their baseType); a type without a look, or whose sheets are missing, is drawn as a magenta checkerboard with '?'. attack = animation of the attack (swing | shoot | cast). fallbacks = animation to use when a sheet lacks one (packs often have no hit or block). Size on screen: every look is scaled so the figure standing is sizes.heroHeightPx × its 'height' tall (94 px ≈ the hero's share of the screen in Diablo 2 at 800×600; height is relative to the hero: wolves and the boar are lower but not tiny), then × the rank's sizeMult. strideTiles = tiles walked per run cycle (feet do not slide at any speed). corpseSeconds = how long a dead monster stays on the floor (the last 1.5 s it fades). hitFlash = brightness added while in hit recovery or stunned. ART IS NOT IN THE REPOSITORY: when the game opens it checks every sheet and downloads the missing ones into the per-user folder (<user data>/art/sprites; AETHELGARD_ART_DIR overrides); by hand: python -m aethelgard.tools.fetch_art. import = settings of that tool. sources: one per sheet-id prefix. kind 'repo' = files fetched one by one from base (pinned commit): folders maps the id to the folder of its animation file, imageRoot = what the animation's image= is relative to. kind 'archive' = a pack: url, or urls when it comes in several files (archives are opened, loose PNGs kept as they are); sheets maps the rest of the id to globs on file names, tried in order (the first that matches wins): animation (Flare .txt, compressed or grid format) and image (omit = the image the animation names; a glob picks a recolor); exclude = names never used for that sheet. scale: resolution the frames are stored at (the art is then scaled to its target height when drawn; 0.6 keeps it sharp). version: bump it when the import changes; sheets built by an older one are rebuilt when the game opens. colors = palette size of the PNGs, 0 = full color. Credits and license of each source are written next to its sheets (ATTRIBUTION.md) and listed in docs/licencas_assets.csv.",
+  "sizes": { "heroHeightPx": 94, "defaultHeight": 1.0 },
   "import": {
-    "scale": 0.33333,
+    "version": 2,
+    "scale": 0.6,
     "atlasWidth": 1024,
     "colors": 256,
     "anims": ["stance", "run", "swing", "block", "hit", "die", "critdie", "cast", "shoot"],
@@ -31,6 +33,17 @@
         "sheets": {
           "wolf":       { "animation": ["wolf.txt", "*wolf*.txt", "animation*.txt", "*.txt"], "exclude": ["*alpha*", "*black*", "*white*"] },
           "alpha_wolf": { "animation": ["*alpha*.txt", "wolf.txt", "animation*.txt", "*.txt"], "image": ["*alpha*.png"] }
+        }
+      },
+      "oga-boars/": {
+        "kind": "archive",
+        "title": "Boar enemies",
+        "urls": ["https://opengameart.org/sites/default/files/boar_enemies_anim_def.7z", "https://opengameart.org/sites/default/files/boar_2.png"],
+        "page": "https://opengameart.org/content/boar-enemies",
+        "license": "CC-BY-SA 4.0",
+        "credit": "Danimal (animation and sheets), Myname (boar model, CC-BY) and Clint Bellanger (goblin)",
+        "sheets": {
+          "boar": { "animation": ["boar.txt", "boar_2.txt", "*boar*.txt", "*.txt"], "image": ["boar_2.png", "boar.png"], "exclude": ["*rider*", "*knight*", "*shaman*", "*armor*"] }
         }
       }
     }
@@ -65,8 +78,9 @@
     "skeleton_archer": { "layers": { "body": "flare/enemies/skeleton_archer" }, "attack": "shoot" },
     "necromancer":     { "layers": { "body": "flare/enemies/skeleton_mage" }, "attack": "cast" },
     "zombie":          { "layers": { "body": "flare/enemies/zombie" } },
-    "wolf":            { "layers": { "body": "oga-wolves/wolf" } },
-    "alpha_wolf":      { "layers": { "body": "oga-wolves/alpha_wolf" }, "drawScale": 1.1 },
+    "wolf":            { "layers": { "body": "oga-wolves/wolf" }, "height": 0.72 },
+    "alpha_wolf":      { "layers": { "body": "oga-wolves/alpha_wolf" }, "height": 0.82 },
+    "boar":            { "layers": { "body": "oga-boars/boar" }, "height": 0.7 },
     "bandit": {
       "layers": {
         "head": "flare/male/leather_hood",
@@ -100,6 +114,10 @@
     }
   },
   "gear": {
+    "short_bow":       { "main": "flare/male/shortbow" },
+    "hunters_bow":     { "main": "flare/male/shortbow" },
+    "long_bow":        { "main": "flare/male/longbow" },
+    "composite_bow":   { "main": "flare/male/greatbow" },
     "long_dagger":     { "main": "flare/male/dagger" },
     "short_sword":     { "main": "flare/male/shortsword" },
     "gladius":         { "main": "flare/male/shortsword" },

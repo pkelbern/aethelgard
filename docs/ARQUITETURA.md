@@ -100,8 +100,14 @@ client/animation.py   matemática sem pygame: direction8, frame_at, choose_pose,
   Uma fonte que falha não para as outras (`ArtError` lista os problemas; as folhas prontas ficam); o `.json` é
   gravado por último, então um download interrompido continua de onde parou. `--frames` e `--offline` não baixam.
 - **Animação ausente na folha:** `fallbacks` em `sprites.json` (ex.: sem `hit` → `block` → `stance`).
+- **Tamanho na tela:** cada pacote vem desenhado numa escala diferente, então o tamanho não vem da arte: na
+  conversão cada quadro é aparado (sem margem transparente) e, ao desenhar, `SpriteLibrary.look_scale` mede a
+  altura da figura em pé (pés até o topo do primeiro quadro de `stance`, mediana das 8 direções, sem as armas) e a
+  leva a `sizes.heroHeightPx × height` (94 px ≈ a parcela da tela do herói no Diablo 2 a 800×600; lobos 0,72–0,82,
+  javali 0,7), vezes o `sizeMult` do rank. A arte é guardada em escala 0,6 para continuar nítida.
+  `import.version` muda quando a conversão muda: folhas antigas são refeitas quando o jogo abre.
 - **Sprite faltando:** folha ausente/quebrada ou tipo sem look → retângulo xadrez magenta com "?" (deitado quando
-  morto), do tamanho do monstro. Hoje só o Javali não tem arte definida.
+  morto), da altura que o monstro teria. Todo tipo de monstro e toda arma têm arte definida (teste).
 - **Licença:** a arte baixada é CC-BY-SA 3.0 (`ATTRIBUTION.md` e a licença vão junto para a pasta de arte); toda folha
   está em `docs/licencas_assets.csv`. `tests/test_sprites.py` testa download, conversão e desenho com uma árvore falsa
   do Flare (sem rede).

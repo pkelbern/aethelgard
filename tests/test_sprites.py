@@ -162,6 +162,22 @@ def test_alpha_wolf_and_wolf_have_art(cfg):
     assert cfg["looks"]["alpha_wolf"]["layers"]["body"] != cfg["looks"]["wolf"]["layers"]["body"], "the alpha is its own recolor"
 
 
+def test_every_weapon_and_monster_has_a_look(cfg, data):
+    assert {t.id for t in data.monsters.types} <= set(cfg["looks"])
+    weapons = {b.id for b in data.items.bases if b.slot in ("mainhand", "offhand")}
+    assert weapons <= set(cfg["gear"]), "every weapon and shield is visible in the hand"
+
+
+def test_sizes_follow_the_hero_like_diablo_2(cfg):
+    from aethelgard.client.sprites import SpriteLibrary
+
+    lib = SpriteLibrary(cfg, "/nonexistent")
+    hero = lib.target_height("player")
+    assert 85 <= hero <= 105, "about 13% of a 720 px screen, as the hero in Diablo 2 at 800×600"
+    assert lib.target_height("skeleton") == hero, "humanoids: the hero's height"
+    assert 0.65 * hero <= lib.target_height("wolf") < lib.target_height("alpha_wolf") < hero, "beasts lower, but not tiny"
+
+
 def test_the_art_is_not_in_the_repository():
     from importlib import resources
 
@@ -177,7 +193,8 @@ PACK = "https://packs.test/wolfs.7z"
 def small_cfg(cfg):
     """The real config, reduced to the player, a skeleton and the two wolves, with fake URLs, full scale and color."""
     c = json.loads(json.dumps(cfg))
-    c["looks"] = {k: cfg["looks"][k] for k in ("player", "skeleton", "wolf", "alpha_wolf")}
+    c["looks"] = {k: cfg["looks"][k] for k in ("player", "skeleton", "wolf", "alpha_wolf", "boar")}
+    c["import"]["sources"]["oga-boars/"]["urls"] = ["https://packs.test/boar_defs.7z", "https://packs.test/boar_2.png"]
     c["gear"] = {"short_sword": cfg["gear"]["short_sword"]}
     c["import"].update(scale=1.0, colors=0, atlasWidth=128)
     c["import"]["sources"]["flare/"]["base"] = FLARE
@@ -228,6 +245,19 @@ def fake_web(tmp_path, c):
     with py7zr.SevenZipFile(tmp_path / "wolfs.7z", "w") as z:
         z.writeall(pack / "wolfs", "wolfs")
     files[PACK] = (tmp_path / "wolfs.7z").read_bytes()
+
+    defs = tmp_path / "boardefs"  # boar pack: animation files in one .7z, the sheet as a loose PNG
+    defs.mkdir()
+    for name in ("boar.txt", "boar_rider.txt"):
+        (defs / name).write_text("\n".join(grid).replace("images/enemies/wolf.png", "images/" + name.replace(".txt", ".png")))
+    with py7zr.SevenZipFile(tmp_path / "defs.7z", "w") as z:
+        z.writeall(defs, "defs")
+    img = pygame.Surface((32, 64), pygame.SRCALPHA)
+    img.fill((140, 90, 40, 255))
+    pygame.image.save(img, str(tmp_path / "boar_2.png"))
+    boar_urls = c["import"]["sources"]["oga-boars/"]["urls"]
+    files[boar_urls[0]] = (tmp_path / "defs.7z").read_bytes()
+    files[boar_urls[1]] = (tmp_path / "boar_2.png").read_bytes()
 
     calls = []
 
@@ -382,7 +412,8 @@ def test_monster_type_without_art_is_a_stand_in_too(screen, cfg, data, tmp_path)
     from aethelgard.client.sprites import ActorSprites, SpriteLibrary
 
     lib = SpriteLibrary(cfg, tmp_path / "empty")
-    assert lib.layers("boar") is None and "boar" in lib.without_look(t.id for t in data.monsters.types)
+    assert lib.without_look(t.id for t in data.monsters.types) == [], "every monster type has art defined"
+    assert lib.layers("dragon") is None and lib.without_look(["dragon"]) == ["dragon"]
     screen.fill((0, 0, 0))
     box = ActorSprites(lib).draw_missing(screen, Camera(200, 200), ("m", 9), Actor())
     assert box.h > 30 and _has_magenta(screen, box)
@@ -445,3 +476,52 @@ def test_dual_wield_swings_draw_both_weapons(screen, cfg, tmp_path):
         drawn = layers if not mirrored else lib.swap_hands(layers)
         box = spr.draw_actor(screen, Camera(200, 200), ("p", 0), Actor(), drawn, mirrored=mirrored)
         assert box.w > 0 and not _has_magenta(screen, box)
+
+
+def test_pack_in_several_files_picks_the_right_animation(screen, cfg, tmp_path):
+    from aethelgard.client.sprites import SpriteLibrary
+
+    c = small_cfg(cfg)
+    fetch_art(c, tmp_path / "art", fake_web(tmp_path, c))
+    boar = SpriteLibrary(c, tmp_path / "art").sheet("oga-boars/boar")
+    assert boar is not None and boar.image.get_at((1, 1))[:3] == (140, 90, 40), "the loose PNG, not a rider"
+
+
+def test_old_sheets_are_rebuilt_and_frames_are_trimmed(screen, cfg, tmp_path):
+    c = small_cfg(cfg)
+    art = tmp_path / "art"
+    fetch_art(c, art, fake_web(tmp_path, c))
+    meta_path = art / "sprites" / "flare" / "enemies" / "skeleton.json"
+    meta = json.loads(meta_path.read_text())
+    assert meta["version"] == c["import"]["version"]
+    meta["version"] = 1
+    meta_path.write_text(json.dumps(meta))
+    assert missing_sheets(c, art) == ["flare/enemies/skeleton"], "built by an older import: rebuilt on the next start"
+
+
+def test_trimmed_frame_keeps_the_feet_in_place(screen, cfg, tmp_path):
+    from aethelgard.tools.fetch_art import Job, convert_sheet
+
+    img = pygame.Surface((80, 40), pygame.SRCALPHA)
+    for d in range(DIRECTIONS):  # grid cell 10×40: a 4×10 figure standing at the bottom, 3 px from the left
+        img.fill((255, 255, 255, 255), (d * 10 + 3, 30, 4, 10))
+    img_path, txt = tmp_path / "t.png", tmp_path / "t.txt"
+    pygame.image.save(img, str(img_path))
+    lines = ["image=t.png", "render_size=10,40", "render_offset=5,40", "", "[stance]", "position=0", "frames=1", "duration=100ms"]
+    txt.write_text("\n".join(lines))
+    c = small_cfg(cfg)
+    convert_sheet(Job("x/t", txt, img_path, 1.0), c, tmp_path / "out")
+    rect = json.loads((tmp_path / "out" / "x" / "t.json").read_text())["anims"]["stance"]["rects"][0][0]
+    assert rect[2:] == [4, 10, 2, 10], "4×10 after trimming; the feet point moved with it (5-3, 40-30)"
+
+
+def test_every_look_is_drawn_at_its_target_height(screen, cfg, tmp_path):
+    from aethelgard.client.sprites import SpriteLibrary
+
+    c = small_cfg(cfg)
+    fetch_art(c, tmp_path / "art", fake_web(tmp_path, c))
+    lib = SpriteLibrary(c, tmp_path / "art")
+    for look in ("skeleton", "wolf", "boar"):
+        h = lib.stand_height(lib.layers(look).values())
+        assert h * lib.look_scale(look) == pytest.approx(lib.target_height(look))
+    assert SpriteLibrary(c, tmp_path / "none").look_scale("wolf") == pytest.approx(lib.missing_scale("wolf")), "stand-in, same height"
