@@ -49,7 +49,8 @@ from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
-from .sprites import ActorSprites, ArtDownload, SpriteLibrary
+from .sprites import ActorSprites, ArtDownload, EffectArt, SpriteLibrary
+from .tilemap import MapArt
 from .tooltip import draw_panel, draw_tooltip
 from .ui import GameUI
 from .vision import Vision
@@ -109,6 +110,8 @@ class Game:
         self.vision = Vision()
         self.sprites = ActorSprites(SpriteLibrary(art_dir=art_dir))
         self.art = ArtDownload(self.sprites.lib)
+        self.effects = EffectArt(self.sprites.lib)
+        self.ground_view.art = self.effects
         self.big_map = False
         self.floaters: list[Floater] = []
         self.map: MapRenderer | None = None
@@ -158,6 +161,7 @@ class Game:
                                self.art.fraction, "Esc: play now with placeholders (the download goes on)")
             self.clock.tick(30)
         note = self.art.poll()
+        self._build_map()  # the tiles may have just arrived
         for line in self.art.problems if self.art.state == "failed" else []:
             print(f"[art]   - {line}", flush=True)
         print(f"[art] {note}", flush=True)
@@ -330,11 +334,17 @@ class Game:
         self.world.enter_area(area_id, floor, came_from, arrive_at)
         self._area_changed()
 
+    def _build_map(self) -> None:
+        """Map renderer for the current area: tiles when the art is there, placeholder shapes otherwise."""
+        area = self.data.area(self.world.area_id)
+        art = MapArt.build(self.sprites.lib, self.world.layout, area.id, area.kind)
+        self.map = MapRenderer(self.world.layout, area.kind, art)
+
     def _area_changed(self) -> None:
         """Map, fog of war and title for whatever area the world is in now."""
         area_id, floor = self.world.area_id, self.world.floor
         area = self.data.area(area_id)
-        self.map = MapRenderer(self.world.layout, area.kind)
+        self._build_map()
         self.vision.enter((area_id, floor), self.world.layout, reveal_all=area.kind == "town")
         self.vision.update(self.player.x, self.player.y)
         suffix = f" – floor {floor + 1}" if area.kind == "dungeon" else ""
@@ -680,18 +690,38 @@ class Game:
         screen, cam = self.screen, self.cam
         screen.fill(C.BG)
         self.map.draw(screen, cam, self.vision.explored)
+        props = self.map.props(cam, self.vision.explored)
+        art = self.map.art
+        if art is not None:
+            wp = art.waypoint(self.world.area_id in self.session.waypoints) if self.world.layout.waypoint else None
+            if wp is not None and self.vision.explored[wp.y, wp.x]:
+                props.append(wp)
+        for prop in props:
+            if prop.flat:  # stairs going down, the waypoint: part of the floor
+                self.map.draw_prop(screen, cam, prop)
         self.map.draw_markers(screen, cam, self.fonts["tiny"], self.area_names, self.vision.explored)
         drops = self.visible_drops()
         self.sprites.draw_corpses(screen, cam, self.vision.sees)  # bodies lie under what they dropped
         self.ground_view.draw_shapes(screen, cam, drops)
         self._draw_portal()
 
-        # monsters outside the field of view are not drawn
+        # walls, trees and actors in depth order: what is nearer the camera covers what is behind (as in D2).
+        # Monsters outside the field of view are not drawn.
         actors = [(m.x + m.y, "m", m) for m in self.world.monsters.values() if self.vision.sees(m.x, m.y)]
         actors.append((self.player.x + self.player.y, "p", self.player))
+        actors += [(prop.depth, "w", prop) for prop in props if not prop.flat]
+        actors += [(n.x + n.y, "n", n) for n in (art.npcs if art else []) if self.vision.explored[round(n.y), round(n.x)]]
+        hero = self.sprites.rects.get(("p", self.player.player_id))
+        pdepth = self.player.x + self.player.y
         for _, kind, a in sorted(actors, key=lambda t: t[0]):
             if kind == "m":
                 self._draw_monster(a)
+            elif kind == "w":  # a wall or a tree in front of the hero turns see-through
+                fade = (a.wall and hero is not None and pdepth < a.depth < pdepth + 8
+                        and abs(a.x - a.y - self.player.x + self.player.y) < 6 and self.map.prop_rect(cam, a).colliderect(hero))
+                self.map.draw_prop(screen, cam, a, min(a.alpha, 110) if fade else a.alpha)
+            elif kind == "n":
+                self._draw_npc(a)
             else:
                 self._draw_player(a)
 
@@ -785,6 +815,8 @@ class Game:
             return
         lift = 24
         sx, sy = self.cam.to_screen(proj.x, proj.y)
+        if self.effects.draw_shot(self.screen, (sx, sy), proj.look, proj.dir_x, proj.dir_y):
+            return  # the art carries its own height above the ground
         tx, ty = self.cam.to_screen(proj.x - proj.dir_x * 0.8, proj.y - proj.dir_y * 0.8)
         head, tail = (sx, sy - lift), (tx, ty - lift)
         screen = self.screen
@@ -872,6 +904,19 @@ class Game:
         tip = (sx + 10 + ux * (14 + 14 * swing), sy - 30 + uy * (14 + 14 * swing) - 16 * (1 - swing))
         pygame.draw.line(screen, C.SWORD, (sx + 8, sy - 28), tip, 3)
 
+    def _draw_npc(self, npc) -> None:
+        """A town NPC (the merchant): its look, idle, turned toward the hero."""
+        lib = self.sprites.lib
+        layers = lib.layers(npc.look)
+        if layers is None:
+            return
+        p = self.player
+        dx, dy = p.x - npc.x, p.y - npc.y
+        n = math.hypot(dx, dy) or 1.0
+        pose = type("NpcPose", (), {"x": npc.x, "y": npc.y, "face_x": dx / n, "face_y": dy / n, "state": "idle",
+                                    "attack_elapsed": 0.0, "attack_duration": 0.0})
+        self.sprites.draw_actor(self.screen, self.cam, ("n", hash(npc.name) & 0xFFFF), pose, layers, scale=lib.look_scale(npc.look, layers))
+
     def _draw_monster(self, m: MonsterActor) -> None:
         sx, sy = self.cam.to_screen(m.x, m.y)
         rank = m.monster.rank.id
@@ -918,9 +963,11 @@ class Game:
             self.waypoint_menu = None
         self.vision.update(self.player.x, self.player.y)
         self.sprites.tick(DT)
+        self.effects.tick(DT)
         note = self.art.poll()
         if note:
             self.hud.add(note, C.GOLD if self.art.state == "done" else C.LIFE)
+            self._build_map()
         self.ui.update(DT)
         for f in self.floaters:
             f.life -= DT

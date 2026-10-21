@@ -142,7 +142,8 @@ def test_shelf_packing_never_overlaps():
 
 def test_looks_and_gear_match_the_game_data(cfg, data):
     types = {t.id for t in data.monsters.types}
-    assert set(cfg["looks"]) - {"player"} <= types, "a look is the player or a monster type id"
+    npc_looks = {o["look"] for o in cfg["tiles"]["objects"].values() if "look" in o}
+    assert set(cfg["looks"]) - {"player"} - npc_looks <= types, "a look is the player, a map NPC or a monster type id"
     assert set(cfg["gear"]) <= {b.id for b in data.items.bases}, "gear entries are item base ids"
     assert set(cfg["slotLayers"]) <= set(data.items.equipment), "slotLayers keys are equipment slots (items.json)"
     assert set(cfg["layerOrder"]) == set(DIRECTION_NAMES)
@@ -195,6 +196,8 @@ def small_cfg(cfg):
     c = json.loads(json.dumps(cfg))
     c["looks"] = {k: cfg["looks"][k] for k in ("player", "skeleton", "wolf", "alpha_wolf", "boar")}
     c["import"]["sources"]["oga-boars/"]["urls"] = ["https://packs.test/boar_defs.7z", "https://packs.test/boar_2.png"]
+    for key in ("tiles", "loot", "projectiles"):  # map, drops and shots have their own tests
+        c.pop(key, None)
     c["gear"] = {"short_sword": cfg["gear"]["short_sword"]}
     c["import"].update(scale=1.0, colors=0, atlasWidth=128)
     c["import"]["sources"]["flare/"]["base"] = FLARE
@@ -525,3 +528,109 @@ def test_every_look_is_drawn_at_its_target_height(screen, cfg, tmp_path):
         h = lib.stand_height(lib.layers(look).values())
         assert h * lib.look_scale(look) == pytest.approx(lib.target_height(look))
     assert SpriteLibrary(c, tmp_path / "none").look_scale("wolf") == pytest.approx(lib.missing_scale("wolf")), "stand-in, same height"
+
+
+# ---------------------------------------------------------------- map art, drops, shots
+
+
+def test_parse_flare_tileset_with_several_images():
+    from aethelgard.client.animation import is_flare_tileset, parse_flare_tileset
+
+    text = "[tileset]\nimg=a.png\ntile=16,0,0,192,96,96,48\n\n[tileset]\nimg=b.png\ntile=200,10,20,96,96,48,80\n"
+    images, tiles = parse_flare_tileset(text)
+    assert is_flare_tileset(text) and images == ["a.png", "b.png"]
+    assert tiles[16] == (0, 0, 0, 192, 96, 96, 48) and tiles[200] == (1, 10, 20, 96, 96, 48, 80)
+
+
+def test_every_map_object_item_and_shot_has_art_defined(cfg, data):
+    assert {b.id for b in data.items.bases} <= set(cfg["loot"]["items"]), "every item has a picture on the ground"
+    looks = {t.projectile.look for t in data.monsters.types if t.projectile}
+    assert looks <= set(cfg["projectiles"]["looks"]), "every monster shot has art"
+    tiles = cfg["tiles"]
+    assert {a.kind for a in data.all_areas} <= set(tiles["kindThemes"])
+    assert set(tiles["areaThemes"]) <= {a.id for a in data.all_areas}
+    assert {"waypoint", "stairsDown", "stairsUp", "entrance", "exit", "stash", "vendor"} <= set(tiles["objects"])
+    assert all(o["look"] in cfg["looks"] for o in tiles["objects"].values() if "look" in o)
+
+
+def _tileset_cfg(cfg):
+    """sprites.json with a fake tileset: floors 16–17, walls 64 (east face), 65 (south face), 66 (back), props 240."""
+    c = json.loads(json.dumps(cfg))
+    th = {"sheet": "flare/tiles/test", "floor": {"16": 1, "17": 1}, "wallE": {"64": 1}, "wallS": {"65": 1}, "wallBack": {"66": 1}}
+    c["tiles"]["themes"] = {"crypt": th, "open": {"sheet": "flare/tiles/test", "floor": {"16": 1}, "under": True,
+                                                   "props": {"240": 1}, "propChance": [1.0, 0.0]}}
+    c["tiles"]["objects"] = {"waypoint": {"sheet": "flare/tiles/test", "tiles": [16, 17], "flat": True},
+                             "stairsDown": {"sheet": "flare/tiles/test", "tile": 17, "flat": True},
+                             "stairsUp": {"sheet": "flare/tiles/test", "tile": 64}, "vendor": {"look": "player"}}
+    return c
+
+
+def _write_tileset(art):
+    folder = art / "sprites" / "flare" / "tiles"
+    folder.mkdir(parents=True)
+    img = pygame.Surface((64 * 6, 120), pygame.SRCALPHA)
+    img.fill((90, 90, 90, 255))
+    pygame.image.save(img, str(folder / "test.png"))
+    tiles = {str(i): [64 * k, 0, 64, 32 if i < 60 else 109, 32, 16 if i < 60 else 96] for k, i in enumerate((16, 17, 64, 65, 66, 240))}
+    (folder / "test.json").write_text(json.dumps({"version": 2, "image": "test.png", "tiles": tiles}))
+
+
+def test_walls_face_the_room_and_open_ground_gets_trees(screen, cfg, tmp_path):
+    from aethelgard.client.sprites import SpriteLibrary
+    from aethelgard.client.tilemap import MapArt
+    from aethelgard.core.world_gen import FLOOR, WALL, AreaLayout, Exit, ExitKind
+
+    c = _tileset_cfg(cfg)
+    _write_tileset(tmp_path / "art")
+    lib = SpriteLibrary(c, tmp_path / "art")
+    L = AreaLayout.filled(10, 10, WALL)
+    L.tiles[3:7, 3:7] = FLOOR  # a 4×4 room
+    L.exits.append(Exit((5, 5), ExitKind.STAIRS_DOWN, None))
+    L.markers["Ilsa"] = ((4, 4), {"role": "vendor"})
+    art = MapArt.build(lib, L, "crypt", "dungeon")
+    props = {(p.x, p.y): p.tile for cy in range(2) for cx in range(2) for p in art.props_in_chunk(cx, cy, 8)}
+    assert props[(2, 4)] == 64, "west of the room: its east face looks at the floor"
+    assert props[(4, 2)] == 65, "north of the room: its south face looks at the floor"
+    assert props[(7, 4)] == 66 and props[(4, 7)] == 66, "between the camera and the room: back walls"
+    assert (0, 0) not in props, "solid rock far from the room: nothing"
+    assert art.floor_tile(4, 4) is not None and art.floor_tile(0, 0) is None
+    assert [o.kind for o in art.objects] == ["stairsDown"] and art.objects[0].flat
+    assert [n.role for n in art.npcs] == ["vendor"] and art.has_art((4, 4)) and art.has_art((5, 5))
+    assert MapArt.build(lib, L, "crypt", "dungeon").props_in_chunk(0, 0, 8) == art.props_in_chunk(0, 0, 8), "same map, same look"
+
+    open_art = MapArt.build(lib, L, "plains", "open")
+    near = [p for p in open_art.props_in_chunk(0, 0, 10) if max(abs(p.x - 4.5), abs(p.y - 4.5)) <= 3]
+    assert near and all(p.tile == 240 for p in near), "the edge of a clearing is lined with trees"
+    assert open_art.floor_tile(0, 0) is not None, "grass under the trees"
+    assert MapArt.build(SpriteLibrary(c, tmp_path / "none"), L, "crypt", "dungeon") is None, "no art: placeholder shapes"
+
+
+def test_drops_and_shots_pick_their_art(screen, cfg):
+    from aethelgard.client.sprites import EffectArt, SpriteLibrary
+    from aethelgard.core.items import GoldDrop, PotionDrop
+
+    fx = EffectArt(SpriteLibrary(cfg, "/nonexistent"))
+    assert fx.loot_sheet(GoldDrop(3)) == "flare/loot/coins5"
+    assert fx.loot_sheet(GoldDrop(40)) == "flare/loot/coins25" and fx.loot_sheet(GoldDrop(500)) == "flare/loot/coins100"
+    assert fx.loot_sheet(PotionDrop("life")) == "flare/loot/hp_potion"
+    assert fx.draw_drop(screen, (10, 10), 1, GoldDrop(3)) is None, "not downloaded: the placeholder shape"
+    assert not fx.draw_shot(screen, (10, 10), "arrow", 1, 0)
+
+
+def test_tileset_is_converted_to_our_cell_size(screen, cfg, tmp_path):
+    from aethelgard.tools.fetch_art import Job, convert_sheet
+
+    for name, color in (("a.png", (200, 0, 0, 255)), ("b.png", (0, 0, 200, 255))):
+        img = pygame.Surface((192, 192), pygame.SRCALPHA)
+        img.fill(color)
+        pygame.image.save(img, str(tmp_path / name))
+    txt = tmp_path / "tileset_test.txt"
+    txt.write_text("[tileset]\nimg=a.png\ntile=16,0,0,192,96,96,48\n\n[tileset]\nimg=b.png\ntile=64,0,0,192,192,96,144\n")
+    convert_sheet(Job("flare/tiles/test", txt, tmp_path / "a.png", 64 / 192, [tmp_path / "a.png", tmp_path / "b.png"]), cfg, tmp_path / "out")
+    meta = json.loads((tmp_path / "out" / "flare" / "tiles" / "test.json").read_text())
+    assert meta["tiles"]["16"][2:] == [64, 32, 32, 16], "a floor lands exactly on a 64×32 cell"
+    assert meta["tiles"]["64"][2:] == [64, 64, 32, 48], "a wall keeps its foot on the cell center"
+    atlas = pygame.image.load(str(tmp_path / "out" / "flare" / "tiles" / "test.png"))
+    x, y = meta["tiles"]["64"][:2]
+    r, _, b, _ = atlas.get_at((x + 10, y + 10))
+    assert r < 20 and b > 180, "the second section reads the second image (blue)"

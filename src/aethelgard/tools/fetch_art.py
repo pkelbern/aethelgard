@@ -33,7 +33,7 @@ from importlib import resources
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
-from ..client.animation import DIRECTIONS, pack_shelves, parse_flare_animation
+from ..client.animation import DIRECTIONS, is_flare_tileset, pack_shelves, parse_flare_animation, parse_flare_tileset
 from ..core.saves import default_art_dir
 
 Fetch = Callable[[str], bytes]  # URL → file contents
@@ -58,10 +58,23 @@ def sprites_dir(art_dir: Path) -> Path:
 
 
 def sheets_in_use(cfg: dict) -> list[str]:
-    """Every sheet named by a look or by the gear table, sorted."""
+    """Every sheet named by a look, the gear table, a map theme or a map object, sorted."""
     found = {s for look in cfg["looks"].values() for s in look["layers"].values()}
     found |= {s for layers in cfg["gear"].values() for s in layers.values()}
+    found |= {theme["sheet"] for theme in cfg.get("tiles", {}).get("themes", {}).values()}
+    tiles = cfg.get("tiles", {})
+    objects = [*tiles.get("objects", {}).values(), *(o for th in tiles.get("themes", {}).values() for o in th.get("objects", {}).values())]
+    found |= {o["sheet"] for o in objects if "sheet" in o}
+    loot = cfg.get("loot", {})
+    found |= {*loot.get("items", {}).values(), *loot.get("gold", {}).values(), *loot.get("potions", {}).values()}
+    found |= {loot["scroll"]} if loot.get("scroll") else set()
+    found |= set(cfg.get("projectiles", {}).get("looks", {}).values())
     return sorted(found)
+
+
+def images_of(text: str) -> list[str]:
+    """Images named by a Flare animation (one) or tileset (one per section) file."""
+    return parse_flare_tileset(text)[0] if is_flare_tileset(text) else [parse_flare_animation(text)[0]]
 
 
 def sheet_ready(art_dir: Path, sheet: str, version: int = 0) -> bool:
@@ -132,6 +145,7 @@ class Job:
     animation: Path | None = None
     image: Path | None = None
     scale: float = 1.0
+    images: list[Path] = field(default_factory=list)  # tilesets with several sections: one image each
 
 
 @dataclass
@@ -168,7 +182,7 @@ def fetch_art(cfg: dict, art_dir: Path, fetch: Fetch, *, rebuild: bool = False, 
     with tempfile.TemporaryDirectory(prefix="aethelgard-art-") as tmp:
         run = _Run(cfg, Path(tmp), fetch, report, workers)
         sources = cfg["import"]["sources"]
-        run.total = sum(2 * len(g) if sources[k]["kind"] == "repo" else len(_urls(sources[k])) for k, g in groups.items())  # repo: .txt + image
+        run.total = sum(2 * len(g) if sources[k]["kind"] == "repo" else len(_urls(sources[k])) for k, g in groups.items())  # repo: .txt + image(s)
         jobs: list[Job] = []
         for prefix, group in groups.items():
             src = sources[prefix]
@@ -212,15 +226,22 @@ def _prepare_repo(run: _Run, prefix: str, src: dict, sheets: list[str]) -> list[
     texts = {s: repo_path(src, s[len(prefix) :]) for s in sheets}
     with ThreadPoolExecutor(max_workers=run.workers) as pool:
         paths = dict(zip(texts, pool.map(get, texts.values()), strict=True))
-        images = {s: src["imageRoot"] + parse_flare_animation(p.read_text(encoding="utf-8"))[0] for s, p in paths.items()}
-        files = dict(zip(sorted(set(images.values())), pool.map(get, sorted(set(images.values()))), strict=True))
+        images = {s: [src["imageRoot"] + i for i in images_of(p.read_text(encoding="utf-8"))] for s, p in paths.items()}
+        wanted = sorted({i for imgs in images.values() for i in imgs})
+        files = dict(zip(wanted, pool.map(get, wanted), strict=True))
     for name, out in src.get("licenseFiles", {}).items():
         try:
             run.notes.setdefault(prefix, {})[out] = run.fetch(base + quote(name))
         except Exception:  # ATTRIBUTION.md still names the source and the license
             pass
     scale = src.get("scale", run.cfg["import"]["scale"])
-    return [Job(s, paths[s], files[images[s]], scale) for s in sheets]
+    scales = src.get("scales", {})  # per folder: tilesets must land exactly on our 64×32 cells
+
+    def scale_of(sheet: str) -> float:
+        rest = sheet[len(prefix) :]
+        return next((v for k, v in scales.items() if rest.startswith(k)), scale)
+
+    return [Job(s, paths[s], files[images[s][0]], scale_of(s), [files[i] for i in images[s]]) for s in sheets]
 
 
 def _urls(src: dict) -> list[str]:
@@ -342,9 +363,12 @@ def extract(archive: Path, dest: Path) -> None:
 
 
 def convert_sheet(job: Job, cfg: dict, out: Path) -> tuple[int, int]:
-    """One Flare animation file + image → ``<out>/<sheet>.png`` and ``.json``."""
+    """One Flare animation file (or tileset) + image → ``<out>/<sheet>.png`` and ``.json``."""
     import pygame
 
+    text = job.animation.read_text(encoding="utf-8", errors="replace")
+    if is_flare_tileset(text):
+        return convert_tileset(job, cfg, out, text)
     imp = cfg["import"]
     keep = set(imp["anims"])
     _, anims = parse_flare_animation(job.animation.read_text(encoding="utf-8", errors="replace"))
@@ -392,6 +416,41 @@ def convert_sheet(job: Job, cfg: dict, out: Path) -> tuple[int, int]:
     meta = {"version": imp.get("version", 1), "image": target.with_suffix(".png").name, "anims": out_anims}
     tmp.write_text(json.dumps(meta, separators=(",", ":")), encoding="utf-8")
     os.replace(tmp, target)  # the .json appears last: the sheet is complete
+    return len(keys), height
+
+
+def convert_tileset(job: Job, cfg: dict, out: Path, text: str) -> tuple[int, int]:
+    """Flare tileset → atlas + ``{"tiles": {id: [x, y, w, h, ox, oy]}}``. Not trimmed (floors must meet edge to
+    edge) and kept in full color (textures suffer most from a palette)."""
+    import pygame
+
+    _, tiles = parse_flare_tileset(text)
+    sources = [pygame.image.load(str(p)) for p in (job.images or [job.image])]
+    frames, offsets = {}, {}
+    for tid, (section, x, y, w, h, ox, oy) in tiles.items():
+        src = sources[min(section, len(sources) - 1)]
+        if w <= 0 or h <= 0 or not src.get_rect().contains((x, y, w, h)):
+            continue
+        sw, sh = max(1, round(w * job.scale)), max(1, round(h * job.scale))
+        frames[tid] = pygame.transform.smoothscale(src.subsurface((x, y, w, h)), (sw, sh))
+        offsets[tid] = (round(ox * job.scale), round(oy * job.scale))
+    if not frames:
+        raise ValueError("empty tileset")
+    keys = sorted(frames)
+    width = max(cfg["import"]["atlasWidth"], max(f.get_width() for f in frames.values()))
+    pos, height = pack_shelves([frames[k].get_size() for k in keys], width)
+    atlas = pygame.Surface((width, max(1, height)), pygame.SRCALPHA)
+    placed = {}
+    for k, (px, py) in zip(keys, pos, strict=True):
+        atlas.blit(frames[k], (px, py))
+        placed[str(k)] = [px, py, *frames[k].get_size(), *offsets[k]]
+    target = out / f"{job.sheet}.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    save_png(atlas, target.with_suffix(".png"), 0)
+    tmp = target.with_suffix(".json.tmp")
+    meta = {"version": cfg["import"].get("version", 1), "image": target.with_suffix(".png").name, "tiles": placed}
+    tmp.write_text(json.dumps(meta, separators=(",", ":")), encoding="utf-8")
+    os.replace(tmp, target)
     return len(keys), height
 
 

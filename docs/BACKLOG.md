@@ -14,7 +14,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 2 | 8 | 6 |
 | M6 – Loot | 2 | 4 | 8 | 3.5 |
-| M7 – Vertical slice | 0 | 3 | 10 | 29.5 |
+| M7 – Vertical slice | 0 | 4 | 10 | 24.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
 | M10 – Multiplayer | 2 | 0 | 6 | 22 |
@@ -196,8 +196,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   core/sheet.py monta as linhas com as mesmas fórmulas do combate (nível, título, ouro, proficiências com XP, atributos, vida/energia e regeneração, dano, ataques/s, precisão com chance de acerto contra monstro do mesmo nível, crítico, alcance, defesa com chance de errar, armadura com redução, bloqueio). Passar o mouse numa linha explica de onde vem o número. Regeneração de Energia (2%/s, 0,5%/s com guarda) foi para balance.json. Falta: as constantes de atributo (5 precisão/DES, 0,2% crítico/DES, 1% dano/FOR) têm nome em combat.py mas ainda não estão num JSON.
 - [ ] **M7-01** Direção de arte e pipeline 3D → sprite _(arte, ~5 d)_  
   Definir paleta e escala; protótipo de personagem em 8 direções renderizado no Blender.
-- [ ] **M7-02** Tileset dos 3 biomas do Ato 1 _(arte, ~5 d)_  
-  Planície, caverna, cripta (packs licenciados ou próprios).
+- [ ] **M7-02** Tileset dos 3 biomas do Ato 1 _(arte, ~5 d)_ — **escrito, validar**  
+  Tilesets do Flare (CC-BY-SA 3.0), baixados quando o jogo abre: grama com árvores e pedras nas bordas (vila, planície, bosque, colinas), caverna (terra e rocha) e cripta (pedra, paredes com estantes, tochas, estandartes). Paredes com a face virada para a sala, ordenadas em profundidade com os personagens e translúcidas quando o herói está atrás. Objetos: waypoint (apagado/aceso), escadas, entrada da masmorra, placas nas saídas, baú, mercadora com sprite; itens no chão e flechas/rajadas com arte. Falta: bosque e colinas com cara própria (hoje iguais à planície), casas na vila, ícones de itens e habilidades (icons.png do Flare).
 - [ ] **M7-03** Sprites do guerreiro e das 3 famílias _(arte, ~10 d)_  
   Parado, andar, atacar ×2, bloquear, ser atingido, morrer. Protótipo com a arte do Flare (M7-09) cobre o guerreiro, Mortos-vivos e Saqueadores. Lobo e Lobo Alfa: pacote 'Wolf monsters animated' (Danimal, CC-BY-SA, OpenGameArt), baixado quando o jogo abre. Javali: 'Boar enemies' (Danimal, CC-BY-SA 4.0). Tamanhos igualados pela altura em pé, na proporção do Diablo 2 (herói ≈ 94 px). Falta: 2ª variação de ataque e a arte própria (M7-01). Validar no jogo os nomes dos arquivos dentro do pacote dos lobos (escolhidos por padrão de nome).
 - [ ] **M7-04** Áudio: impactos, bloqueio, drops, level up, música _(áudio, ~4 d)_  

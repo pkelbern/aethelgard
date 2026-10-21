@@ -196,3 +196,23 @@ def pack_shelves(sizes: list[tuple[int, int]], width: int, pad: int = 1) -> tupl
         x += w + pad
         row_h = max(row_h, h)
     return pos, y + row_h
+
+
+def parse_flare_tileset(text: str) -> tuple[list[str], dict[int, tuple[int, int, int, int, int, int, int]]]:
+    """Reads a Flare ``tilesetdefs/*.txt``: its images (a tileset may have several ``[tileset]`` sections, one
+    image each) and ``tile id → image index, x, y, w, h, ox, oy``. ``(ox, oy)`` is the point that sits on the
+    center of the cell the tile is placed on."""
+    images, tiles = [], {}
+    for raw in text.splitlines():
+        key, _, val = raw.strip().partition("=")
+        if key == "img":
+            images.append(val.strip())
+        elif key == "tile" and images:
+            parts = [int(p) for p in val.split(",")[:7]]
+            if len(parts) == 7:
+                tiles[parts[0]] = (len(images) - 1, *parts[1:])
+    return images, tiles
+
+
+def is_flare_tileset(text: str) -> bool:
+    return "[tileset]" in text or any(line.startswith("tile=") for line in text.splitlines()[:20])

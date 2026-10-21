@@ -6,7 +6,7 @@
     "scale": 0.6,
     "atlasWidth": 1024,
     "colors": 256,
-    "anims": ["stance", "run", "swing", "block", "hit", "die", "critdie", "cast", "shoot"],
+    "anims": ["stance", "run", "swing", "block", "hit", "die", "critdie", "cast", "shoot", "power"],
     "sources": {
       "flare/": {
         "kind": "repo",
@@ -20,8 +20,13 @@
         "imageRoot": "mods/fantasycore/",
         "folders": {
           "male/": "mods/fantasycore/animations/avatar/male/",
-          "enemies/": "mods/fantasycore/animations/enemies/"
-        }
+          "enemies/": "mods/fantasycore/animations/enemies/",
+          "npcs/": "mods/fantasycore/animations/npcs/",
+          "loot/": "mods/fantasycore/animations/loot/",
+          "powers/": "mods/fantasycore/animations/powers/",
+          "tiles/": "mods/fantasycore/tilesetdefs/tileset_"
+        },
+        "scales": { "tiles/": 0.333333 }
       },
       "oga-wolves/": {
         "kind": "archive",
@@ -49,6 +54,75 @@
     }
   },
   "fallbacks": { "hit": ["block", "stance"], "block": ["stance"], "die": ["critdie", "stance"], "cast": ["swing"], "shoot": ["swing"], "swing": ["stance"], "run": ["stance"] },
+  "tiles": {
+    "_comment": "Map art (client only). themes: one per kind of area; areaThemes picks one by area id, else by kind (town | open | dungeon). sheet = a Flare tileset (tile ids are Flare's). floor = weights of the floor tiles (random per cell, the same every time). Dungeon-like themes: a wall cell next to the floor shows wallE when the floor is east of it (+x, down-right on screen: its face looks at the room), wallS when it is south (+y), and wallBack otherwise (walls between the camera and the room; they turn see-through when the hero is behind). backAlpha = opacity of wallBack (0–255). Open themes: grass under everything (under = true) and props (trees, rocks) on wall cells; propChance = chance by distance to the nearest floor (1, 2, 3 cells), dense at the edge so blocked ground reads as blocked. objects: map features (tile on a sheet, or a look for NPCs); 'flat' ones lie on the floor, the others are sorted with the actors; scale shrinks Flare's big set pieces to our cells; a theme can override an object. objectScale: props and objects are 1/3 of Flare's size, like the tiles.",
+    "themes": {
+      "open": {
+        "sheet": "flare/tiles/grassland",
+        "floor": {"16": 4, "17": 4, "18": 4, "19": 4, "20": 4, "21": 4, "22": 4, "23": 4, "24": 4, "25": 4, "26": 4, "27": 4, "28": 4, "29": 4, "30": 4, "31": 4, "32": 1, "33": 1, "34": 1, "35": 1, "36": 1, "37": 1, "38": 1, "39": 1},
+        "under": true,
+        "props": {"240": 3, "241": 3, "242": 3, "243": 3, "248": 4, "249": 4, "250": 4, "251": 4, "252": 4, "253": 4, "254": 4, "255": 4, "244": 1, "245": 1, "128": 2, "129": 2, "130": 2, "131": 2, "136": 1},
+        "propChance": [0.95, 0.55, 0.2]
+      },
+      "town": {
+        "sheet": "flare/tiles/grassland",
+        "floor": {"16": 4, "17": 4, "18": 4, "19": 4, "20": 4, "21": 4, "22": 4, "23": 4, "24": 4, "25": 4, "26": 4, "27": 4, "28": 4, "29": 4, "30": 4, "31": 4, "32": 1, "33": 1, "34": 1, "35": 1, "36": 1, "37": 1, "38": 1, "39": 1, "40": 1, "41": 1, "42": 1, "43": 1, "44": 1, "45": 1, "46": 1, "47": 1},
+        "under": true,
+        "props": {"252": 3, "253": 3, "248": 3, "249": 3, "96": 1, "97": 1, "98": 1, "100": 1, "128": 1, "130": 1},
+        "propChance": [0.9, 0.4, 0.1]
+      },
+      "crypt": {
+        "sheet": "flare/tiles/dungeon",
+        "floor": {"16": 10, "17": 10, "18": 10, "19": 10, "36": 4, "37": 4, "38": 4, "39": 4, "40": 2, "41": 2, "42": 2, "43": 2, "32": 1, "33": 1, "34": 1, "35": 1},
+        "wallE": {"64": 10, "68": 10, "96": 6, "98": 1, "100": 1, "102": 2, "104": 2, "106": 1},
+        "wallS": {"65": 10, "69": 10, "97": 6, "99": 1, "101": 1, "103": 2, "105": 2, "107": 1},
+        "wallBack": {"92": 1, "93": 1},
+        "objects": {"waypoint": {"sheet": "flare/tiles/dungeon", "tiles": [264, 265], "flat": true, "scale": 0.5}}
+      },
+      "cave": {
+        "sheet": "flare/tiles/cave",
+        "floor": {"16": 6, "17": 6, "18": 6, "19": 6, "20": 6, "21": 6, "22": 6, "23": 6, "24": 6, "25": 6, "26": 6, "27": 6, "28": 6, "29": 6, "30": 6, "31": 6, "48": 1, "49": 1, "50": 1, "51": 1, "52": 1, "53": 1, "54": 1, "55": 1},
+        "wallE": {"64": 10, "68": 8, "96": 4, "98": 4, "100": 2, "104": 2},
+        "wallS": {"65": 10, "69": 8, "97": 4, "99": 4, "101": 2, "105": 2},
+        "wallBack": {"66": 1, "67": 1},
+        "objects": {"waypoint": {"sheet": "flare/tiles/dungeon", "tiles": [264, 265], "flat": true, "scale": 0.5}},
+        "backAlpha": 150
+      }
+    },
+    "areaThemes": { "village": "town", "cave": "cave", "crypt": "crypt" },
+    "kindThemes": { "town": "town", "open": "open", "dungeon": "crypt" },
+    "objectScale": 1.0,
+    "objects": {
+      "waypoint":   { "sheet": "flare/tiles/grassland", "tiles": [264, 265], "flat": true, "scale": 0.5 },
+      "stairsDown": { "sheet": "flare/tiles/dungeon", "tile": 286, "flat": true, "scale": 0.45 },
+      "stairsUp":   { "sheet": "flare/tiles/dungeon", "tile": 284, "scale": 0.45 },
+      "entrance":   { "sheet": "flare/tiles/grassland", "tile": 227, "scale": 0.8 },
+      "exit":       { "sheet": "flare/tiles/grassland", "tile": 138, "scale": 0.8 },
+      "stash":      { "sheet": "flare/tiles/grassland", "tile": 76, "scale": 0.8 },
+      "vendor":     { "look": "trader" }
+    }
+  },
+  "loot": {
+    "_comment": "Drops on the ground: the Flare loot animation of each item (it falls and rests on its last frame). items: by item base id; gold by amount (the biggest pile not above it); potions by kind; scroll. scale: the loot art is drawn at 1/3 of Flare's size, like the tiles (the sheets are stored at import.scale).",
+    "scale": 0.5556,
+    "items": {
+      "short_bow": "flare/loot/shortbow", "hunters_bow": "flare/loot/shortbow", "long_bow": "flare/loot/longbow", "composite_bow": "flare/loot/greatbow",
+      "long_dagger": "flare/loot/dagger", "short_sword": "flare/loot/shortsword", "gladius": "flare/loot/shortsword", "sabre": "flare/loot/longsword",
+      "long_sword": "flare/loot/longsword", "bastard_sword": "flare/loot/greatsword",
+      "buckler": "flare/loot/buckler", "round_shield": "flare/loot/buckler", "kite_shield": "flare/loot/shield", "tower_shield": "flare/loot/shield",
+      "leather_armor": "flare/loot/leather_armor", "studded_leather": "flare/loot/leather_armor", "chain_mail": "flare/loot/steel_armor",
+      "scale_mail": "flare/loot/steel_armor", "plate_mail": "flare/loot/steel_armor", "helm": "flare/loot/clothes", "gloves": "flare/loot/clothes",
+      "boots": "flare/loot/boots", "belt": "flare/loot/belt", "ring": "flare/loot/ring", "amulet": "flare/loot/gem"
+    },
+    "gold": { "1": "flare/loot/coins5", "25": "flare/loot/coins25", "100": "flare/loot/coins100" },
+    "potions": { "life": "flare/loot/hp_potion", "energy": "flare/loot/mp_potion" },
+    "scroll": "flare/loot/scroll"
+  },
+  "projectiles": {
+    "_comment": "Shots in flight, by the 'look' of the shot (monsters.json projectile.look, the shield throw is 'shield'). sheet = a Flare power animation, 8 directions; scale as for loot.",
+    "scale": 0.5556,
+    "looks": { "arrow": "flare/powers/arrows", "bolt": "flare/powers/plasmaball" }
+  },
   "slotLayers": { "mainhand": ["main"], "offhand": ["off"] },
   "mirroredLayers": { "offhand": { "main": "off" } },
   "strideHeights": 1.4,
@@ -78,6 +152,7 @@
     "skeleton_archer": { "layers": { "body": "flare/enemies/skeleton_archer" }, "attack": "shoot" },
     "necromancer":     { "layers": { "body": "flare/enemies/skeleton_mage" }, "attack": "cast" },
     "zombie":          { "layers": { "body": "flare/enemies/zombie" } },
+    "trader":          { "layers": { "body": "flare/npcs/wandering_trader" } },
     "wolf":            { "layers": { "body": "oga-wolves/wolf" }, "height": 0.72 },
     "alpha_wolf":      { "layers": { "body": "oga-wolves/alpha_wolf" }, "height": 0.82 },
     "boar":            { "layers": { "body": "oga-boars/boar" }, "height": 0.7 },

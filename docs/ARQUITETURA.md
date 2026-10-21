@@ -58,6 +58,27 @@ core/                   regras, sem pygame
 - `World.ground` guarda `GroundItem`s; `PickUp` anda até o item e chama `GameSession.collect`. `items.drop_name` é o nome usado no log e nos rótulos.
 - Líder = tipo com `leader` em monsters.json. `World._apply_auras` recalcula `MonsterActor.buffs` a cada passo; `MonsterActor.stat/attack/defense` já somam os bônus.
 
+## Mapa com tiles
+
+```
+data/ui/sprites.json → tiles   temas (grama, vila, caverna, cripta), objetos do mapa
+client/tilemap.py              MapArt: piso de cada célula, paredes/árvores como Prop, objetos e NPCs
+client/iso.py                  MapRenderer: pisos no cache de blocos; props visíveis; marcadores (só o nome onde há arte)
+client/app.py → draw           pisos → props planos (escada, waypoint) → corpos/itens → props + atores por profundidade
+```
+
+- **Tilesets do Flare** (`tilesetdefs/*.txt`, uma ou mais imagens): o importador guarda `{"tiles": {id: [x, y, w, h, ox, oy]}}`
+  em escala 1/3 (Flare usa células de 192×96, nós 64×32), sem aparar nem paleta, para os pisos encaixarem.
+- **Paredes:** uma célula de parede vizinha ao chão mostra `wallE` se o chão está a leste (+x: a face olha para a sala
+  e para a câmera), `wallS` se está ao sul (+y), e `wallBack` nos outros casos (paredes entre a câmera e a sala:
+  peças baixas na cripta, semitransparentes na caverna). Áreas abertas: grama em tudo e árvores/pedras nas células
+  de parede, densas na borda (`propChance` por distância ao chão) para o chão bloqueado parecer bloqueado.
+- **Profundidade:** cada `Prop` entra na mesma ordenação dos atores (`x + y`); parede na frente do herói que cobre
+  o sprite dele é desenhada translúcida. Escolhas de tile vêm de um hash da célula e da seed do mapa (cosmético,
+  sem `Rng`): o mesmo mapa sempre tem a mesma cara. Sem a arte, `MapArt.build` devolve None e o mapa volta às formas.
+- **Itens no chão e projéteis:** `EffectArt` (sprites.py) usa as animações de loot (o item cai e fica no último quadro)
+  e de poderes do Flare (`loot` e `projectiles` em `sprites.json`); sem arte, as formas antigas.
+
 ## Sprites e animação
 
 ```

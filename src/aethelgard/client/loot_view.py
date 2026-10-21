@@ -22,15 +22,23 @@ def drop_color(g: GroundItem) -> tuple[int, int, int]:
 
 
 class GroundView:
-    def __init__(self, font: pygame.font.Font):
+    def __init__(self, font: pygame.font.Font, art=None):
+        """``art`` = :class:`sprites.EffectArt` (Flare loot pictures) or None for the placeholder shapes."""
         self.font = font
+        self.art = art
         self.labels: list[tuple[pygame.Rect, int]] = []  # last frame's labels: (box on screen, ground id)
+        self.boxes: dict[int, pygame.Rect] = {}  # last frame's pictures, for the mouse
 
     def draw_shapes(self, screen: pygame.Surface, cam: Camera, ground: list[GroundItem]) -> None:
         """Under the actors."""
+        self.boxes = {}
         for g in ground:
             sx, sy = cam.to_screen(g.x, g.y)
-            self._shape(screen, g, sx, sy)
+            box = self.art.draw_drop(screen, (sx, sy), g.id, g.drop) if self.art is not None else None
+            if box is None:
+                self._shape(screen, g, sx, sy)
+            else:
+                self.boxes[g.id] = box
 
     def draw_labels(self, screen: pygame.Surface, cam: Camera, ground: list[GroundItem], show_all: bool, under: int | None, mouse) -> None:
         """Over the actors: every label while Alt is held, otherwise only the drop under the mouse."""
@@ -73,6 +81,9 @@ class GroundView:
         """The drop under the mouse: its label first (labels sit above the crowd), then the closest shape."""
         for box, gid in reversed(self.labels):
             if box.collidepoint(mouse):
+                return gid
+        for gid, box in self.boxes.items():  # a picture: its box, a little bigger
+            if box.inflate(6, 6).collidepoint(mouse):
                 return gid
         best, best_d = None, PICK_RADIUS_PX
         for g in ground:

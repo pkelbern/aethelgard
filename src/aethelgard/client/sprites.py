@@ -20,7 +20,7 @@ import pygame
 
 from ..core.saves import default_art_dir
 from ..tools.fetch_art import ArtError, fetch_art, http_fetch, load_config, missing_sheets, sheets_in_use, sprites_dir
-from .animation import DIRECTION_NAMES, Pose, choose_pose, direction8, pose_frame
+from .animation import DIRECTION_NAMES, Pose, choose_pose, direction8, frame_at, pose_frame
 from .iso import HALF_H, HALF_W, Camera
 
 FADE_SECONDS = 1.5
@@ -82,6 +82,33 @@ class SpriteSheet:
         return out
 
 
+class TileSheet:
+    """A tileset atlas: ``tile id → (surface, ox, oy)``, (ox, oy) = the point on the center of its cell."""
+
+    def __init__(self, meta: dict, image: pygame.Surface):
+        self.image = image
+        self.rects: dict[int, list[int]] = {int(k): v for k, v in meta["tiles"].items()}
+        self._cache: dict[tuple, tuple] = {}
+
+    def has(self, tile_id: int) -> bool:
+        return tile_id in self.rects
+
+    def tile(self, tile_id: int, scale: float = 1.0, alpha: int = 255):
+        key = (tile_id, round(scale, 3), alpha)
+        hit = self._cache.get(key)
+        if hit is None:
+            x, y, w, h, ox, oy = self.rects[tile_id]
+            surf = self.image.subsurface((x, y, w, h))
+            if abs(scale - 1.0) > 1e-3:
+                surf = pygame.transform.smoothscale(surf, (max(1, round(w * scale)), max(1, round(h * scale))))
+                ox, oy = round(ox * scale), round(oy * scale)
+            if alpha < 255:
+                surf = surf.copy()
+                surf.set_alpha(alpha)
+            hit = self._cache[key] = (surf, ox, oy)
+        return hit
+
+
 class MirroredSheet:
     """A sheet seen in a mirror: frame (anim, i, d) is the base frame of the mirrored facing, flipped.
     Gives left-hand weapons from right-hand art (the art has none of its own)."""
@@ -131,6 +158,20 @@ class SpriteLibrary:
         if pygame.display.get_surface() is not None:
             image = image.convert_alpha()
         return SpriteSheet(meta, image)
+
+    def tilesheet(self, sheet_id: str) -> TileSheet | None:
+        """A tileset sheet (map art), or None while it is not downloaded."""
+        key = "tiles:" + sheet_id
+        if key not in self._sheets:
+            try:
+                meta = json.loads((self._root / f"{sheet_id}.json").read_text(encoding="utf-8"))
+                image = pygame.image.load(str(self._root / f"{sheet_id}.png"))
+                if pygame.display.get_surface() is not None:
+                    image = image.convert_alpha()
+                self._sheets[key] = TileSheet(meta, image) if "tiles" in meta else None
+            except (OSError, ValueError, pygame.error):
+                self._sheets[key] = None
+        return self._sheets[key]
 
     def forget_missing(self) -> None:
         """Try missing sheets again (after a download)."""
@@ -461,3 +502,62 @@ class ArtDownload:
         if self.state == "done":
             return "Art downloaded."
         return f"Some art could not be downloaded ({self.error}). Magenta squares = missing sprites. Retry: python -m aethelgard.tools.fetch_art"
+
+
+# ---------------------------------------------------------------- drops and shots
+
+
+class EffectArt:
+    """Drops on the ground and shots in flight drawn with Flare's loot and power animations
+    (``sprites.json`` → ``loot`` and ``projectiles``). Each draw returns False when the art is missing,
+    so the caller keeps its placeholder shape."""
+
+    def __init__(self, lib: SpriteLibrary):
+        self.lib = lib
+        self.loot = lib.cfg.get("loot", {})
+        self.shots = lib.cfg.get("projectiles", {})
+        self.clock = 0.0
+        self._seen: dict[int, float] = {}  # ground id → when it appeared (the drop animation plays once)
+
+    def tick(self, dt: float) -> None:
+        self.clock += dt
+
+    def loot_sheet(self, drop) -> str | None:
+        from ..core.items import GoldDrop, ItemDrop, PotionDrop
+
+        if isinstance(drop, ItemDrop):
+            return self.loot.get("items", {}).get(drop.item.base.id)
+        if isinstance(drop, GoldDrop):
+            piles = sorted((int(k), v) for k, v in self.loot.get("gold", {}).items())
+            return next((v for k, v in reversed(piles) if drop.amount >= k), piles[0][1] if piles else None)
+        if isinstance(drop, PotionDrop):
+            return self.loot.get("potions", {}).get(drop.kind)
+        return self.loot.get("scroll")
+
+    def draw_drop(self, screen: pygame.Surface, pos: tuple[int, int], ground_id: int, drop) -> pygame.Rect | None:
+        sheet_id = self.loot_sheet(drop)
+        sheet = self.lib.sheet(sheet_id) if sheet_id else None
+        if sheet is None:
+            return None
+        born = self._seen.setdefault(ground_id, self.clock)
+        anim = next(iter(sheet.anims))
+        a = sheet.anims[anim]
+        index = frame_at(a["frames"], a["seconds"], "play_once", self.clock - born)  # falls, then rests
+        surf, ox, oy = sheet.frame(anim, index, 0, self.loot.get("scale", 1.0))
+        if surf is None:
+            return None
+        return screen.blit(surf, (pos[0] - ox, pos[1] - oy))
+
+    def draw_shot(self, screen: pygame.Surface, pos: tuple[int, int], look: str, dir_x: float, dir_y: float) -> bool:
+        sheet_id = self.shots.get("looks", {}).get(look)
+        sheet = self.lib.sheet(sheet_id) if sheet_id else None
+        if sheet is None:
+            return False
+        anim = next(iter(sheet.anims))
+        a = sheet.anims[anim]
+        index = frame_at(a["frames"], a["seconds"], "looped", self.clock)
+        surf, ox, oy = sheet.frame(anim, index, direction8(dir_x, dir_y), self.shots.get("scale", 1.0))
+        if surf is None:
+            return False
+        screen.blit(surf, (pos[0] - ox, pos[1] - oy))
+        return True
