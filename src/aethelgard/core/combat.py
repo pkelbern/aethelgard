@@ -107,6 +107,11 @@ class CombatMath:
         c = 2.0 * accuracy / (accuracy + defense) * att_level / (att_level + def_level)
         return max(self.p.hit_chance_min, min(c, self.p.hit_chance_max))
 
+    def average_hit(self, a: AttackerStats) -> float:
+        """Mean damage of a landed hit, with criticals averaged in (the same roll as ``resolve_physical``)."""
+        crit = max(0.0, min(a.crit_chance, 1.0))
+        return (a.dmg_min + a.dmg_max) / 2 * (1 + a.damage_bonus_pct) * (1 + crit * (self.p.crit_multiplier - 1))
+
     def armor_reduction(self, armor: float, attacker_level: int) -> float:
         if armor <= 0:
             return 0.0

@@ -1,7 +1,8 @@
 """Item windows: the inventory (I), the shared stash and the merchant (GDD 10.5, 12.2).
 
 All three share one base: item grids, dragging an item from one place to another, a quick action
-(double-click, Ctrl+click or Shift+click) and the item tooltip. Each window only says what a drop
+(double-click, Ctrl+click or Shift+click) and the item tooltip, which compares with the worn item
+while Shift is held. Each window only says what a drop
 or a quick action means, as a command to the world, so the rules (requirements, gold, room, being
 next to the NPC) stay in the core.
 
@@ -205,8 +206,30 @@ class ItemWindow:
             lines = describe_item(self.g.data, item, s.missing_requirements(item)) + self.tooltip_extra(h, item)
             self.draw_item_tooltip(screen, lines, item, mouse, h)
 
+    # ---- compare (hold Shift over an item in a grid: backpack, stash or merchant)
+
+    def worn_for(self, item):
+        s = self.g.session
+        return next((s.gear.get(k) for k in s.gear.native_slots(item) if s.gear.get(k)), None)
+
+    def comparing(self, h: Hit) -> bool:
+        return h[0] == "grid" and self.g.keys.held("compare")
+
+    def compare_lines(self, h: Hit, item) -> list[Line]:
+        if h[0] != "grid":
+            return []
+        if self.comparing(h):
+            return compare_items(self.g.data, item, self.worn_for(item))
+        return [Line(f"Hold {self.g.keys.action_label('compare')} to compare", "hint")]
+
     def draw_item_tooltip(self, screen, lines, item, mouse, h) -> pygame.Rect:
-        return draw_tooltip(screen, self.g.fonts, lines, mouse, edge=C.RARITY[int(item.rarity)])
+        box = draw_tooltip(screen, self.g.fonts, lines, mouse, edge=C.RARITY[int(item.rarity)])
+        worn = self.worn_for(item) if self.comparing(h) else None
+        if worn is not None:  # the worn one beside it, for a side-by-side read
+            s = self.g.session
+            worn_lines = [Line("Equipped", "hint"), *describe_item(self.g.data, worn, s.missing_requirements(worn))]
+            draw_tooltip(screen, self.g.fonts, worn_lines, (box.x, box.y), edge=C.RARITY[int(worn.rarity)], right_edge=box.x, top=box.y)
+        return box
 
     def item_box(self, screen, item, box: pygame.Rect) -> None:
         color = C.RARITY[int(item.rarity)]
@@ -317,24 +340,7 @@ class InventoryWindow(BagMixin, ItemWindow):
                 pygame.draw.rect(screen, C.GOOD, self.gear_rect(slot), 2)
 
     def tooltip_extra(self, h: Hit, item) -> list[Line]:
-        if h[0] != "grid":
-            return []
-        if self.g.keys.held("compare"):
-            return compare_items(self.g.data, item, self.worn_for(item))
-        return [Line(f"Hold {self.g.keys.action_label('compare')} to compare", "hint")]
-
-    def worn_for(self, item):
-        s = self.g.session
-        return next((s.gear.get(k) for k in s.gear.native_slots(item) if s.gear.get(k)), None)
-
-    def draw_item_tooltip(self, screen, lines, item, mouse, h) -> pygame.Rect:
-        box = super().draw_item_tooltip(screen, lines, item, mouse, h)
-        worn = self.worn_for(item) if h[0] == "grid" and self.g.keys.held("compare") else None
-        if worn is not None:  # the worn one beside it, for a side-by-side read
-            s = self.g.session
-            worn_lines = [Line("Equipped", "hint"), *describe_item(self.g.data, worn, s.missing_requirements(worn))]
-            draw_tooltip(screen, self.g.fonts, worn_lines, (box.x, box.y), edge=C.RARITY[int(worn.rarity)], right_edge=box.x, top=box.y)
-        return box
+        return self.compare_lines(h, item)
 
 
 # ---------------------------------------------------------------- two-sided windows: stash and merchant
@@ -380,7 +386,7 @@ class StashWindow(TwoSided):
         st, s = self.g.world.stash, self.g.session
         return f"Shared Stash  ·  {len(st.items) if st else 0}/{st.capacity if st else 0}  ·  gold {st.gold if st else 0}   |   Backpack · gold {s.gold}"
 
-    quick_hint = "drag, Shift+click or double-click to move · Esc closes"
+    quick_hint = "drag, Shift+click or double-click to move · hold Shift to compare · Esc closes"
 
     def _buttons(self) -> dict[str, pygame.Rect]:
         f = self.footer()
@@ -407,6 +413,9 @@ class StashWindow(TwoSided):
         if dst is not None and dst[0] == "grid" and dst[1] != src[1]:
             self.on_quick(src)
 
+    def tooltip_extra(self, h: Hit, item) -> list[Line]:
+        return self.compare_lines(h, item)
+
 
 class ShopWindow(TwoSided):
     """Merchant: buy by dragging into the backpack or Shift+click; sell the same way the other way.
@@ -419,7 +428,7 @@ class ShopWindow(TwoSided):
     def title(self) -> str:
         return f"Merchant   |   Backpack  ·  gold {self.g.session.gold}"
 
-    quick_hint = "drag or Shift+click to buy and sell · Esc closes"
+    quick_hint = "drag or Shift+click to buy and sell · hold Shift to compare · Esc closes"
 
     def _consumable_buttons(self) -> dict[str, pygame.Rect]:
         f = self.footer()
@@ -450,5 +459,7 @@ class ShopWindow(TwoSided):
         d = self.g.data
         if h[1] == "shop":
             price = item_price(d, item)
-            return [Line(f"Buy: {price} gold", "good" if self.g.session.gold >= price else "warn")]
-        return [Line(f"Sell: {sell_price(d, item)} gold", "good")]
+            trade = Line(f"Buy: {price} gold", "good" if self.g.session.gold >= price else "warn")
+        else:
+            trade = Line(f"Sell: {sell_price(d, item)} gold", "good")
+        return [trade, *self.compare_lines(h, item)]

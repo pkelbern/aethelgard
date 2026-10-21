@@ -62,3 +62,26 @@ def test_level_row_explains_the_formula(data):
 @pytest.mark.parametrize("prof", ["blades", "shield", "armor", "dual_wield", "bows"])
 def test_each_proficiency_says_how_it_gains_xp(data, prof):
     assert data.proficiency(prof).description
+
+
+def test_average_dps_replaces_attacks_per_second(data):
+    s, w, p, rows = sheet_of(data)
+    assert "Attacks per second" not in rows
+    cm, atk = s.combat, player_attack(s.character, s.skills, s.gear)
+    mon = data.monster_level(s.character.level)
+    per_sec = (1 + w.attack_speed(p)) / data.balance.timing.attack_seconds
+    expected = per_sec * cm.hit_chance(atk.accuracy, mon.defense, s.character.level, mon.level) * cm.average_hit(atk)
+    assert rows["Average DPS"].value == f"{expected:.1f}"
+    assert "attacks per second" in rows["Average DPS"].help[1].text
+
+
+def test_average_hit_is_the_mean_of_real_hits(data):
+    from aethelgard.core.combat import DefenderStats
+    from aethelgard.core.rng import Rng
+
+    s, w, p, rows = sheet_of(data)
+    atk = player_attack(s.character, s.skills, s.gear)
+    rng, n = Rng(7), 20000
+    target = DefenderStats(level=1, defense=0, armor=0)
+    mean = sum(s.combat.resolve_physical(atk, target, rng, always_hit=True).raw for _ in range(n)) / n
+    assert mean == pytest.approx(s.combat.average_hit(atk), rel=0.02)

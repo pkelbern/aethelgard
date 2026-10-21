@@ -193,7 +193,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 **Pronto quando:** 5 pessoas de fora terminam o Ato 1; feedback coletado
 
 - [ ] **M7-10** Ficha do personagem (C) _(UI, ~1 d)_ — **escrito, validar**  
-  core/sheet.py monta as linhas com as mesmas fórmulas do combate (nível, título, ouro, proficiências com XP, atributos, vida/energia e regeneração, dano, ataques/s, precisão com chance de acerto contra monstro do mesmo nível, crítico, alcance, defesa com chance de errar, armadura com redução, bloqueio). Passar o mouse numa linha explica de onde vem o número. Regeneração de Energia (2%/s, 0,5%/s com guarda) foi para balance.json. Falta: as constantes de atributo (5 precisão/DES, 0,2% crítico/DES, 1% dano/FOR) têm nome em combat.py mas ainda não estão num JSON.
+  core/sheet.py monta as linhas com as mesmas fórmulas do combate (nível, título, ouro, proficiências com XP, atributos, vida/energia e regeneração, dano, DPS médio (ataques/s × dano médio com críticos × chance de acerto), precisão com chance de acerto contra monstro do mesmo nível, crítico, alcance, defesa com chance de errar, armadura com redução, bloqueio). Passar o mouse numa linha explica de onde vem o número. Regeneração de Energia (2%/s, 0,5%/s com guarda) foi para balance.json. Falta: as constantes de atributo (5 precisão/DES, 0,2% crítico/DES, 1% dano/FOR) têm nome em combat.py mas ainda não estão num JSON.
 - [ ] **M7-01** Direção de arte e pipeline 3D → sprite _(arte, ~5 d)_  
   Definir paleta e escala; protótipo de personagem em 8 direções renderizado no Blender.
 - [ ] **M7-02** Tileset dos 3 biomas do Ato 1 _(arte, ~5 d)_ — **escrito, validar**  

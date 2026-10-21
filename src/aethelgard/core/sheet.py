@@ -130,10 +130,17 @@ def character_sheet(world, player) -> list[Section]:
                          "Swings alternate between the hands.", "body")]))
     ias = world.attack_speed(player)
     per_sec = (1 + ias) / d.balance.timing.attack_seconds
-    sec.rows.append(Row("Attacks per second", f"{per_sec:.2f}", [Line("Attack speed", "title"),
-                    Line(f"A swing takes {d.balance.timing.attack_seconds:g} s / (1 + {_pct(ias)} attack speed).", "body"),
-                    Line("Attack speed comes from items, Ambidexterity, Quick Draw and Frenzy stacks.", "muted")]))
     hit = cm.hit_chance(atk.accuracy, mon.defense, lvl, mon.level)
+    per_hit = cm.average_hit(atk)
+    if gear.dual_wielding:  # swings alternate between the hands
+        per_hit = (per_hit + cm.average_hit(off)) / 2
+    dps = per_sec * hit * per_hit
+    sec.rows.append(Row("Average DPS", f"{dps:.1f}", [Line("Average damage per second", "title"),
+                    Line(f"{per_sec:.2f} attacks per second × {_num(per_hit)} average damage per hit × {_pct(hit)} chance to hit "
+                         f"a level {mon.level} monster, with critical hits averaged in.", "body"),
+                    Line(f"A swing takes {d.balance.timing.attack_seconds:g} s / (1 + {_pct(ias)} attack speed); "
+                         "attack speed comes from items, Ambidexterity, Quick Draw and Frenzy stacks.", "muted"),
+                    Line("Basic attacks only, before the monster's armor.", "muted")]))
     sec.rows.append(Row("Accuracy", f"{atk.accuracy:.0f}", [Line("Accuracy", "title"),
                     Line(f"{_num(BASE_ACCURACY)} + {_num(ACCURACY_PER_DEX)} per Dexterity ({a.dex}), raised by skills.", "body"),
                     Line(f"Chance to hit a level {mon.level} monster: {_pct(hit)} (always between 5% and 95%).", "next")]))
