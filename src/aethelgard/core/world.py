@@ -348,6 +348,7 @@ class MonsterActor:
     knock_vy: float = 0.0
     knock_left: float = 0.0
     base_speed: float = 3.75  # tiles/s before the type's moveSpeed (balance.json → movement)
+    swing_seconds: float = 0.6  # longest swing animation (balance.json → timing.monsterSwingSeconds)
     buffs: dict[str, float] = field(default_factory=dict)  # from leader auras, refreshed every step
 
     @property
@@ -367,8 +368,14 @@ class MonsterActor:
         return self.monster.type.move_speed * self.base_speed * (1 + self.stat("moveSpeedPct"))
 
     @property
+    def attack_interval(self) -> float:
+        """Time from one swing to the next (unchanged pace: 1.4 s / attackRate, plus 30% pause)."""
+        return 1.3 * 1.4 / (self.monster.type.attack_rate * (1 + self.stat("attackSpeedPct")))
+
+    @property
     def attack_duration(self) -> float:
-        return 1.4 / (self.monster.type.attack_rate * (1 + self.stat("attackSpeedPct")))
+        """The swing itself: short and snappy; slow attackers just wait longer between swings."""
+        return min(self.swing_seconds / (1 + self.stat("attackSpeedPct")), self.attack_interval / 1.3)
 
     @property
     def ranged(self) -> bool:
@@ -486,7 +493,8 @@ class World:
             ids = []
             for m in pack.members:
                 actor = MonsterActor(m, float(anchor[0]), float(anchor[1]), leader_id=m.leader_id,
-                                     base_speed=self.data.balance.movement.monster_base_tiles_per_second)
+                                     base_speed=self.data.balance.movement.monster_base_tiles_per_second,
+                                     swing_seconds=self.timing.monster_swing_seconds)
                 for _ in range(24):  # a free spot near the anchor: bodies do not start on top of each other
                     x, y = anchor[0] + rng.uniform(-2.5, 2.5), anchor[1] + rng.uniform(-2.5, 2.5)
                     if layout.is_floor(cell_of(x, y)) and not self._overlaps_any(actor, x, y):
@@ -1168,7 +1176,7 @@ class World:
                     self._monster_hit(m, target)
             if m.attack_elapsed >= m.attack_duration:
                 m.state = "idle"
-                m.attack_cooldown = m.attack_duration * 0.3
+                m.attack_cooldown = m.attack_interval - m.attack_duration  # the pause before the next swing
             return
 
         if m.alert:

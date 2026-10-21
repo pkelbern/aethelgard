@@ -9,7 +9,7 @@ import tcod
 from ..core.world_gen import FLOOR, AreaLayout
 from . import palette as C
 
-VIEW_RADIUS = 14
+VIEW_RADIUS = 16  # about the screen edge at 1280x720: you see as far as a bow shoots
 
 
 class Vision:

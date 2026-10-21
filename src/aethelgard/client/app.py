@@ -492,8 +492,21 @@ class Game:
 
     def _open_service(self, role: str) -> None:
         """Talking to the merchant or the stash opens its window with the backpack beside it."""
+        self.open_only(self.shop_view if role == "vendor" else self.stash_view)
+
+    def open_only(self, view) -> None:
+        """One screen at a time: opening the inventory closes the trees and the other way round
+        (the debug console is the exception: it stays). ``view`` is an item window or "trees"."""
+        was_open = self.ui.tree is not None if view == "trees" else view.open
         self.close_windows()
-        (self.shop_view if role == "vendor" else self.stash_view).open = True
+        if self.ui.tree is not None:
+            self.ui.toggle_tree()
+        if was_open:
+            return  # pressing its key again just closes it
+        if view == "trees":
+            self.ui.toggle_tree()
+        else:
+            view.open = True
 
     def _on_click(self, button: int) -> None:
         if self.dead:
@@ -597,9 +610,9 @@ class Game:
         elif action == "save":
             self.save_game()
         elif action == "skillTrees":
-            self.ui.toggle_tree()
+            self.open_only("trees")
         elif action == "inventory":
-            self.inventory_view.toggle()
+            self.open_only(self.inventory_view)
         elif action == "map":
             self.big_map = not self.big_map
         elif action == "cancel":

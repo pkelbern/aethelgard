@@ -120,6 +120,8 @@
     "monsterHitRecoveryThresholdPctLife": 0.125,
     "bossHitRecoveryMult": 0.0,
     "uniqueHitRecoveryMult": 0.5,
-    "globalCooldownSeconds": 0.2
+    "globalCooldownSeconds": 0.2,
+    "monsterSwingSeconds": 0.6,
+    "_monsterSwing": "A monster's swing (wind-up, hit at half, follow-through) lasts at most monsterSwingSeconds; the rest of its attack interval (1.4 s / attackRate, then x1.3) is a pause between swings, so slow attackers hit as rarely as before but no longer move in slow motion."
   }
 }

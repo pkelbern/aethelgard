@@ -1,14 +1,14 @@
 {
-  "_comment": "Act 1 of the MVP. map = hand-made map from the Tiled editor (data/maps/*.tmx); without map, the area is generated from the seed. kind: town | open | dungeon. For dungeons, 'floors' generates N floors with rising level (levelMin..levelMax). normalPacks = normal packs per area/floor. mapPos = [x, y] of the area on the act's map, in grid directions (x+ = east edge, y+ = south edge): an edge exit toward a neighbour sits on the side facing it, and the neighbour's exit back on the opposite side at the same point along the edge, so walking out of one area you come in where you would expect. Neighbours linked by an edge must be next to each other on one axis; dungeons are entered from inside an area and need no mapPos.",
+  "_comment": "Act 1 of the MVP. map = hand-made map from the Tiled editor (data/maps/*.tmx); without map, the area is generated from the seed. kind: town | open | dungeon. For dungeons, 'floors' generates N floors with rising level (levelMin..levelMax). normalPacks = normal packs per area/floor; packSize = [min, max] monsters in each (default balance.json spawn, 3–5): the first areas have smaller packs. sizeChunks = map size in 16-tile chunks (default 6 x 6). mapPos = [x, y] of the area on the act's map, in grid directions (x+ = east edge, y+ = south edge): an edge exit toward a neighbour sits on the side facing it, and the neighbour's exit back on the opposite side at the same point along the edge, so walking out of one area you come in where you would expect. Neighbours linked by an edge must be next to each other on one axis; dungeons are entered from inside an area and need no mapPos.",
   "acts": [
     {
       "id": "act1",
       "name": "Act 1",
       "areas": [
         { "id": "village",       "name": "Village",               "kind": "town",    "level": 0,  "links": ["plains"], "waypoint": true, "map": "maps/village.tmx", "mapPos": [0, 0] },
-        { "id": "plains",   "name": "Blood Plains", "kind": "open",    "level": 2,  "links": ["village", "woods", "cave"], "families": ["beasts", "raiders"], "normalPacks": 22, "sizeChunks": [8, 8], "mapPos": [1, 0] },
-        { "id": "cave",    "name": "Shallow Cave",       "kind": "dungeon", "levelMin": 3, "levelMax": 4, "floors": 2, "links": ["plains"], "families": ["beasts", "undead"], "normalPacks": 16 },
-        { "id": "woods",     "name": "Darkwood",     "kind": "open",    "level": 5,  "links": ["plains", "hills"], "families": ["beasts", "raiders"], "normalPacks": 22, "waypoint": true, "mapPos": [2, 0] },
+        { "id": "plains",   "name": "Blood Plains", "kind": "open",    "level": 2,  "links": ["village", "woods", "cave"], "families": ["beasts", "raiders"], "normalPacks": 22, "packSize": [2, 3], "sizeChunks": [6, 6], "mapPos": [1, 0] },
+        { "id": "cave",    "name": "Shallow Cave",       "kind": "dungeon", "levelMin": 3, "levelMax": 4, "floors": 2, "links": ["plains"], "families": ["beasts", "undead"], "normalPacks": 16, "packSize": [2, 4] },
+        { "id": "woods",     "name": "Darkwood",     "kind": "open",    "level": 5,  "links": ["plains", "hills"], "families": ["beasts", "raiders"], "normalPacks": 22, "packSize": [3, 4], "waypoint": true, "mapPos": [2, 0] },
         { "id": "hills",    "name": "Rocky Hills",   "kind": "open",    "level": 7,  "links": ["woods", "crypt"], "families": ["raiders", "undead"], "normalPacks": 22, "waypoint": true, "mapPos": [2, 1] },
         { "id": "crypt",     "name": "Forgotten Crypt",   "kind": "dungeon", "levelMin": 9, "levelMax": 11, "floors": 3, "links": ["hills"], "families": ["undead"], "normalPacks": 16, "boss": "act1_boss", "waypoint": true }
       ]

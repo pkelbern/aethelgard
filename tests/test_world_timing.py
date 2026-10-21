@@ -316,3 +316,22 @@ def test_movement_speeds_come_from_balance(data):
     w.enter_area("plains")
     m = next(iter(w.monsters.values()))
     assert m.base_speed == mv.monster_base_tiles_per_second
+
+
+def test_monster_swings_are_short_but_the_pace_is_unchanged(data):
+    s, w, p, m = arena(data)
+    assert m.attack_duration == pytest.approx(0.6), "bandit: attackRate 1.0 used to swing for 1.4 s"
+    assert m.attack_interval == pytest.approx(1.3 * 1.4), "same time between hits as before"
+    m.monster.type = data.monster_type("zombie")  # the slowest attacker
+    assert m.attack_duration <= 0.6 and m.attack_interval > m.attack_duration
+
+
+def test_first_areas_have_smaller_packs(data):
+    from aethelgard.core.monsters import MonsterFactory, PackKind, PackSpawner
+    from aethelgard.core.rng import Rng
+
+    sp = PackSpawner(data, MonsterFactory(data))
+    for seed in range(20):
+        for p in sp.spawn_area(data.area("plains"), 0, Rng(seed)):
+            if p.kind == PackKind.NORMAL:
+                assert 2 <= len(p.members) <= 3

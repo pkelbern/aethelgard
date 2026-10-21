@@ -229,6 +229,7 @@ class TimingParams:
     boss_hit_recovery_mult: float = 0.0
     unique_hit_recovery_mult: float = 0.5
     global_cooldown_seconds: float = 0.2
+    monster_swing_seconds: float = 0.6
 
 
 @dataclass
@@ -386,7 +387,13 @@ class AreaDef:
     boss: str | None = None
     waypoint: bool = False
     map: str | None = None  # hand-made Tiled map (relative to aethelgard/data)
+    pack_size: list[int] | None = None  # [min, max] monsters in a normal pack here (default: balance.json spawn)
     map_pos: list[int] | None = None  # [x, y] on the act map: which side each edge exit is on
+
+    def normal_pack_range(self, spawn) -> tuple[int, int]:
+        if self.pack_size:
+            return self.pack_size[0], self.pack_size[1]
+        return spawn.normal_pack_size_min, spawn.normal_pack_size_max
 
     def level_for_floor(self, floor: int) -> int:
         if self.kind != "dungeon":
@@ -834,6 +841,9 @@ def validate(d: GameData) -> list[str]:
                 errors.append(f"areas: '{a.id}' {a.map_pos} and '{lk}' {b.map_pos} are linked but not side by side on the act map")
             if a.id not in b.links:
                 errors.append(f"areas: '{a.id}' links to '{lk}' but not the way back")
+    for a in d.all_areas:
+        if a.pack_size is not None and not (len(a.pack_size) == 2 and 1 <= a.pack_size[0] <= a.pack_size[1]):
+            errors.append(f"areas: '{a.id}' packSize must be [min, max] with 1 <= min <= max")
     if all(a.kind != "town" for a in d.all_areas):
         errors.append("areas: no town to start in")
 

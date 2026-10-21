@@ -166,7 +166,7 @@ def test_restoring_points_respects_the_rules(data):
 
 def test_act_1_simulation_on_target(data):
     steps = run_act(data)
-    assert [s.main_level for s in steps] == [5, 7, 8, 9, 10, 11, 12, 13, 13]
+    assert [s.main_level for s in steps] == [4, 6, 7, 9, 10, 11, 12, 13, 13], "smaller packs early (areas.json packSize)"
     last = steps[-1]
     assert 12 <= last.main_level <= 14, "design target: Blades 12–14 at the boss"
     assert last.shield_level == 9

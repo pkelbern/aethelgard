@@ -35,7 +35,6 @@ def run_act(d: GameData, act_id: str = "act1", o: SimulationOptions = Simulation
     s = d.balance.spawn
     act = next(a for a in d.areas.acts if a.id == act_id)
     champ, uniq, minion = d.rank("champion"), d.rank("unique"), d.rank("minion")
-    avg_normal = (s.normal_pack_size_min + s.normal_pack_size_max) / 2
     avg_special = (s.special_packs_min + s.special_packs_max) / 2
     avg_champs = (s.champion_pack_size_min + s.champion_pack_size_max) / 2
     avg_minions = (s.minions_min + s.minions_max) / 2
@@ -64,7 +63,8 @@ def run_act(d: GameData, act_id: str = "act1", o: SimulationOptions = Simulation
         floors = max(1, area.floors) if area.kind == "dungeon" else 1
         for fl in range(floors):
             lv = area.level_for_floor(fl)
-            normals = area.normal_packs * avg_normal
+            lo, hi = area.normal_pack_range(s)
+            normals = area.normal_packs * (lo + hi) / 2
             label = f"{area.name} – floor {fl + 1}" if floors > 1 else area.name
 
             def kill_xp(p: int, lv: int = lv, normals: float = normals) -> float:

@@ -154,6 +154,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Trocar retângulos por salas desenhadas no Tiled, com conectores marcados como objetos.
 - [ ] **M5-09** Continuidade entre áreas _(código, ~0.5 d)_ — **escrito, validar**  
   areas.json mapPos coloca as áreas no mapa do ato: a saída para um vizinho fica na borda voltada para ele, e a volta na borda oposta, no mesmo ponto ao longo da borda (a vila, feita à mão, fixa o ponto). validate() exige vizinhos lado a lado.
+- [ ] **M5-10** Começo mais leve _(balanceamento, ~0.3 d)_ — **escrito, validar**  
+  Grupos menores no início (areas.json packSize: Planície 2–3, Caverna 2–4, Bosque 3–4; padrão 3–5) e Planície menor (96×96). Simulação: Lâminas 4 ao sair da Planície (antes 5), fim do Ato 1 igual (13 / 9 / 7).
 - [ ] **M5-05** Waypoints com menu de viagem _(código, ~1.5 d)_ — **escrito, validar**  
   Pisar ativa (salvo no personagem, save v4) e abre o menu com todos os waypoints do ato; os não encontrados ficam cinza. Chegar por waypoint não reabre o menu até sair dele. Comando TravelWaypoint.
 - [ ] **M5-06** Portal de cidade _(código, ~1 d)_ — **escrito, validar**  

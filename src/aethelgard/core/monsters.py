@@ -162,7 +162,7 @@ class PackSpawner:
             return packs
 
         for _ in range(area.normal_packs):
-            size = rng.randint(s.normal_pack_size_min, s.normal_pack_size_max)
+            size = rng.randint(*area.normal_pack_range(s))
             lead = self._pick_leader(leaders, led, rng)
             if lead is not None and size >= 2:
                 packs.append(self._led(lead, [t for t in types if t.id in lead.leader.followers], size, level, rng))

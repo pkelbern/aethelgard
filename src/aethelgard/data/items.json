@@ -1,5 +1,5 @@
 {
- "_comment": "Bases, affixes and drop rules. An affix only rolls on item types listed in its slots (no attack speed on body armor, no movement speed on a weapon); tags are kept for older rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears; startingBackpack = bases it carries. twoHanded (bows) = takes both hands: no shield and no second weapon. rangeTiles = how far a bow shoots. rareNames = parts of rare item names: '<first> <second>'.",
+ "_comment": "Bases, affixes and drop rules. An affix only rolls on item types listed in its slots (no attack speed on body armor, no movement speed on a weapon); tags are kept for older rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears; startingBackpack = bases it carries. twoHanded (bows) = takes both hands: no shield and no second weapon. rangeTiles = how far a bow shoots (14 tiles reach the edge of a 1280x720 screen). rareNames = parts of rare item names: '<first> <second>'.",
  "inventory": {
   "columns": 10,
   "rows": 6
@@ -89,7 +89,7 @@
    "slot": "mainhand",
    "tags": ["bow"],
    "twoHanded": true,
-   "rangeTiles": 7,
+   "rangeTiles": 14,
    "level": 1,
    "dmgMin": 2,
    "dmgMax": 6,
@@ -102,7 +102,7 @@
    "slot": "mainhand",
    "tags": ["bow"],
    "twoHanded": true,
-   "rangeTiles": 7.5,
+   "rangeTiles": 15,
    "level": 4,
    "dmgMin": 3,
    "dmgMax": 8,
@@ -115,7 +115,7 @@
    "slot": "mainhand",
    "tags": ["bow"],
    "twoHanded": true,
-   "rangeTiles": 8.5,
+   "rangeTiles": 16,
    "level": 9,
    "dmgMin": 4,
    "dmgMax": 11,
@@ -128,7 +128,7 @@
    "slot": "mainhand",
    "tags": ["bow"],
    "twoHanded": true,
-   "rangeTiles": 8,
+   "rangeTiles": 16,
    "level": 13,
    "dmgMin": 5,
    "dmgMax": 14,
