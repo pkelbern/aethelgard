@@ -141,6 +141,9 @@ class CombatParams:
     resist_cap: float = 0.75
     crit_multiplier: float = 1.5
     knockback_seconds: float = 0.15
+    melee_vs_ranged_damage_pct: float = 0.25
+    melee_vs_ranged_accuracy_pct: float = 0.25
+    in_place_arc_degrees: float = 90  # Shift+click swing: what it can hit in front
     cc_reduction_unique_and_boss: float = 0.5
 
 

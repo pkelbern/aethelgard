@@ -20,6 +20,7 @@ from dataclasses import dataclass, field, replace
 from .combat import (
     BlockOutcome,
     GuardState,
+    melee_edge,
     monster_attack,
     monster_defense,
     player_attack,
@@ -98,6 +99,15 @@ class MoveTo:
 class AttackTarget:
     player_id: int
     target_id: int
+
+
+@dataclass(frozen=True)
+class AttackInPlace:
+    """Shift+click: swing or shoot toward (x, y) without moving; a swing hits whoever is in reach in front."""
+
+    player_id: int
+    x: float
+    y: float
 
 
 @dataclass(frozen=True)
@@ -220,7 +230,7 @@ class Respawn:
 
 
 Command = (
-    MoveTo | AttackTarget | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
+    MoveTo | AttackTarget | AttackInPlace | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
     | OpenPortal | TravelWaypoint | Buy | BuyConsumable | Sell | StashPut | StashTake | StashGold
 )
 TOWN_COMMANDS = (Buy, BuyConsumable, Sell, StashPut, StashTake, StashGold)
@@ -519,6 +529,15 @@ class World:
             return None
         if isinstance(cmd, UseConsumable):
             return self._use_consumable(p, cmd.consumable_id)
+        if isinstance(cmd, AttackInPlace):
+            if p.busy or p.guarding or p.state == "attacking":
+                return None
+            p.path.clear()
+            p.target_id = p.pending_skill = None
+            self._face(p, cmd.x - p.x, cmd.y - p.y)
+            if p.cooldowns.ready("global") and p.cooldowns.ready("attack"):
+                self._begin_attack(p, None, None)
+            return None
         if isinstance(cmd, OpenPortal):
             return self._open_portal(p)
         if isinstance(cmd, TravelWaypoint):
@@ -967,10 +986,16 @@ class World:
                 if m.alive and math.hypot(m.x - p.x, m.y - p.y) <= MELEE_RANGE + 0.4:
                     if s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc):
                         targets.append(m)
-        else:
-            t = self.monsters.get(p.attack_target) if p.attack_target is not None else None
+        elif p.attack_target is not None:
+            t = self.monsters.get(p.attack_target)
             if t and t.alive and math.hypot(t.x - p.x, t.y - p.y) <= MELEE_RANGE + 0.6:
                 targets.append(t)
+        else:  # in place (Shift+click): the closest one in reach in front, if any
+            arc = self.data.balance.combat.in_place_arc_degrees
+            near = [m for m in self.monsters.values() if m.alive and math.hypot(m.x - p.x, m.y - p.y) <= MELEE_RANGE + 0.6
+                    and s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc)]
+            if near:
+                targets.append(min(near, key=lambda m: math.hypot(m.x - p.x, m.y - p.y)))
         # XP: a skill feeds its own tree; a plain swing feeds Dual Wield with two weapons, otherwise Blades
         prof = self.data.node(skill).tree if skill else ("dual_wield" if s.gear.dual_wielding else "blades")
         hands = ("main", "off") if skill in TWO_HAND_HITS else (p.attack_hand,)
@@ -979,6 +1004,8 @@ class World:
                 if not t.alive:
                     break
                 atk = player_attack(s.character, s.skills, s.gear, skill, hand)
+                if t.ranged:  # closing in on an archer or caster pays off
+                    atk = melee_edge(atk, self.data.balance.combat)
                 r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
                 if not r.hit:
                     self._float(t.x, t.y, "miss", "miss")
@@ -1175,7 +1202,8 @@ class World:
             self._try_move(m, m.x + push_x * k, m.y + push_y * k)
 
     def _monster_hit(self, m: MonsterActor, p: PlayerActor) -> None:
-        self._hit_player(p, m.attack, m.monster.xp_info, m.x, m.y, magic=False, melee=m)
+        atk = melee_edge(m.attack, self.data.balance.combat) if p.session.gear.has_bow else m.attack  # an archer caught in melee
+        self._hit_player(p, atk, m.monster.xp_info, m.x, m.y, magic=False, melee=m)
 
     def _hit_player(self, p: PlayerActor, attack, info, from_x: float, from_y: float, magic: bool, melee: MonsterActor | None) -> None:
         """A swing or a shot reaches the player. (from_x, from_y) is where it comes from, for the guard arc.

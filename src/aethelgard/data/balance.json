@@ -43,6 +43,10 @@
     "resistCap": 0.75,
     "critMultiplier": 1.5,
     "knockbackSeconds": 0.15,
+    "_meleeEdge": "A melee hit on someone who fights from range (a bow, or a monster that shoots) gets this much more damage and accuracy: closing in on an archer pays off, for players and monsters alike.",
+    "meleeVsRangedDamagePct": 0.25,
+    "meleeVsRangedAccuracyPct": 0.25,
+    "inPlaceArcDegrees": 90,
     "ccReductionUniqueAndBoss": 0.5
   },
   "spawn": {

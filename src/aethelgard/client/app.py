@@ -27,6 +27,7 @@ from ..core.saves import SaveStore
 from ..core.session import GameSession
 from ..core.simulation import run_act
 from ..core.world import (
+    AttackInPlace,
     AttackTarget,
     MonsterActor,
     MoveTo,
@@ -532,12 +533,15 @@ class Game:
             self.hold = None
             return
         target = self.hovered if not self.player.guarding else None
-        self.hold = {"target": target.id if target else None, "timer": HOLD_REPEAT_SECONDS}
-        self._world_click(self.hold["target"])
+        in_place = self.keys.held("standStill")
+        self.hold = {"target": target.id if target else None, "timer": HOLD_REPEAT_SECONDS, "in_place": in_place}
+        self._world_click(self.hold["target"], in_place)
 
-    def _world_click(self, target_id: int | None) -> None:
+    def _world_click(self, target_id: int | None, in_place: bool = False) -> None:
         pid = self.session.player_id
-        if target_id is not None:
+        if in_place:  # Shift: attack toward the mouse without moving (D2 "stand still")
+            self.world.apply(AttackInPlace(pid, *self.mouse_grid()))
+        elif target_id is not None:
             self.world.apply(AttackTarget(pid, target_id))
         else:
             self.world.apply(MoveTo(pid, *self.mouse_grid()))
@@ -557,6 +561,10 @@ class Game:
             return
         self.hold["timer"] = HOLD_REPEAT_SECONDS
         target = self.hold["target"]
+        in_place = self.keys.held("standStill")  # holding Shift keeps striking where you stand
+        if in_place:
+            self._world_click(None, True)
+            return
         if target is not None and target not in self.world.monsters:
             self.hold = None  # the target died: stand still until the next click
             return

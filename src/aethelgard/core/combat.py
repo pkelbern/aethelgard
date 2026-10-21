@@ -24,6 +24,7 @@ __all__ = [
     "player_attack",
     "player_defense",
     "player_guard",
+    "melee_edge",
     "with_bonus",
 ]
 
@@ -222,6 +223,11 @@ def monster_attack(m) -> AttackerStats:
 
 def monster_defense(m) -> DefenderStats:
     return DefenderStats(m.level, m.defense, 0.0, m.stat("physicalReduction"))
+
+
+def melee_edge(a: AttackerStats, p: CombatParams) -> AttackerStats:
+    """A melee hit on a ranged fighter: more damage and accuracy (players and monsters alike)."""
+    return replace(a, damage_bonus_pct=a.damage_bonus_pct + p.melee_vs_ranged_damage_pct, accuracy=a.accuracy * (1 + p.melee_vs_ranged_accuracy_pct))
 
 
 def with_bonus(a: AttackerStats, extra_pct: float, always_hit: bool = False) -> AttackerStats:

@@ -8,7 +8,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | Marco | Feito | Validar | Total | Dias restantes |
 |---|---|---|---|---|
 | M0 – Base | 4 | 0 | 8 | 2.5 |
-| M1 – Combate | 6 | 6 | 14 | 4.5 |
+| M1 – Combate | 6 | 8 | 16 | 4.5 |
 | M2 – Proficiências | 4 | 0 | 6 | 1.5 |
 | M3 – Árvores | 2 | 3 | 9 | 8 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
@@ -64,6 +64,10 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   0,3 s para erguer a guarda de novo (evita abuso do aparo perfeito).
 - [ ] **M1-14** Sem esquiva com a guarda erguida _(regra, ~0.2 d)_ — **escrito, validar**  
   Golpe dentro do arco da guarda erguida sempre chega à guarda (vira bloqueio); pelas costas a esquiva por Defesa continua valendo.
+- [ ] **M1-15** Shift: atacar sem se mexer _(UI, ~0.3 d)_ — **escrito, validar**  
+  Shift+clique (e segurar) golpeia na direção do mouse sem andar e acerta quem estiver ao alcance na frente (arco de 90°); com arco, atira nessa direção. Comando AttackInPlace.
+- [ ] **M1-16** Vantagem do corpo a corpo contra quem luta à distância _(balanceamento, ~0.3 d)_ — **escrito, validar**  
+  Golpe corpo a corpo em quem usa arco ou ataca à distância (arqueiros, xamãs, necromantes, o jogador com arco): +25% de dano e +25% de precisão (balance.json combat.meleeVsRanged*).
 - [ ] **M1-11** Bloqueio parcial: o golpe bloqueado ainda fere _(balanceamento, ~0.5 d)_ — **escrito, validar**  
   O bloqueio para 70% do golpe (balance.guard.blockReduction) + base do escudo (0/5/10/15%) + Postura Defensiva (+2,5%/ponto), no máximo 95% (blockReductionCap); a armadura age sobre o que passa. Aparo perfeito para 95%. Validar no jogo se 70% de base está bom.
 - [ ] **M1-12** Colisão entre corpos _(código, ~1 d)_ — **escrito, validar**  

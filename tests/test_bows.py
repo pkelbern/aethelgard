@@ -126,3 +126,57 @@ def test_bow_affixes_never_carry_blade_skills_and_blades_never_bow_ones(data):
             assert set(a.affix.tags) & set(item.base.tags)
             if "bow" in item.base.tags:
                 assert a.affix.stat != "bladesSkills"
+
+
+# ---------------------------------------------------------------- Shift: attack in place, and the melee edge
+
+
+def test_shift_click_swings_in_place_and_hits_who_is_in_front(data):
+    from aethelgard.core.world import AttackInPlace
+
+    s, w, p, m = arena(data, monster_dmg=(0.01, 0.01), level=1)
+    hits = []
+    s.bus.subscribe(DamageDealt, hits.append)
+    x0 = p.x
+    w.apply(AttackInPlace(0, 9.0, 5.0))  # mouse far to the right, the monster next to the player on that side
+    run(w, 0.6)
+    assert p.x == pytest.approx(x0) and hits, "no step taken, the swing landed"
+    hits.clear()
+    w.apply(AttackInPlace(0, 1.0, 5.0))  # swinging the other way hits nothing
+    run(w, 0.6)
+    assert not hits
+
+
+def test_shift_with_a_bow_shoots_toward_the_mouse(data):
+    from aethelgard.core.world import AttackInPlace
+
+    s, w, p, m = archer(data, at=(10.0, 10.0))
+    w.apply(AttackInPlace(0, 5.0, 1.0))  # straight "up" (−y)
+    for _ in range(30):
+        w.step(DT)
+        if w.projectiles:
+            break
+    pr = next(iter(w.projectiles.values()))
+    assert pr.owner == "player" and pr.dir_y == pytest.approx(-1) and p.x == pytest.approx(5.0)
+
+
+def test_melee_has_the_edge_against_ranged_fighters(data):
+    from aethelgard.core.combat import melee_edge
+
+    c = data.balance.combat
+    s, w, p, m = arena(data)
+    plain = player_attack(s.character, s.skills, s.gear)
+    edged = melee_edge(plain, c)
+    assert edged.damage_bonus_pct == pytest.approx(plain.damage_bonus_pct + 0.25)
+    assert edged.accuracy == pytest.approx(plain.accuracy * 1.25)
+    # a sword on an archer monster
+    hits = []
+    s.bus.subscribe(DamageDealt, hits.append)
+    m.monster.type = data.monster_type("skeleton_archer")
+    assert m.ranged
+    # a monster's swing on a player holding a bow: compare the numbers the world uses
+    s2, w2, p2, m2 = archer(data, monster_dmg=(10, 10))
+    seen = []
+    w2._hit_player = lambda pl, atk, *a, **k: seen.append(atk.damage_bonus_pct)
+    w2._monster_hit(m2, p2)
+    assert seen == [pytest.approx(m2.attack.damage_bonus_pct + 0.25)]

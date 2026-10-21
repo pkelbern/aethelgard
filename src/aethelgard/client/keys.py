@@ -11,7 +11,11 @@ from importlib import resources
 
 import pygame
 
-ACTIONS = ("guard", "skillTrees", "inventory", "map", "console", "save", "cancel", "showItems", "compare", "lifePotion", "energyPotion", "townPortal")
+ACTIONS = (
+    "guard", "skillTrees", "inventory", "map", "console", "save", "cancel", "showItems", "compare",
+    "lifePotion", "energyPotion", "townPortal", "standStill",
+)
+SHARED_MODIFIERS = ("compare", "standStill")
 CONSUMABLE_KEYS = {"lifePotion": "life_potion", "energyPotion": "energy_potion"}
 
 
@@ -25,7 +29,10 @@ class KeyMap:
         self.action_keys: dict[str, list[int]] = {
             a: [pygame.key.key_code(n) for n in (raw[a] if isinstance(raw[a], list) else [raw[a]])] for a in ACTIONS
         }
-        every = self.slot_keys + [k for ks in self.action_keys.values() for k in ks]
+        # held modifiers that never apply at the same time may share a key (Shift: compare in the inventory, stand still in the world)
+        shared = {k for a in SHARED_MODIFIERS for k in self.action_keys[a]}
+        every = self.slot_keys + [k for a, ks in self.action_keys.items() for k in ks if not (a in SHARED_MODIFIERS and k in shared)]
+        every += list(shared)
         if len(set(every)) != len(every):
             raise ValueError("keys.json: the same key is used twice")
         self._slot_of = {k: i for i, k in enumerate(self.slot_keys)}
