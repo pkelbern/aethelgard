@@ -303,3 +303,16 @@ def test_monster_faces_its_target_and_keeps_facing_during_the_swing(data):
     if m.state == "attacking":
         w.step(DT)
         assert (m.face_x, m.face_y) == pytest.approx((0.0, -1.0)), "a swing keeps its direction"
+
+
+def test_movement_speeds_come_from_balance(data):
+    """Player outruns every Act 1 monster, as in Diablo 2; numbers live in balance.json."""
+    mv = data.balance.movement
+    assert 5.5 <= mv.player_tiles_per_second <= 8
+    fastest = max(t.move_speed for t in data.monsters.types) * mv.monster_base_tiles_per_second
+    assert fastest < mv.player_tiles_per_second
+    s = GameSession(data, 7)
+    w = World([s])
+    w.enter_area("plains")
+    m = next(iter(w.monsters.values()))
+    assert m.base_speed == mv.monster_base_tiles_per_second

@@ -21,7 +21,7 @@ import pygame
 from ..core.saves import default_art_dir
 from ..tools.fetch_art import ArtError, fetch_art, http_fetch, load_config, missing_sheets, sheets_in_use, sprites_dir
 from .animation import DIRECTION_NAMES, Pose, choose_pose, direction8, pose_frame
-from .iso import Camera
+from .iso import HALF_H, HALF_W, Camera
 
 FADE_SECONDS = 1.5
 MIRROR_PREFIX = "mirror:"
@@ -221,6 +221,13 @@ class SpriteLibrary:
             self._scales[key] = self.target_height(look_id) / h
         return self._scales[key]
 
+    def stride_px(self, layers: dict[str, str], scale: float) -> float:
+        """Screen px covered by one run cycle: ``strideHeights`` × the figure's height as drawn, so the feet
+        stay planted at any size (a wolf, lower, takes shorter strides)."""
+        body = [s for k, s in layers.items() if k not in ("main", "off")]
+        h = self.stand_height(body) or MISSING_SIZE[1]
+        return max(1.0, self.cfg.get("strideHeights", 1.4) * h * scale)
+
     def missing_scale(self, look_id: str) -> float:
         """Scale of the magenta stand-in so it is as tall as the look would be."""
         return self.target_height(look_id) / MISSING_SIZE[1]
@@ -235,7 +242,7 @@ class Track:
 
     x: float
     y: float
-    stride: float = 0.0  # tiles walked, for the run cycle
+    stride: float = 0.0  # screen px walked, for the run cycle
     moving: bool = False
     state: str = ""
     since: float = 0.0
@@ -283,9 +290,10 @@ class ActorSprites:
         t = self.tracks.get(key)
         if t is None:
             t = self.tracks[key] = Track(actor.x, actor.y, since=self.clock, state=actor.state)
-        step = math.hypot(actor.x - t.x, actor.y - t.y)
-        t.moving = step > MOVE_EPSILON
-        t.stride += step
+        dx, dy = actor.x - t.x, actor.y - t.y
+        t.moving = math.hypot(dx, dy) > MOVE_EPSILON
+        # distance on screen, not on the map: moving toward the camera covers fewer pixels, like the legs in the art
+        t.stride += math.hypot((dx - dy) * HALF_W, (dx + dy) * HALF_H)
         t.x, t.y = actor.x, actor.y
         if actor.state != t.state:
             t.state, t.since = actor.state, self.clock
@@ -313,7 +321,7 @@ class ActorSprites:
             attack_anim=attack_anim,
             state_time=self.clock - t.since,
             clock=self.clock + (key[1] % 7) * 0.13,  # idle monsters do not breathe in sync
-            stride_cycles=t.stride / self.lib.cfg.get("strideTiles", 1.7),
+            stride_cycles=t.stride / self.lib.stride_px(layers, scale),
         )
         flash = self.lib.cfg.get("hitFlash", 0) if hit_flash and actor.state in ("hit_recovery", "stunned") else 0
         if mirrored:  # drawn from the mirrored facing, every sheet flipped: same direction on screen

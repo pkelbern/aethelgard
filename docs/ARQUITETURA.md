@@ -99,6 +99,10 @@ client/animation.py   matemática sem pygame: direction8, frame_at, choose_pose,
   formatos do Flare: comprimido (`frame=`) e o antigo em grade (`render_size`/`position`), comum nos pacotes.
   Uma fonte que falha não para as outras (`ArtError` lista os problemas; as folhas prontas ficam); o `.json` é
   gravado por último, então um download interrompido continua de onde parou. `--frames` e `--offline` não baixam.
+- **Passada:** a animação de corrida avança pela distância percorrida **na tela** (px), e um ciclo cobre
+  `strideHeights` (1,4) × a altura desenhada da figura: o pé não patina em nenhum tamanho ou velocidade.
+  Velocidades ficam em `balance.json → movement` (jogador 6,5 tiles/s, ~ a corrida do Diablo 2 em relação ao
+  tamanho do herói; monstros 3,75 × o `moveSpeed` do tipo).
 - **Animação ausente na folha:** `fallbacks` em `sprites.json` (ex.: sem `hit` → `block` → `stance`).
 - **Tamanho na tela:** cada pacote vem desenhado numa escala diferente, então o tamanho não vem da arte: na
   conversão cada quadro é aparado (sem margem transparente) e, ao desenhar, `SpriteLibrary.look_scale` mede a
@@ -158,7 +162,7 @@ de visita. Nunca use o módulo `random` em regra de jogo.
 | Arquivo | Conteúdo |
 |---|---|
 | `curves.json` | Curvas a × n^p × g^n: XP das proficiências; XP, vida, dano e precisão dos monstros |
-| `balance.json` | XP defensivo, fator de nível, personagem, combate, spawn, morte, guarda, tempos |
+| `balance.json` | XP defensivo, fator de nível, personagem, combate, spawn, morte, guarda, movimento, tempos |
 | `monster_ranks.json` | normal, champion, berserker, único, minion, chefe |
 | `monster_modifiers.json` | modificadores de únicos e champions |
 | `monsters.json` | famílias, tipos e chefes |

@@ -87,6 +87,11 @@
     "xpLossPctOfLevel": 0.0,
     "dropCorpse": true
   },
+  "movement": {
+    "_comment": "Tiles per second. Diablo 2 runs at 9 yards/s and walks at 6: on screen the hero covers about 3 times its own height per second; with the hero ~94 px tall and a tile ~40 px across, that is ~6.5 tiles/s. Monsters move at monsterBase × their type's moveSpeed (wolf 1.4, zombie 0.6), slower than the player as in Diablo 2.",
+    "playerTilesPerSecond": 6.5,
+    "monsterBaseTilesPerSecond": 3.75
+  },
   "guard": {
     "_comment": "Active block (hold the guard button). Blocks physical hits inside the front arc; each block costs Energy. A block never stops everything: it stops blockReduction of the hit (+ shield base + Defensive Stance), at most blockReductionCap, and armor works on what passes. Perfect window at the start of the guard: zero cost, blockReductionCap stopped and counterattack (Parry). After lowering the guard, it can only be raised again after guardRaiseCooldownSeconds (prevents perfect-parry abuse).",
     "arcDegrees": 120,

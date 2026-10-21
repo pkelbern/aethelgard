@@ -79,7 +79,6 @@ def is_implemented(node_id: str) -> bool:
     """Tooltips warn about nodes that accept points but do nothing in the prototype yet."""
     return node_id in IMPLEMENTED_SKILLS or node_id in IMPLEMENTED_PASSIVES
 
-PLAYER_SPEED = 4.5  # tiles/s
 MELEE_RANGE = 1.4
 AGGRO_RADIUS = 8.0
 EXIT_COOLDOWN = 0.8
@@ -348,6 +347,7 @@ class MonsterActor:
     knock_vx: float = 0.0  # knockback velocity (tiles/s) while knock_left > 0
     knock_vy: float = 0.0
     knock_left: float = 0.0
+    base_speed: float = 3.75  # tiles/s before the type's moveSpeed (balance.json → movement)
     buffs: dict[str, float] = field(default_factory=dict)  # from leader auras, refreshed every step
 
     @property
@@ -364,7 +364,7 @@ class MonsterActor:
 
     @property
     def speed(self) -> float:
-        return self.monster.type.move_speed * 2.6 * (1 + self.stat("moveSpeedPct"))
+        return self.monster.type.move_speed * self.base_speed * (1 + self.stat("moveSpeedPct"))
 
     @property
     def attack_duration(self) -> float:
@@ -485,7 +485,8 @@ class World:
                 spawn_i += 1
             ids = []
             for m in pack.members:
-                actor = MonsterActor(m, float(anchor[0]), float(anchor[1]), leader_id=m.leader_id)
+                actor = MonsterActor(m, float(anchor[0]), float(anchor[1]), leader_id=m.leader_id,
+                                     base_speed=self.data.balance.movement.monster_base_tiles_per_second)
                 for _ in range(24):  # a free spot near the anchor: bodies do not start on top of each other
                     x, y = anchor[0] + rng.uniform(-2.5, 2.5), anchor[1] + rng.uniform(-2.5, 2.5)
                     if layout.is_floor(cell_of(x, y)) and not self._overlaps_any(actor, x, y):
@@ -736,7 +737,7 @@ class World:
 
         # movement
         if p.path:
-            speed = PLAYER_SPEED * (self.data.balance.guard.move_speed_mult if p.guarding else 1.0)
+            speed = self.data.balance.movement.player_tiles_per_second * (self.data.balance.guard.move_speed_mult if p.guarding else 1.0)
             if self._step_towards(p, p.path[0], speed, dt):
                 p.path.pop(0)
             if not p.guarding and p.path:
@@ -1106,7 +1107,7 @@ class World:
         if not p.path:
             p.path = find_path(self.layout, cell_of(p.x, p.y), cell_of(g.x, g.y))
             if not p.path:  # already in the cell: walk the last bit straight
-                self._step_towards(p, (g.x, g.y), PLAYER_SPEED, dt)
+                self._step_towards(p, (g.x, g.y), self.data.balance.movement.player_tiles_per_second, dt)
                 return True
         return False
 

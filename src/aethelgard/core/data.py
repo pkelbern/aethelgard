@@ -177,6 +177,12 @@ class DeathParams:
 
 
 @dataclass
+class MovementParams:
+    player_tiles_per_second: float = 6.5
+    monster_base_tiles_per_second: float = 3.75
+
+
+@dataclass
 class GuardParams:
     arc_degrees: float = 120
     base_energy_cost: float = 1.0
@@ -235,6 +241,7 @@ class BalanceData:
     spawn: SpawnParams = field(default_factory=SpawnParams)
     death: DeathParams = field(default_factory=DeathParams)
     guard: GuardParams = field(default_factory=GuardParams)
+    movement: MovementParams = field(default_factory=MovementParams)
     timing: TimingParams = field(default_factory=TimingParams)
     collision: CollisionParams = field(default_factory=CollisionParams)
     dual_wield: DualWieldParams = field(default_factory=DualWieldParams)

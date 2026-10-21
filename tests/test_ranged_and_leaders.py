@@ -228,7 +228,7 @@ def test_recovery_regenerates_slowly(data):
 def test_monster_stats_from_buffs_use_the_actor(data):
     s, w, p, m = arena(data)
     m.buffs = {"moveSpeedPct": 0.5}
-    assert m.speed == pytest.approx(m.monster.type.move_speed * 2.6 * 1.5)
+    assert m.speed == pytest.approx(m.monster.type.move_speed * data.balance.movement.monster_base_tiles_per_second * 1.5)
     m.monster.type = replace(m.monster.type, projectile=ProjectileDef())
     assert m.ranged and math.isfinite(m.reach)
 
