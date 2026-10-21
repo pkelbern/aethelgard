@@ -1,5 +1,5 @@
 {
-  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Maces = a one-hand mace or hammer used alone. Two-Handed = great swords, axes and mauls (tag 'great'). weaponTags = plain swings with a main-hand weapon carrying one of these tags feed it; with two weapons every swing feeds 'dualWield'; with none of those tags (a wand in the hand, fists) 'unarmed'. skillsNeed = what the tree's actives need in hand: mainTag (main-hand weapon tag), offTag (off-hand item tag) or dualWield; text finishes 'needs …'. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C). Pyromancy = fire spells: XP from every spell of its tree, unlocked or cast from a wand (see skills.json).",
+  "_comment": "Proficiencies. attributes = points gained per level (they add up to balance.attributes.pointsPerProficiencyLevel). xpSource: offense (damage dealt), block (hits blocked), armor (damage mitigated). defaultTitle: title while every proficiency is level 1. Blades = any one-hand blade used alone (with or without a shield). Dual Wield = every swing while holding two weapons. Archery = every arrow from a bow. Maces = a one-hand mace or hammer used alone. Two-Handed = great swords, axes and mauls (tag 'great'). weaponTags = plain swings with a main-hand weapon carrying one of these tags feed it; with two weapons every swing feeds 'dualWield'; with none of those tags (a wand in the hand, fists) 'unarmed'. skillsNeed = what the tree's actives need in hand: mainTag (main-hand weapon tag), offTag (off-hand item tag) or dualWield; text finishes 'needs …'. Skills always feed their own tree. description = how it gains XP, shown on the character sheet (C). Pyromancy = fire spells: XP from every spell of its tree, unlocked or cast from a wand (see skills.json). Cryomancy, Electromancy and Restoration are spell schools like Pyromancy; Restoration also learns from heals and blessings used in a fight (SkillPracticed).",
   "proficiencies": [
     {
       "id": "blades",
@@ -136,6 +136,45 @@
       },
       "weaponTags": [],
       "description": "XP from fire damage dealt with Pyromancy spells."
+    },
+    {
+      "id": "cryomancy",
+      "name": "Cryomancy",
+      "xpSource": "offense",
+      "attributes": {
+        "str": 0,
+        "dex": 0,
+        "vit": 1,
+        "int": 2
+      },
+      "weaponTags": [],
+      "description": "XP from cold damage dealt with Cryomancy spells."
+    },
+    {
+      "id": "electromancy",
+      "name": "Electromancy",
+      "xpSource": "offense",
+      "attributes": {
+        "str": 0,
+        "dex": 1,
+        "vit": 0,
+        "int": 2
+      },
+      "weaponTags": [],
+      "description": "XP from lightning damage dealt with Electromancy spells."
+    },
+    {
+      "id": "restoration",
+      "name": "Restoration",
+      "xpSource": "support",
+      "attributes": {
+        "str": 0,
+        "dex": 0,
+        "vit": 1,
+        "int": 2
+      },
+      "weaponTags": [],
+      "description": "XP from healing yourself when it is needed and from blessings cast near enemies (a share of the nearest enemy's XP), and from holy damage."
     }
   ],
   "titles": [
@@ -382,6 +421,143 @@
         "pyromancy"
       ],
       "title": "Doomblade"
+    },
+    {
+      "ids": [
+        "cryomancy"
+      ],
+      "title": "Cryomancer"
+    },
+    {
+      "ids": [
+        "electromancy"
+      ],
+      "title": "Stormcaller"
+    },
+    {
+      "ids": [
+        "restoration"
+      ],
+      "title": "Cleric"
+    },
+    {
+      "ids": [
+        "pyromancy",
+        "cryomancy"
+      ],
+      "title": "Elementalist"
+    },
+    {
+      "ids": [
+        "pyromancy",
+        "electromancy"
+      ],
+      "title": "Tempest"
+    },
+    {
+      "ids": [
+        "cryomancy",
+        "electromancy"
+      ],
+      "title": "Stormfrost"
+    },
+    {
+      "ids": [
+        "shield",
+        "restoration"
+      ],
+      "title": "Paladin"
+    },
+    {
+      "ids": [
+        "maces",
+        "restoration"
+      ],
+      "title": "Crusader"
+    },
+    {
+      "ids": [
+        "armor",
+        "restoration"
+      ],
+      "title": "Warpriest"
+    },
+    {
+      "ids": [
+        "blades",
+        "restoration"
+      ],
+      "title": "Inquisitor"
+    },
+    {
+      "ids": [
+        "two_handed",
+        "restoration"
+      ],
+      "title": "Zealot"
+    },
+    {
+      "ids": [
+        "bows",
+        "restoration"
+      ],
+      "title": "Pilgrim"
+    },
+    {
+      "ids": [
+        "shield",
+        "cryomancy"
+      ],
+      "title": "Frostguard"
+    },
+    {
+      "ids": [
+        "blades",
+        "electromancy"
+      ],
+      "title": "Spellblade"
+    },
+    {
+      "ids": [
+        "bows",
+        "electromancy"
+      ],
+      "title": "Thunder Archer"
+    },
+    {
+      "ids": [
+        "pyromancy",
+        "restoration"
+      ],
+      "title": "Sun Priest"
+    },
+    {
+      "ids": [
+        "cryomancy",
+        "restoration"
+      ],
+      "title": "Oracle"
+    },
+    {
+      "ids": [
+        "electromancy",
+        "restoration"
+      ],
+      "title": "Templar of Storms"
+    },
+    {
+      "ids": [
+        "armor",
+        "cryomancy"
+      ],
+      "title": "Ice Warden"
+    },
+    {
+      "ids": [
+        "two_handed",
+        "electromancy"
+      ],
+      "title": "Thunderlord"
     }
   ],
   "titleSecondaryThreshold": 0.5,

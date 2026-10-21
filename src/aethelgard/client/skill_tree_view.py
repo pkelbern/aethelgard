@@ -212,15 +212,18 @@ class SkillTreeWindow:
             hot = box.collidepoint(pygame.mouse.get_pos())
             pygame.draw.rect(screen, (46, 42, 30) if active else (34, 35, 44) if hot else C.PANEL, box, border_radius=4)
             pygame.draw.rect(screen, C.GOLD if active else C.PANEL_EDGE, box, 1, border_radius=4)
-            label = f["small"].render(f"{p.name} {p.level}", True, C.GOLD if active else C.TEXT)
-            screen.blit(label, label.get_rect(center=box.center))
             free = s.skills.available(p.id)
-            if free:  # a badge: points waiting in this tree
+            room = box.w - 12
+            if free:  # a badge: points waiting in this tree (the name keeps clear of it)
                 badge = f["tiny"].render(str(free), True, C.BG)
                 dot = pygame.Rect(0, 0, max(16, badge.get_width() + 8), 16)
-                dot.topright = (box.right - 3, box.y + 3)
+                dot.midright = (box.right - 4, box.centery)
                 pygame.draw.rect(screen, AVAILABLE, dot, border_radius=8)
                 screen.blit(badge, badge.get_rect(center=dot.center))
+                room -= dot.w + 4
+            text = fit(f["small"], f"{p.name} {p.level}", room)
+            label = f["small"].render(text, True, C.GOLD if active else C.TEXT)
+            screen.blit(label, label.get_rect(center=(box.x + 6 + room // 2, box.centery)))
             self._tabs.append((box, p.id))
 
     def _draw_node(self, screen: pygame.Surface, box: pygame.Rect, n, hot: bool) -> None:

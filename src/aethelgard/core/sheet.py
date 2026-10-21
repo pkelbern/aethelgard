@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .combat import player_attack, player_defense, player_guard
+from .data import ELEMENTS
 from .describe import Line
 
 
@@ -138,12 +139,12 @@ def character_sheet(world, player) -> list[Section]:
     sec.rows.append(Row("Critical chance", _pct(atk.crit_chance), [Line("Critical chance", "title"),
                     Line(f"{_pct(ap.crit_per_dex)} per Dexterity, plus Hunter's Mark with bows.", "body")]))
     from_int = a.int * ap.spell_damage_per_int
-    fire = s.skills.stat_total("fireDamagePct")
-    sec.rows.append(Row("Spell damage", f"+{_pct(from_int + fire)}", [Line("Spell damage", "title"),
-                    Line(f"{_pct(ap.spell_damage_per_int)} per Intelligence ({a.int}): +{_pct(from_int)}. "
-                         f"Fire spells: +{_pct(fire)} more from Kindling.", "body"),
+    elements = {e: s.skills.stat_total(f"{e}DamagePct") for e in ELEMENTS}
+    extra = " ".join(f"{e.title()}: +{_pct(v)} more." for e, v in elements.items() if v)
+    sec.rows.append(Row("Spell damage", f"+{_pct(from_int)}", [Line("Spell damage", "title"),
+                    Line(f"{_pct(ap.spell_damage_per_int)} per Intelligence ({a.int}): +{_pct(from_int)}. {extra}".strip(), "body"),
                     Line("Spells always hit and ignore armor; the enemy's resistance to the element takes its share. "
-                         "Unlock spells in the Pyromancy tree; a wand adds levels to its spell.", "muted")]))
+                         "Unlock spells in the Pyromancy, Cryomancy, Electromancy and Restoration trees; a wand adds levels to its spell.", "muted")]))
     reach = world.player_reach(player)
     sec.rows.append(Row("Reach", f"{reach:.1f} tiles", [Line("Reach", "title"),
                     Line("How far you strike from: a bow's range (Eagle Eye adds to it), or arm's length in melee, "

@@ -149,12 +149,14 @@ class ProficiencySet:
         self._bus = bus
         self.player_id = player_id
         self.curve = curve = XpCurve(data.xp_total_by_level)
+        self._skill_tree_of = {n.id: n.tree for n in data.skills.nodes}.get
         self._profs = {d.id: Proficiency(d, curve) for d in data.proficiencies.proficiencies}
         self._defense_xp_by_monster: dict[int, float] = {}
         if bus is not None:
             bus.subscribe(DamageDealt, self.on_damage_dealt)
             bus.subscribe(HitBlocked, self.on_hit_blocked)
             bus.subscribe(DamageMitigated, self.on_damage_mitigated)
+            bus.subscribe(SkillPracticed, self.on_practiced)
             bus.subscribe(MonsterKilled, lambda e: self._defense_xp_by_monster.pop(e.monster.instance_id, None))
 
     def __getitem__(self, prof_id: str) -> Proficiency:
@@ -182,6 +184,15 @@ class ProficiencySet:
             return
         p = self._profs[e.proficiency_id]
         self._give(p, self._calc.offense(e.target, e.effective_damage, p.level), "offense")
+
+    def on_practiced(self, e: SkillPracticed) -> None:
+        """A skill that hits nothing (a heal, a blessing, a war cry) used near a monster: its tree learns from it."""
+        node = self._skill_tree_of(e.skill_id)
+        if e.player_id != self.player_id or node not in self._profs:
+            return
+        p = self._profs[node]
+        if not self._calc.is_trivial(e.target.level, p.level):
+            self._give(p, e.target.xp_base * e.share * self._calc.factor(e.target.level, p.level), "practice")
 
     def on_hit_blocked(self, e: HitBlocked) -> None:
         if e.player_id != self.player_id:
@@ -542,8 +553,9 @@ class SkillTrees:
         return self.effect_at(node_id, stat, self.points_in(node_id))
 
     def stat_total(self, stat: str) -> float:
-        """Sum of one stat over every node with a level (for generic bonuses such as fasterHitRecovery)."""
-        return sum(self.effect(n.id, stat) for n in self._d.nodes if stat in n.stat_ids and self.points_in(n.id) > 0)
+        """Sum of one stat over every passive with a level (generic bonuses such as fasterHitRecovery). An active's
+        stats count only when it is used (its hit, or its buff while it lasts: ``PlayerActor.buff_total``)."""
+        return sum(self.effect(n.id, stat) for n in self._d.nodes if n.kind != "active" and stat in n.stat_ids and self.points_in(n.id) > 0)
 
     def learned_actives(self) -> list[str]:
         """Active nodes with a level (unlocked, or given by a wand), in tree order: what can go on the bar."""

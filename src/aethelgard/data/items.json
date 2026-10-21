@@ -791,6 +791,126 @@
    "req": {
     "int": 35
    }
+  },
+  {
+   "id": "frost_wand",
+   "name": "Frost Wand",
+   "slot": "wand",
+   "itemClass": "wand",
+   "tags": [
+    "wand",
+    "cold"
+   ],
+   "level": 3,
+   "spell": "ice_bolt",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 10
+   }
+  },
+  {
+   "id": "rime_wand",
+   "name": "Rime Wand",
+   "slot": "wand",
+   "itemClass": "wand",
+   "tags": [
+    "wand",
+    "cold"
+   ],
+   "level": 8,
+   "spell": "frost_nova",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 20
+   }
+  },
+  {
+   "id": "spark_rod",
+   "name": "Spark Rod",
+   "slot": "wand",
+   "itemClass": "wand",
+   "tags": [
+    "wand",
+    "lightning"
+   ],
+   "level": 3,
+   "spell": "spark",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 10
+   }
+  },
+  {
+   "id": "storm_rod",
+   "name": "Storm Rod",
+   "slot": "wand",
+   "itemClass": "wand",
+   "tags": [
+    "wand",
+    "lightning"
+   ],
+   "level": 8,
+   "spell": "chain_lightning",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 20
+   }
+  },
+  {
+   "id": "prayer_rod",
+   "name": "Prayer Rod",
+   "slot": "wand",
+   "itemClass": "wand",
+   "tags": [
+    "wand",
+    "holy"
+   ],
+   "level": 2,
+   "spell": "heal",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 8
+   }
+  },
+  {
+   "id": "sun_rod",
+   "name": "Sun Rod",
+   "slot": "wand",
+   "itemClass": "wand",
+   "tags": [
+    "wand",
+    "holy"
+   ],
+   "level": 8,
+   "spell": "holy_bolt",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 20
+   }
   }
  ],
  "affixes": [
@@ -828,6 +948,60 @@
    "group": "fire_pct",
    "stat": "fireDamagePct",
    "tiers": [{"level": 3, "min": 0.1, "max": 0.2}, {"level": 10, "min": 0.21, "max": 0.35}],
+   "on": ["wand", "amulet"]
+  },
+  {
+   "id": "freezing",
+   "kind": "prefix",
+   "name": "Freezing",
+   "group": "cold_pct",
+   "stat": "coldDamagePct",
+   "tiers": [{"level": 3, "min": 0.1, "max": 0.2}, {"level": 10, "min": 0.21, "max": 0.35}],
+   "on": ["wand", "amulet"]
+  },
+  {
+   "id": "shocking",
+   "kind": "prefix",
+   "name": "Shocking",
+   "group": "lightning_pct",
+   "stat": "lightningDamagePct",
+   "tiers": [{"level": 3, "min": 0.1, "max": 0.2}, {"level": 10, "min": 0.21, "max": 0.35}],
+   "on": ["wand", "amulet"]
+  },
+  {
+   "id": "hallowed",
+   "kind": "prefix",
+   "name": "Hallowed",
+   "group": "holy_pct",
+   "stat": "holyDamagePct",
+   "tiers": [{"level": 3, "min": 0.1, "max": 0.2}, {"level": 10, "min": 0.21, "max": 0.35}],
+   "on": ["wand", "amulet"]
+  },
+  {
+   "id": "cryomancers",
+   "kind": "prefix",
+   "name": "Cryomancer's",
+   "group": "skill",
+   "stat": "cryomancySkills",
+   "tiers": [{"level": 12, "min": 1, "max": 1}],
+   "on": ["wand", "amulet"]
+  },
+  {
+   "id": "stormcallers",
+   "kind": "prefix",
+   "name": "Stormcaller's",
+   "group": "skill",
+   "stat": "electromancySkills",
+   "tiers": [{"level": 12, "min": 1, "max": 1}],
+   "on": ["wand", "amulet"]
+  },
+  {
+   "id": "clerics",
+   "kind": "prefix",
+   "name": "Cleric's",
+   "group": "skill",
+   "stat": "restorationSkills",
+   "tiers": [{"level": 12, "min": 1, "max": 1}],
    "on": ["wand", "amulet"]
   },
   {

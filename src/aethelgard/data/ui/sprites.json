@@ -114,7 +114,7 @@
       "leather_armor": "flare/loot/leather_armor", "studded_leather": "flare/loot/leather_armor", "chain_mail": "flare/loot/steel_armor",
       "scale_mail": "flare/loot/steel_armor", "plate_mail": "flare/loot/steel_armor", "helm": "flare/loot/clothes", "gloves": "flare/loot/clothes",
       "boots": "flare/loot/boots", "belt": "flare/loot/belt", "ring": "flare/loot/ring", "amulet": "flare/loot/gem",
-      "ember_wand": "flare/loot/wand", "cinder_wand": "flare/loot/wand", "blaze_wand": "flare/loot/rod", "star_wand": "flare/loot/rod"
+      "ember_wand": "flare/loot/wand", "cinder_wand": "flare/loot/wand", "blaze_wand": "flare/loot/rod", "star_wand": "flare/loot/rod", "frost_wand": "flare/loot/wand", "rime_wand": "flare/loot/wand", "spark_rod": "flare/loot/rod", "storm_rod": "flare/loot/rod", "prayer_rod": "flare/loot/rod", "sun_rod": "flare/loot/rod"
     },
     "gold": { "1": "flare/loot/coins5", "25": "flare/loot/coins25", "100": "flare/loot/coins100" },
     "potions": { "life": "flare/loot/hp_potion", "energy": "flare/loot/mp_potion" },
@@ -123,7 +123,7 @@
   "projectiles": {
     "_comment": "Shots in flight, by the 'look' of the shot (monsters.json projectile.look, the shield throw is 'shield'). sheet = a Flare power animation, 8 directions; scale as for loot.",
     "scale": 0.5556,
-    "looks": { "arrow": "flare/powers/arrows", "bolt": "flare/powers/plasmaball", "firebolt": "flare/powers/fireball", "fireball": "flare/powers/fireball" }
+    "looks": { "arrow": "flare/powers/arrows", "bolt": "flare/powers/plasmaball", "firebolt": "flare/powers/fireball", "fireball": "flare/powers/fireball", "icebolt": "flare/powers/icicle", "glacial_spike": "flare/powers/icicle", "spark": "flare/powers/lightning", "chain_lightning": "flare/powers/lightning", "ball_lightning": "flare/powers/lightning", "holy_bolt": "flare/powers/plasmaball" }
   },
   "slotLayers": { "mainhand": ["main"], "offhand": ["off"] },
   "mirroredLayers": { "offhand": { "main": "off" } },
@@ -209,6 +209,16 @@
     "zweihander":      { "main": "flare/male/zweihander" },
     "maul":            { "main": "flare/male/maul" },
     "claymore":        { "main": "flare/male/greatsword" },
+    "ember_wand":      { "main": "flare/male/wand" },
+    "cinder_wand":     { "main": "flare/male/wand" },
+    "blaze_wand":      { "main": "flare/male/rod" },
+    "star_wand":       { "main": "flare/male/rod" },
+    "frost_wand":      { "main": "flare/male/wand" },
+    "rime_wand":       { "main": "flare/male/wand" },
+    "spark_rod":       { "main": "flare/male/rod" },
+    "storm_rod":       { "main": "flare/male/rod" },
+    "prayer_rod":      { "main": "flare/male/rod" },
+    "sun_rod":         { "main": "flare/male/rod" },
     "buckler":         { "off": "flare/male/buckler" },
     "round_shield":    { "off": "flare/male/iron_buckler" },
     "kite_shield":     { "off": "flare/male/kite_shield" },

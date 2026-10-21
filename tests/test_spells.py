@@ -196,11 +196,13 @@ def test_spells_reach_only_their_range(data):
 # ---------------------------------------------------------------- data
 
 
-def test_every_spell_has_a_wand_and_every_wand_a_spell(data):
+def test_spells_in_the_data_match_the_world_and_wands_carry_spells(data):
+    from aethelgard.core.world import SPELL_SKILLS
+
     spells = {n.id for n in data.skills.nodes if n.spell}
-    assert spells == {"fire_bolt", "fireball", "fire_wall", "meteor"}
-    assert {b.spell for b in data.items.bases if b.spell} == spells
-    assert all(data.node(b.spell).tree == "pyromancy" for b in data.items.bases if b.spell)
+    assert spells == SPELL_SKILLS, "world.SPELL_SKILLS lists every skills.json node with 'spell'"
+    wands = {b.spell for b in data.items.bases if b.spell}
+    assert wands <= spells and {"fire_bolt", "ice_bolt", "spark", "heal"} <= wands
     assert "wand" in data.items.equipment["offhand"].accepts
     assert GameSession(data, 1).gear.granted_spells() == {}, "a new character starts with the wand in the backpack"
 

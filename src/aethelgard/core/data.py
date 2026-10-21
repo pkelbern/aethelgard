@@ -487,8 +487,8 @@ class ProficienciesData:
     unarmed: str = "blades"  # plain swings with no weapon tag of any proficiency (fists, a wand in the main hand)
 
 
-SPELL_CASTS = ("bolt", "ball", "wall", "meteor")  # how a spell is delivered (core/spells.py)
-ELEMENTS = ("fire",)
+SPELL_CASTS = ("bolt", "ball", "chain", "nova", "wall", "field", "storm", "meteor", "self")  # how a spell is delivered (core/spells.py)
+ELEMENTS = ("fire", "cold", "lightning", "holy")
 
 
 @dataclass

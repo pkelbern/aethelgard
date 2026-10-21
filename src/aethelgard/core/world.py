@@ -70,8 +70,14 @@ TWO_HAND_HITS = {"double_strike", "frenzy", "whirling_blades"}  # one hit with e
 BOW_SKILLS = {"power_shot", "multishot", "piercing_arrow"}  # fire arrows; aimed at a target or at the mouse
 SELF_SKILLS = {"bulwark", "berserk"}  # buffs on the caster for durationSeconds; their buff* stats count while they last
 PROJECTILE_SKILLS = {"shield_throw"}
-SPELL_SKILLS = {"fire_bolt", "fireball", "fire_wall", "meteor"}  # cast in place toward a point (core/spells.py)
-GROUND_SPELLS = {"wall", "meteor"}  # spell.cast values that set the ground on fire: only where the caster can see
+# every skills.json node with 'spell' (a test checks they match): cast in place toward a point (core/spells.py)
+SPELL_SKILLS = {
+    "fire_bolt", "fireball", "fire_wall", "meteor",
+    "ice_bolt", "frost_nova", "blizzard", "glacial_spike",
+    "spark", "chain_lightning", "ball_lightning", "thunderstorm",
+    "heal", "holy_bolt", "blessing_of_might", "divine_aegis",
+}
+GROUND_SPELLS = {"wall", "meteor", "field", "storm"}  # spell.cast values aimed at the ground: only where the caster can see
 IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS | BOW_SKILLS | SPELL_SKILLS
 # Passives whose effect the rules already read (combat.py, world.py); the rest are M3-05.
 IMPLEMENTED_PASSIVES = {
@@ -81,6 +87,9 @@ IMPLEMENTED_PASSIVES = {
     "kindling", "ignite", "quick_casting", "searing_heat",
     "heavy_head", "bone_breaker", "concussive", "executioner",
     "great_weapon_mastery", "brute_force", "relentless", "overpower",
+    "frostbite", "deep_freeze", "shatter", "glacial_mastery",
+    "conductivity", "overcharge", "static_focus", "storm_mastery",
+    "blessed_hands", "zeal", "devotion", "grace",
 }
 
 
@@ -383,6 +392,8 @@ class MonsterActor:
     burn_tick: float = 0.0
     burn_owner: int = 0
     burn_skill: str = ""  # the spell whose hit set it burning (it gets the XP of the burn)
+    chill_left: float = 0.0  # cold: slower to move and to attack while it lasts
+    chill_pct: float = 0.0
 
     @property
     def id(self) -> int:
@@ -394,7 +405,8 @@ class MonsterActor:
 
     def stat(self, name: str) -> float:
         """Modifiers of the monster plus the auras around it right now."""
-        return self.monster.stat(name) + self.buffs.get(name, 0.0)
+        chill = self.chill_pct if self.chill_left > 0 and name in ("moveSpeedPct", "attackSpeedPct") else 0.0
+        return self.monster.stat(name) + self.buffs.get(name, 0.0) - chill
 
     @property
     def speed(self) -> float:
@@ -659,8 +671,7 @@ class World:
             if p.busy or not p.cooldowns.ready("global"):
                 return None
             self._commit_skill(p, cmd.skill_id)
-            p.buffs[cmd.skill_id] = p.session.skills.effect(cmd.skill_id, "durationSeconds")  # base + per level (skills.json)
-            self._float(p.x, p.y, f"{self.data.node(cmd.skill_id).name}!", "info")
+            self.apply_self_skill(p, cmd.skill_id)
             return None
         if cmd.skill_id in PROJECTILE_SKILLS:
             return self._throw_shield(p, cmd)
@@ -677,9 +688,11 @@ class World:
         if cmd.skill_id in SPELL_SKILLS:  # cast from where you stand, toward the target or the mouse
             t = self.monsters.get(cmd.target_id) if cmd.target_id is not None else None
             ax, ay = (t.x, t.y) if t is not None else (cmd.x, cmd.y)
+            node = self.data.node(cmd.skill_id)
+            if node.spell.cast in ("self", "nova") and (ax is None or ay is None):  # on yourself: no aim needed
+                ax, ay = p.x + p.face_x, p.y + p.face_y
             if ax is None or ay is None:
                 return "no target"
-            node = self.data.node(cmd.skill_id)
             if node.spell.cast in GROUND_SPELLS:  # fire on the ground goes only where you can see
                 gx, gy = self.spells.aim_point(p, cmd.skill_id, (ax, ay))
                 if not self.layout.is_floor(cell_of(gx, gy)) or not line_of_sight(self.layout, (p.x, p.y), (gx, gy)):
@@ -709,10 +722,30 @@ class World:
         p.cooldowns.start(skill_id, skill_cooldown(node.cooldown, 0.0))
         p.cooldowns.start("global", self.timing.global_cooldown_seconds)
         self.bus.publish(SkillUsed(p.player_id, skill_id))
-        if node.use_xp > 0:  # a skill that hits nothing (war cry) learns from being used in a fight
-            near = self._nearest_monster(p.x, p.y, self.data.skills.use_xp_radius_tiles)
-            if near is not None:
-                self.bus.publish(SkillPracticed(p.player_id, skill_id, near.monster.xp_info, node.use_xp))
+        if node.use_xp > 0 and "healPctOfMax" not in node.stat_ids:  # a skill that hits nothing (war cry) learns from use in a fight
+            self._practice(p, skill_id, node.use_xp)
+
+    def _practice(self, p: PlayerActor, skill_id: str, share: float) -> None:
+        """XP for a skill that hits nothing, when a monster is near: the skill and its tree learn from it."""
+        near = self._nearest_monster(p.x, p.y, self.data.skills.use_xp_radius_tiles)
+        if near is not None and share > 0:
+            self.bus.publish(SkillPracticed(p.player_id, skill_id, near.monster.xp_info, share))
+
+    def apply_self_skill(self, p: PlayerActor, skill_id: str) -> None:
+        """A skill on yourself: ``healPctOfMax`` heals at once (Heal), ``durationSeconds`` makes it a buff whose
+        ``buff*`` stats count while it lasts (Bulwark, Berserk, blessings). Buffs last longer with buffDurationPct."""
+        sk, node = p.session.skills, self.data.node(skill_id)
+        heal = sk.effect(skill_id, "healPctOfMax")
+        if heal > 0:
+            amount = min(p.max_life - p.life, p.max_life * heal * (1 + sk.stat_total("healingPct")))
+            p.life += amount
+            self._float(p.x, p.y, f"+{amount:.0f}", "heal")
+            # healing teaches only when it is needed: a full heal of a quarter of your life is a whole use
+            self._practice(p, skill_id, node.use_xp * min(1.0, amount / max(1.0, 0.25 * p.max_life)))
+        secs = sk.effect(skill_id, "durationSeconds")
+        if secs > 0:
+            p.buffs[skill_id] = secs * (1 + sk.stat_total("buffDurationPct"))
+            self._float(p.x, p.y, f"{node.name}!", "info")
 
     def _nearest_monster(self, x: float, y: float, radius: float) -> MonsterActor | None:
         near = [m for m in self.monsters.values() if m.alive and math.hypot(m.x - x, m.y - y) <= radius]
@@ -744,7 +777,8 @@ class World:
         c = self.data.balance.character
         regen = c.guard_energy_regen_pct_per_second if p.guarding else c.energy_regen_pct_per_second
         p.energy = min(p.max_energy, p.energy + p.max_energy * regen * dt)
-        p.life = min(p.max_life, p.life + s.skills.effect("recovery", "lifeRegenPerSecond") * dt)
+        regen_life = s.skills.stat_total("lifeRegenPerSecond") + p.buff_total("lifeRegenPerSecond")  # Recovery, Grace, Divine Aegis
+        p.life = min(p.max_life, p.life + regen_life * dt)
         for r in p.restores:  # potions: a share of the maximum over a few seconds
             step = min(dt, r[2])
             if r[0] == "life":
@@ -1220,11 +1254,12 @@ class World:
         speed = tiles * self._cc_mult(t) / secs
         t.knock_vx, t.knock_vy, t.knock_left = dx / n * speed, dy / n * speed, secs
 
-    def _stun_monster(self, t: MonsterActor, seconds: float) -> None:
+    def _stun_monster(self, t: MonsterActor, seconds: float, word: str = "stunned") -> None:
+        """Stunned (or frozen: the same state, another word): it neither moves nor attacks."""
         seconds *= self._cc_mult(t)
         t.state, t.state_left = "stunned", seconds
         t.attack_elapsed, t.attack_hit_done = 0.0, False
-        self._float(t.x, t.y, "stunned", "info")
+        self._float(t.x, t.y, word, "info")
 
     def kill_all(self, p: PlayerActor) -> int:
         """Debug: kills every monster in the area as if ``p`` had hit them."""
@@ -1566,6 +1601,11 @@ class World:
             self._float(t.x, t.y, "missed", "miss")
         if proj.pierce:
             return True  # goes on through the line; hit_ids keeps it from hitting the same one twice
+        return self.bounce(proj)
+
+    def bounce(self, proj: Projectile) -> bool:
+        """Sends a bouncing shot (Shield Throw, Chain Lightning) on to the nearest enemy it has not hit yet, in sight
+        and within its bounce range. False when there is none (or no bounce left): the shot ends."""
         if proj.bounces_left <= 0:
             return False
         nxt = min((m for m in self.monsters.values() if m.alive and m.id not in proj.hit_ids

@@ -5,10 +5,20 @@ mouse), takes ``magic.castSeconds`` and leaves the hand partway through, like a 
 always hits and ignores armor; the target's resistance to the element takes its share.
 
 Deliveries (``spell.cast``):
-- ``bolt``: a straight projectile that burns the first enemy it meets.
+- ``bolt``: a straight projectile that hits the first enemy it meets.
 - ``ball``: a straight projectile that bursts (area) on the first enemy, on a wall or where its flight ends.
-- ``wall``: a line of fire across the aim, at the aimed point; enemies standing in it burn every tick.
+- ``chain``: a bolt that jumps on to the nearest enemies it has not hit (``chains`` times, ``bounceRangeTiles``).
+- ``nova``: bursts around the caster at once (``radiusTiles``).
+- ``wall``: a line across the aim, at the aimed point; enemies standing in it take damage every tick.
+- ``field``: a circle on the aimed point that hurts every tick (Blizzard).
+- ``storm``: a circle on the aimed point that strikes one enemy in it every ``intervalSeconds`` (Thunderstorm).
 - ``meteor``: falls on the aimed point after a delay, bursts, then leaves the ground burning.
+- ``self``: on the caster (Heal, blessings): see ``World.apply_self_skill``.
+
+What a hit does after its damage comes from stats, for every element: ``chillPct``/``chillSeconds`` slow
+the target, ``stunSeconds``/``knockbackTiles`` work as for any skill, Ignite burns on fire hits, and the
+passives ``<element>CritChance`` (double damage), ``<element>FreezeChance``/``FreezeSeconds`` and
+``<element>ResistPierce`` work for whichever element names them.
 
 The world owns the actors and the projectiles; :class:`SpellCaster` adds ground fire and burning
 monsters to it and uses the world's own helpers to launch, damage and float numbers, so a spell
@@ -88,6 +98,9 @@ class GroundFire:
     def landed(self) -> bool:
         return self.delay <= 0
 
+    strike: AttackerStats | None = None  # storm: one enemy in it takes this hit every ``interval`` seconds
+    interval: float = 0.0
+
     def touches(self, m: MonsterActor) -> bool:
         return segment_distance(m.x, m.y, self.ax, self.ay, self.bx, self.by) <= self.radius + m.radius
 
@@ -127,16 +140,23 @@ class SpellCaster:
         node = w.data.node(node_id)
         e = s.skills.effect
         ax, ay = self.aim_point(p, node_id)
-        if node.spell.cast in ("bolt", "ball"):
+        cast, element, look = node.spell.cast, node.spell.element, node.spell.look
+        if cast == "self":
+            w.apply_self_skill(p, node_id)
+        elif cast == "nova":
+            self.burst(p, p.x, p.y, e(node_id, "radiusTiles"), spell_attack(s, node_id), element, node_id, look)
+        elif cast in ("bolt", "ball", "chain"):
             proj = w._launch(x=p.x, y=p.y, speed=e(node_id, "projectileSpeed") or 10.0, radius=0.2, max_range=e(node_id, "rangeTiles") or 14.0,
-                             look=node.spell.look, owner="player", owner_id=p.player_id, skill=node_id, prof=node.tree, magic=True,
-                             attack=spell_attack(s, node_id), element=node.spell.element,
-                             burst_radius=e(node_id, "radiusTiles") if node.spell.cast == "ball" else 0.0)
+                             look=look, owner="player", owner_id=p.player_id, skill=node_id, prof=node.tree, magic=True,
+                             attack=spell_attack(s, node_id), element=element,
+                             burst_radius=e(node_id, "radiusTiles") if cast == "ball" else 0.0,
+                             bounces_left=math.floor(e(node_id, "chains") + 1e-9) if cast == "chain" else 0,
+                             bounce_range=e(node_id, "bounceRangeTiles"))
             if math.hypot(ax - p.x, ay - p.y) > 1e-6:
                 proj.aim(ax, ay)
             else:
                 proj.dir_x, proj.dir_y = p.face_x, p.face_y
-        elif node.spell.cast == "wall":
+        elif cast == "wall":
             fx, fy = ax - p.x, ay - p.y
             n = math.hypot(fx, fy) or 1.0
             ux, uy = -fy / n, fx / n  # across the aim
@@ -144,10 +164,17 @@ class SpellCaster:
             self._add(GroundFire(0, p.player_id, node_id, node.tree, node.spell.element, node.spell.look,
                                  ax - ux * half, ay - uy * half, ax + ux * half, ay + uy * half, 0.45,
                                  per_second_damage(s, node_id), e(node_id, "durationSeconds")))
-        elif node.spell.cast == "meteor":
+        elif cast == "meteor":
             self._add(GroundFire(0, p.player_id, node_id, node.tree, node.spell.element, node.spell.look, ax, ay, ax, ay,
                                  e(node_id, "radiusTiles"), per_second_damage(s, node_id), e(node_id, "durationSeconds"),
                                  delay=e(node_id, "delaySeconds"), burst=spell_attack(s, node_id)))
+        elif cast == "field":
+            self._add(GroundFire(0, p.player_id, node_id, node.tree, element, look, ax, ay, ax, ay,
+                                 e(node_id, "radiusTiles"), per_second_damage(s, node_id), e(node_id, "durationSeconds")))
+        elif cast == "storm":
+            self._add(GroundFire(0, p.player_id, node_id, node.tree, element, look, ax, ay, ax, ay,
+                                 e(node_id, "radiusTiles"), 0.0, e(node_id, "durationSeconds"),
+                                 strike=spell_attack(s, node_id), interval=e(node_id, "intervalSeconds") or 1.0))
 
     def _add(self, f: GroundFire) -> GroundFire:
         f.id = self._next
@@ -157,21 +184,41 @@ class SpellCaster:
 
     # ------------------------------------------------------------ damage
 
-    def deal(self, p: PlayerActor, t: MonsterActor, amount: float, skill: str, recover: bool = True) -> None:
+    def deal(self, p: PlayerActor, t: MonsterActor, amount: float, skill: str, recover: bool = True, crit: bool = False) -> None:
         """Damage from a spell: XP to its tree and to the spell itself."""
-        self.w._damage_monster(p, t, amount, self.w.data.node(skill).tree, recover=recover, skill=skill)
+        self.w._damage_monster(p, t, amount, self.w.data.node(skill).tree, crit=crit, recover=recover, skill=skill)
 
     def hit(self, p: PlayerActor, t: MonsterActor, attack: AttackerStats, element: str, skill: str, can_ignite: bool = True) -> float:
-        """One spell hit on a monster: rolled, resisted, dealt (XP and loot as for any hit). Returns the damage."""
+        """One spell hit on a monster: rolled (with the target bonuses of any hit), maybe critical (lightning), resisted,
+        dealt (XP and loot as for any hit), then its after-effects. Returns the damage."""
         s = p.session
+        attack = self.w._hit_bonuses(p, t, attack)
         raw = s.combat_rng.uniform(attack.dmg_min, attack.dmg_max) * (1 + attack.damage_bonus_pct)
-        amount = self.resisted(p, t, raw, element)
+        crit = s.combat_rng.chance(s.skills.stat_total(f"{element}CritChance"))
+        amount = self.resisted(p, t, raw * (2 if crit else 1), element)
         if amount <= 0:
             return 0.0
-        self.deal(p, t, amount, skill)
-        if can_ignite and t.alive:
-            self.ignite(p, t, amount, skill)
+        self.deal(p, t, amount, skill, crit=crit)
+        if t.alive:
+            self.after_hit(p, t, amount, element, skill, can_ignite)
         return amount
+
+    def after_hit(self, p: PlayerActor, t: MonsterActor, amount: float, element: str, skill: str, can_ignite: bool = True) -> None:
+        """What lands with the damage: Ignite (fire), chill and freeze (cold), and the skill's own stun or push."""
+        if can_ignite and element == "fire":
+            self.ignite(p, t, amount, skill)
+        self.chill(p, t, element, skill)
+        self.w._skill_on_hit(p, t, skill)
+
+    def chill(self, p: PlayerActor, t: MonsterActor, element: str, skill: str) -> None:
+        """chillPct/chillSeconds of the spell slow the target (the strongest chill wins); <element>FreezeChance freezes it."""
+        sk = p.session.skills
+        pct, secs = sk.effect(skill, "chillPct"), sk.effect(skill, "chillSeconds")
+        if pct > 0 and secs > 0 and pct >= t.chill_pct * (t.chill_left > 0):
+            t.chill_pct, t.chill_left = min(pct, 0.9), secs
+        chance, frozen = sk.stat_total(f"{element}FreezeChance"), sk.stat_total(f"{element}FreezeSeconds")
+        if chance > 0 and frozen > 0 and t.alive and t.state != "stunned" and p.session.combat_rng.chance(chance):
+            self.w._stun_monster(t, frozen, "frozen")
 
     def resisted(self, p: PlayerActor, t: MonsterActor, raw: float, element: str) -> float:
         cap = self.w.data.balance.combat.resist_cap
@@ -196,16 +243,17 @@ class SpellCaster:
                 self.hit(p, m, attack, element, skill)
 
     def projectile_hit(self, proj, t: MonsterActor) -> bool:
-        """A bolt or a ball reached a monster. False: the projectile is gone."""
+        """A bolt, ball or chain reached a monster. False: the projectile is gone (a chain jumps on while it can)."""
         p = self.w.players.get(proj.owner_id)
         if p is None:
             return False
+        proj.hit_ids.add(t.id)
         if proj.burst_radius > 0:
             self.burst(p, proj.x, proj.y, proj.burst_radius, proj.attack, proj.element, proj.skill, proj.look)
             proj.burst_radius = 0.0  # already burst: it does not go off again where it ends
-        else:
-            self.hit(p, t, proj.attack, proj.element, proj.skill)
-        return False
+            return False
+        self.hit(p, t, proj.attack, proj.element, proj.skill)
+        return self.w.bounce(proj)
 
     def projectile_end(self, proj) -> None:
         """A ball that hit a wall or flew its whole range bursts where it is."""
@@ -230,18 +278,30 @@ class SpellCaster:
                 continue
             f.left -= dt
             f.tick -= dt
-            if f.tick <= 0:
+            if f.strike is not None:  # a storm: one enemy inside, picked at random, every interval
+                if f.tick <= 0:
+                    f.tick += f.interval
+                    inside = [m for m in self.w.monsters.values() if m.alive and f.touches(m)]
+                    if inside:
+                        m = inside[p.session.combat_rng.randint(0, len(inside) - 1)]
+                        self.w.bus.publish(SpellBurst(m.x, m.y, 0.6, f.look))
+                        self.hit(p, m, f.strike, f.element, f.skill)
+            elif f.tick <= 0:
                 f.tick += tick
                 for m in list(self.w.monsters.values()):
                     if m.alive and f.touches(m):
                         amount = self.resisted(p, m, f.dps * tick, f.element)
-                        if amount > 0:  # fire on the ground hurts but never staggers
+                        if amount > 0:  # magic on the ground hurts but never staggers
                             self.deal(p, m, amount, f.skill, recover=False)
+                            if m.alive:
+                                self.chill(p, m, f.element, f.skill)
             if f.left <= 0:
                 del self.fires[f.id]
         for m in list(self.w.monsters.values()):
             if m.burn_left > 0 and m.alive:
                 self._step_burn(m, dt, tick)
+            if m.chill_left > 0:
+                m.chill_left = max(0.0, m.chill_left - dt)
 
     def _step_burn(self, m: MonsterActor, dt: float, tick: float) -> None:
         m.burn_left -= dt

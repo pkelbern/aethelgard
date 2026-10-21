@@ -1,5 +1,5 @@
 {
- "_comment": "Trees per proficiency; each tree gets 1 point per level of its proficiency. layer = proficiency level that opens the node. requires = nodes that must be taken first (an active needs the actives before it unlocked; a passive needs a point in the passives before it). PASSIVES take points: one level per point, up to maxPoints. ACTIVES cost 1 point to unlock and then level up ONLY BY USE: each hit of the skill gives it skillXpRate x the proficiency XP of that hit, on the proficiency XP curve (curves.json), with no other cap. levelGates hold an active below 'level' until 'node' has 'points' (its XP keeps building; the levels arrive when the gate opens). useXp = for actives that hit nothing (Bulwark, War Cry): XP per use as a share of the XP of the nearest monster within useXpRadiusTiles. effects = value gained PER LEVEL; after 'diminishingAfter' levels the gain is halved. base = fixed value the node has from its first level (Wide Slash arc, Shield Bash stun). synergies: bonus THIS node gets per level of 'from'. cooldown = seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); keys in ui/keys.json. spell = the node is a spell (cast: bolt | ball | wall | meteor; element; look = how the client draws it). A worn wand that carries a spell (items.json bases 'spell') adds its spellLevel to it and lets you cast it even before it is unlocked. damageMin/damageMax = fire damage of one hit, raised by Intelligence (balance.json attributes) and fire damage bonuses.",
+ "_comment": "Trees per proficiency; each tree gets 1 point per level of its proficiency. layer = proficiency level that opens the node. requires = nodes that must be taken first (an active needs the actives before it unlocked; a passive needs a point in the passives before it). PASSIVES take points: one level per point, up to maxPoints. ACTIVES cost 1 point to unlock and then level up ONLY BY USE: each hit of the skill gives it skillXpRate x the proficiency XP of that hit, on the proficiency XP curve (curves.json), with no other cap. levelGates hold an active below 'level' until 'node' has 'points' (its XP keeps building; the levels arrive when the gate opens). useXp = for actives that hit nothing (Bulwark, War Cry): XP per use as a share of the XP of the nearest monster within useXpRadiusTiles. effects = value gained PER LEVEL; after 'diminishingAfter' levels the gain is halved. base = fixed value the node has from its first level (Wide Slash arc, Shield Bash stun). synergies: bonus THIS node gets per level of 'from'. cooldown = seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); keys in ui/keys.json. spell = the node is a spell (cast: bolt | ball | chain | nova | wall | field | storm | meteor | self — core/spells.py; element: fire | cold | lightning | holy; look = how the client draws it). Spell after-effects come from stats: chillPct/chillSeconds slow, stunSeconds freezes or stuns, chains/bounceRangeTiles jump, intervalSeconds = a storm's strikes. self spells: healPctOfMax heals, durationSeconds makes a buff whose buff* stats (and lifeRegenPerSecond) count while it lasts. A worn wand that carries a spell (items.json bases 'spell') adds its spellLevel to it and lets you cast it even before it is unlocked. damageMin/damageMax = elemental damage of one hit, raised by Intelligence (balance.json attributes) and <element>DamagePct.",
  "diminishingAfter": 8,
  "skillXpRate": 0.75,
  "useXpRadiusTiles": 8,
@@ -1478,6 +1478,677 @@
    "requires": [
     "quick_casting"
    ]
+  },
+  {
+   "id": "ice_bolt",
+   "tree": "cryomancy",
+   "name": "Ice Bolt",
+   "shortName": "Ice",
+   "layer": 1,
+   "kind": "active",
+   "energyCost": 2.5,
+   "cooldown": 0.0,
+   "spell": {
+    "cast": "bolt",
+    "element": "cold",
+    "look": "icebolt"
+   },
+   "description": "A shard of ice flies toward where you aim and hits the first enemy for {damageMin}–{damageMax} cold damage, slowing it by {chillPct} for {chillSeconds}.",
+   "effects": {
+    "damageMin": 1.2,
+    "damageMax": 2.0,
+    "chillSeconds": 0.1
+   },
+   "base": {
+    "damageMin": 1.5,
+    "damageMax": 3,
+    "chillPct": 0.3,
+    "chillSeconds": 2,
+    "projectileSpeed": 11,
+    "rangeTiles": 14
+   },
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "frostbite",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "frostbite",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "frostbite",
+   "tree": "cryomancy",
+   "name": "Frostbite",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{coldDamagePct} more cold damage with spells.",
+   "effects": {
+    "coldDamagePct": 0.07
+   }
+  },
+  {
+   "id": "frost_nova",
+   "tree": "cryomancy",
+   "name": "Frost Nova",
+   "shortName": "Nova",
+   "layer": 6,
+   "kind": "active",
+   "energyCost": 7,
+   "cooldown": 1.0,
+   "spell": {
+    "cast": "nova",
+    "element": "cold",
+    "look": "frost_nova"
+   },
+   "description": "A ring of frost bursts from you: {damageMin}–{damageMax} cold damage to every enemy within {radiusTiles}, slowing them by {chillPct} for {chillSeconds}.",
+   "effects": {
+    "damageMin": 1.5,
+    "damageMax": 2.5
+   },
+   "base": {
+    "damageMin": 3,
+    "damageMax": 6,
+    "radiusTiles": 3,
+    "chillPct": 0.35,
+    "chillSeconds": 3
+   },
+   "requires": [
+    "ice_bolt"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "frostbite",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "frostbite",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "deep_freeze",
+   "tree": "cryomancy",
+   "name": "Deep Freeze",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Cold hits have a {coldFreezeChance} chance to freeze the enemy solid for {coldFreezeSeconds}.",
+   "effects": {
+    "coldFreezeChance": 0.02
+   },
+   "base": {
+    "coldFreezeSeconds": 1.0
+   },
+   "requires": [
+    "frostbite"
+   ]
+  },
+  {
+   "id": "blizzard",
+   "tree": "cryomancy",
+   "name": "Blizzard",
+   "shortName": "Blizz.",
+   "layer": 12,
+   "kind": "active",
+   "energyCost": 14,
+   "cooldown": 3.0,
+   "spell": {
+    "cast": "field",
+    "element": "cold",
+    "look": "blizzard"
+   },
+   "description": "Ice rains on a circle {radiusTiles} across where you point (up to {rangeTiles} away) for {durationSeconds}: {damagePerSecond} cold damage per second to every enemy in it, slowing them by {chillPct}.",
+   "effects": {
+    "damagePerSecond": 3.5
+   },
+   "base": {
+    "damagePerSecond": 7,
+    "radiusTiles": 2.5,
+    "durationSeconds": 4,
+    "chillPct": 0.4,
+    "chillSeconds": 1.5,
+    "rangeTiles": 12
+   },
+   "requires": [
+    "frost_nova"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "deep_freeze",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "deep_freeze",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "shatter",
+   "tree": "cryomancy",
+   "name": "Shatter",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{damageVsStunnedPct} more damage against frozen and stunned enemies (any attack or spell).",
+   "effects": {
+    "damageVsStunnedPct": 0.05
+   },
+   "requires": [
+    "deep_freeze"
+   ]
+  },
+  {
+   "id": "glacial_spike",
+   "tree": "cryomancy",
+   "name": "Glacial Spike",
+   "shortName": "Spike",
+   "layer": 18,
+   "kind": "active",
+   "energyCost": 14,
+   "cooldown": 2.0,
+   "spell": {
+    "cast": "ball",
+    "element": "cold",
+    "look": "glacial_spike"
+   },
+   "description": "A spike of ice that shatters on the first enemy or wall: {damageMin}–{damageMax} cold damage to every enemy within {radiusTiles}, freezing them for {stunSeconds}.",
+   "effects": {
+    "damageMin": 6,
+    "damageMax": 9
+   },
+   "base": {
+    "damageMin": 18,
+    "damageMax": 28,
+    "radiusTiles": 1.8,
+    "stunSeconds": 1.2,
+    "chillPct": 0.3,
+    "chillSeconds": 3,
+    "projectileSpeed": 9,
+    "rangeTiles": 14
+   },
+   "requires": [
+    "blizzard"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "glacial_mastery",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "glacial_mastery",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "glacial_mastery",
+   "tree": "cryomancy",
+   "name": "Glacial Mastery",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Your cold spells ignore {coldResistPierce} of the enemy's cold resistance.",
+   "effects": {
+    "coldResistPierce": 0.03
+   },
+   "requires": [
+    "shatter"
+   ]
+  },
+  {
+   "id": "spark",
+   "tree": "electromancy",
+   "name": "Spark",
+   "shortName": "Spark",
+   "layer": 1,
+   "kind": "active",
+   "energyCost": 2.5,
+   "cooldown": 0.0,
+   "spell": {
+    "cast": "bolt",
+    "element": "lightning",
+    "look": "spark"
+   },
+   "description": "A crackling bolt flies toward where you aim: {damageMin}–{damageMax} lightning damage to the first enemy. Lightning is wild: low and high rolls are far apart.",
+   "effects": {
+    "damageMin": 0.5,
+    "damageMax": 3.5
+   },
+   "base": {
+    "damageMin": 1,
+    "damageMax": 6,
+    "projectileSpeed": 14,
+    "rangeTiles": 14
+   },
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "conductivity",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "conductivity",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "conductivity",
+   "tree": "electromancy",
+   "name": "Conductivity",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{lightningDamagePct} more lightning damage with spells.",
+   "effects": {
+    "lightningDamagePct": 0.07
+   }
+  },
+  {
+   "id": "chain_lightning",
+   "tree": "electromancy",
+   "name": "Chain Lightning",
+   "shortName": "Chain",
+   "layer": 6,
+   "kind": "active",
+   "energyCost": 7,
+   "cooldown": 0.0,
+   "spell": {
+    "cast": "chain",
+    "element": "lightning",
+    "look": "chain_lightning"
+   },
+   "description": "Lightning strikes the first enemy for {damageMin}–{damageMax} and jumps on to {chains} more within {bounceRangeTiles}, never the same one twice.",
+   "effects": {
+    "damageMin": 1.5,
+    "damageMax": 4.5,
+    "chains": 0.1
+   },
+   "base": {
+    "damageMin": 3,
+    "damageMax": 11,
+    "chains": 2,
+    "bounceRangeTiles": 4,
+    "projectileSpeed": 16,
+    "rangeTiles": 14
+   },
+   "requires": [
+    "spark"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "conductivity",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "conductivity",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "overcharge",
+   "tree": "electromancy",
+   "name": "Overcharge",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Lightning spells have a {lightningCritChance} chance to deal double damage.",
+   "effects": {
+    "lightningCritChance": 0.02
+   },
+   "requires": [
+    "conductivity"
+   ]
+  },
+  {
+   "id": "ball_lightning",
+   "tree": "electromancy",
+   "name": "Ball Lightning",
+   "shortName": "Ball",
+   "layer": 12,
+   "kind": "active",
+   "energyCost": 10,
+   "cooldown": 0.0,
+   "spell": {
+    "cast": "ball",
+    "element": "lightning",
+    "look": "ball_lightning"
+   },
+   "description": "A slow ball of lightning that bursts on the first enemy or wall: {damageMin}–{damageMax} lightning damage to every enemy within {radiusTiles}.",
+   "effects": {
+    "damageMin": 2.5,
+    "damageMax": 7.5
+   },
+   "base": {
+    "damageMin": 6,
+    "damageMax": 22,
+    "radiusTiles": 1.6,
+    "projectileSpeed": 8,
+    "rangeTiles": 14
+   },
+   "requires": [
+    "chain_lightning"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "overcharge",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "overcharge",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "static_focus",
+   "tree": "electromancy",
+   "name": "Static Focus",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{fasterCastPct} faster cast for every spell.",
+   "effects": {
+    "fasterCastPct": 0.04
+   },
+   "requires": [
+    "overcharge"
+   ]
+  },
+  {
+   "id": "thunderstorm",
+   "tree": "electromancy",
+   "name": "Thunderstorm",
+   "shortName": "Storm",
+   "layer": 18,
+   "kind": "active",
+   "energyCost": 18,
+   "cooldown": 6.0,
+   "spell": {
+    "cast": "storm",
+    "element": "lightning",
+    "look": "thunderstorm"
+   },
+   "description": "A storm hangs over a circle {radiusTiles} across where you point (up to {rangeTiles} away) for {durationSeconds}: every {intervalSeconds} a bolt strikes one enemy in it for {damageMin}–{damageMax}.",
+   "effects": {
+    "damageMin": 6,
+    "damageMax": 14
+   },
+   "base": {
+    "damageMin": 20,
+    "damageMax": 50,
+    "radiusTiles": 4,
+    "intervalSeconds": 0.8,
+    "durationSeconds": 6,
+    "rangeTiles": 12
+   },
+   "requires": [
+    "ball_lightning"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "storm_mastery",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "storm_mastery",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "storm_mastery",
+   "tree": "electromancy",
+   "name": "Storm Mastery",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Your lightning spells ignore {lightningResistPierce} of the enemy's lightning resistance.",
+   "effects": {
+    "lightningResistPierce": 0.03
+   },
+   "requires": [
+    "static_focus"
+   ]
+  },
+  {
+   "id": "heal",
+   "tree": "restoration",
+   "name": "Heal",
+   "shortName": "Heal",
+   "layer": 1,
+   "kind": "active",
+   "energyCost": 6,
+   "cooldown": 1.5,
+   "spell": {
+    "cast": "self",
+    "element": "holy",
+    "look": "heal"
+   },
+   "description": "Light closes your wounds: heals {healPctOfMax} at once. It learns only when you needed it, near enemies.",
+   "effects": {
+    "healPctOfMax": 0.02
+   },
+   "base": {
+    "healPctOfMax": 0.12
+   },
+   "useXp": 0.6,
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "blessed_hands",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "blessed_hands",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "blessed_hands",
+   "tree": "restoration",
+   "name": "Blessed Hands",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Your heals restore {healingPct} more.",
+   "effects": {
+    "healingPct": 0.08
+   }
+  },
+  {
+   "id": "holy_bolt",
+   "tree": "restoration",
+   "name": "Holy Bolt",
+   "shortName": "Holy",
+   "layer": 6,
+   "kind": "active",
+   "energyCost": 4,
+   "cooldown": 0.0,
+   "spell": {
+    "cast": "bolt",
+    "element": "holy",
+    "look": "holy_bolt"
+   },
+   "description": "A bolt of light flies toward where you aim: {damageMin}–{damageMax} holy damage to the first enemy. The undead are weak to it.",
+   "effects": {
+    "damageMin": 2,
+    "damageMax": 3
+   },
+   "base": {
+    "damageMin": 4,
+    "damageMax": 8,
+    "projectileSpeed": 12,
+    "rangeTiles": 14
+   },
+   "requires": [
+    "heal"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "zeal",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "zeal",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "zeal",
+   "tree": "restoration",
+   "name": "Zeal",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{holyDamagePct} more holy damage with spells.",
+   "effects": {
+    "holyDamagePct": 0.08
+   },
+   "requires": [
+    "blessed_hands"
+   ]
+  },
+  {
+   "id": "blessing_of_might",
+   "tree": "restoration",
+   "name": "Blessing of Might",
+   "shortName": "Might",
+   "layer": 12,
+   "kind": "active",
+   "energyCost": 10,
+   "cooldown": 30.0,
+   "spell": {
+    "cast": "self",
+    "element": "holy",
+    "look": "blessing"
+   },
+   "description": "For {durationSeconds} you deal {buffDamagePct} more damage and attack {buffAttackSpeedPct} faster.",
+   "effects": {
+    "durationSeconds": 1,
+    "buffDamagePct": 0.02,
+    "buffAttackSpeedPct": 0.01
+   },
+   "base": {
+    "durationSeconds": 20,
+    "buffDamagePct": 0.15,
+    "buffAttackSpeedPct": 0.05
+   },
+   "useXp": 0.4,
+   "requires": [
+    "holy_bolt"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "devotion",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "devotion",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "devotion",
+   "tree": "restoration",
+   "name": "Devotion",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Your buffs (blessings, Bulwark, Berserk) last {buffDurationPct} longer.",
+   "effects": {
+    "buffDurationPct": 0.05
+   },
+   "requires": [
+    "zeal"
+   ]
+  },
+  {
+   "id": "divine_aegis",
+   "tree": "restoration",
+   "name": "Divine Aegis",
+   "shortName": "Aegis",
+   "layer": 18,
+   "kind": "active",
+   "energyCost": 16,
+   "cooldown": 40.0,
+   "spell": {
+    "cast": "self",
+    "element": "holy",
+    "look": "blessing"
+   },
+   "description": "For {durationSeconds} your defense and armor rise by {buffDefensePct} and you regain {lifeRegenPerSecond}.",
+   "effects": {
+    "durationSeconds": 0.3,
+    "buffDefensePct": 0.03,
+    "lifeRegenPerSecond": 0.5
+   },
+   "base": {
+    "durationSeconds": 8,
+    "buffDefensePct": 0.4,
+    "lifeRegenPerSecond": 3
+   },
+   "useXp": 0.5,
+   "requires": [
+    "blessing_of_might"
+   ],
+   "levelGates": [
+    {
+     "level": 10,
+     "node": "grace",
+     "points": 5
+    },
+    {
+     "level": 20,
+     "node": "grace",
+     "points": 10
+    }
+   ]
+  },
+  {
+   "id": "grace",
+   "tree": "restoration",
+   "name": "Grace",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "You regain {lifeRegenPerSecond} all the time.",
+   "effects": {
+    "lifeRegenPerSecond": 0.4
+   },
+   "requires": [
+    "devotion"
+   ]
   }
  ],
  "synergies": [
@@ -1618,6 +2289,66 @@
    "from": "heavy_swing",
    "stat": "damagePct",
    "perPoint": 0.03
+  },
+  {
+   "target": "ice_bolt",
+   "from": "frost_nova",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "frost_nova",
+   "from": "ice_bolt",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "glacial_spike",
+   "from": "ice_bolt",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "blizzard",
+   "from": "frost_nova",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "chain_lightning",
+   "from": "spark",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "spark",
+   "from": "chain_lightning",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "thunderstorm",
+   "from": "ball_lightning",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "ball_lightning",
+   "from": "spark",
+   "stat": "damagePct",
+   "perPoint": 0.04
+  },
+  {
+   "target": "holy_bolt",
+   "from": "heal",
+   "stat": "damagePct",
+   "perPoint": 0.05
+  },
+  {
+   "target": "heal",
+   "from": "blessed_hands",
+   "stat": "healPctOfMax",
+   "perPoint": 0.005
   }
  ]
 }
