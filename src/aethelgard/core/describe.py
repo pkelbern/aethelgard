@@ -56,9 +56,9 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
-def describe_item(data: GameData, item, missing: dict[str, int] | None = None) -> list[Line]:
-    """Item tooltip: name in its rarity color, base and slot, damage or armor, guard numbers, affixes,
-    item level and requirements (unmet ones as warnings)."""
+def describe_item(data: GameData, item, missing: dict[str, int] | None = None, gear=None) -> list[Line]:
+    """Item tooltip: name in its rarity color, base and slot, damage or armor, guard numbers, bonus lines,
+    the set it belongs to (bonuses lit by how many pieces ``gear`` wears), item level and requirements."""
     b = item.base
     rarity = item.rarity.name.title()
     sub = "  ·  ".join(x for x in (b.name if b.name != item.name else "", data.items.slot_names.get(b.slot, b.slot), rarity) if x)
@@ -77,12 +77,23 @@ def describe_item(data: GameData, item, missing: dict[str, int] | None = None) -
         school = data.proficiency(spell.tree).name
         lines.append(Line(f"+{b.spell_level} to {spell.name} while worn", "next"))
         lines.append(Line(f"Cast {spell.name} with it, then gain a {school} level to learn the spell for good.", "muted"))
-    lines += [Line(stat_line(data.stat(a.affix.stat), a.value), "next") for a in item.affixes]
+    lines += [Line(stat_line(data.stat(k), v), "next") for k, v in item.mods]
+    if item.set_id:
+        lines += _set_lines(data, data.item_set(item.set_id), gear.set_pieces_worn(item.set_id) if gear else 0)
     lines.append(Line(f"Item level {item.item_level}", "muted"))
     missing = missing or {}
     for k, v in b.req.items():
         if v > 0:
             lines.append(Line(f"Requires {v} {data.stat(k).label}", "warn" if k in missing else "muted"))
+    return lines
+
+
+def _set_lines(data: GameData, st, worn: int) -> list[Line]:
+    """The set's name, its pieces and its partial bonuses; the ones already active stand out."""
+    lines = [Line(f"{st.name} ({worn}/{len(st.pieces)})", "header"), Line(", ".join(p.name for p in st.pieces), "muted")]
+    for b in st.bonuses:
+        style = "good" if worn >= b.pieces else "muted"
+        lines += [Line(f"({b.pieces} items) {stat_line(data.stat(k), v)}", style) for k, v in b.stats.items()]
     return lines
 
 
@@ -97,8 +108,8 @@ def item_numbers(item) -> dict[str, float]:
     if "shield" in b.tags:
         out["blockReduction"] = b.block_reduction
         out["guardEfficiency"] = b.guard_efficiency
-    for a in item.affixes:
-        out[a.affix.stat] = out.get(a.affix.stat, 0.0) + a.value
+    for k, v in item.mods:
+        out[k] = out.get(k, 0.0) + v
     return out
 
 

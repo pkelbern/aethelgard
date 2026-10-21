@@ -10,15 +10,31 @@ import json
 from dataclasses import dataclass, field
 from enum import IntEnum
 
-from .data import AffixDef, GameData, ItemBaseDef
+from .data import RARITY_NAMES, AffixDef, FixedItemDef, GameData, ItemBaseDef, SetDef
 from .rng import Rng
 
 
 class Rarity(IntEnum):
+    """GDD 10.1. Saves store the number, so the order only grows at the end from now on."""
+
     NORMAL = 0
     MAGIC = 1
     RARE = 2
-    UNIQUE = 3
+    SET = 3
+    UNIQUE = 4
+
+    @classmethod
+    def named(cls, name: str) -> Rarity:
+        return cls(RARITY_NAMES.index(name))
+
+
+def roll_value(lo: float, hi: float, rng: Rng) -> float:
+    """One number in lo–hi: whole numbers for flat stats, two decimals for percentages. Affixes, uniques and
+    set items all roll the same way."""
+    if lo == hi:
+        return lo
+    v = rng.uniform(lo, hi)
+    return round(v) if lo >= 1 else round(v, 2)
 
 
 @dataclass(frozen=True)
@@ -26,26 +42,47 @@ class RolledAffix:
     affix: AffixDef
     value: float
 
+    @property
+    def stat(self) -> str:
+        return self.affix.stat
+
 
 @dataclass
 class Item:
+    """``affixes`` are the random lines of magic and rare items; ``fixed`` is the unique or set item it is, with
+    ``fixed_values`` = its rolled numbers in the order of the definition's props."""
+
     base: ItemBaseDef
     rarity: Rarity
     item_level: int
     affixes: list[RolledAffix] = field(default_factory=list)
     name: str = ""
+    fixed: FixedItemDef | None = None
+    fixed_values: list[float] = field(default_factory=list)
 
     @classmethod
     def plain(cls, base: ItemBaseDef) -> Item:
-        """A normal item with no affixes (starting gear, vendor stock)."""
+        """A normal item with no affixes (starting gear)."""
         return cls(base, Rarity.NORMAL, base.level, [], base.name)
 
     @property
     def slot(self) -> str:
         return self.base.slot
 
+    @property
+    def set_id(self) -> str | None:
+        return self.fixed.set_id if self.fixed else None
+
+    @property
+    def mods(self) -> list[tuple[str, float]]:
+        """Every bonus line as (stat, value): affixes, or the unique/set item's own lines. Set bonuses are
+        not here: they depend on what else is worn (``Loadout.totals``)."""
+        if self.fixed:
+            return [(p.stat, v) for p, v in zip(self.fixed.props, self.fixed_values, strict=False)]
+        return [(a.stat, a.value) for a in self.affixes]
+
     def stat(self, stat: str) -> float:
-        return sum(a.value for a in self.affixes if a.affix.stat == stat)
+        return sum(v for k, v in self.mods if k == stat)
 
 
 # ---------------------------------------------------------------- drops
@@ -128,22 +165,25 @@ class LootGenerator:
         return drops
 
     def roll_rarity(self, quality: float, magic_find: float, minimum: Rarity, rng: Rng) -> Rarity:
+        """Tested in order unique → set → rare → magic (GDD 10.3)."""
         c = self._d.items.rarity_chances
         m = quality * (1 + magic_find)
-        if rng.chance(c.unique * m):
-            return Rarity.UNIQUE
-        if rng.chance(c.rare * m):
-            return Rarity.RARE
-        if rng.chance(c.magic * m):
-            return Rarity.MAGIC
+        for rarity, chance in ((Rarity.UNIQUE, c.unique), (Rarity.SET, c.set), (Rarity.RARE, c.rare), (Rarity.MAGIC, c.magic)):
+            if rng.chance(chance * m):
+                return max(rarity, minimum)
         return minimum
 
-    def roll_item(self, item_level: int, quality: float, magic_find: float, minimum: Rarity, rng: Rng) -> Item:
-        bases = [b for b in self._d.items.bases if b.level <= item_level]
-        base = rng.choice(bases)
-        rarity = max(self.roll_rarity(quality, magic_find, minimum, rng), minimum)
-        if rarity == Rarity.UNIQUE:  # hand-made uniques do not exist yet (backlog M6-06)
-            rarity = Rarity.RARE
+    def roll_item(self, item_level: int, quality: float, magic_find: float, minimum: Rarity, rng: Rng, maximum: Rarity = Rarity.UNIQUE) -> Item:
+        """A random item for this item level. ``maximum`` caps the rarity (the vendor sells normal and magic only)."""
+        rarity = min(self.roll_rarity(quality, magic_find, minimum, rng), maximum)
+        if rarity in (Rarity.UNIQUE, Rarity.SET):
+            pool = self._d.items.uniques if rarity == Rarity.UNIQUE else self._d.items.set_pieces
+            allowed = {f.id: f.weight for f in pool if f.level <= item_level}
+            if allowed:
+                return self.make_fixed(self._d.fixed_item(rng.weighted(allowed)), item_level, rng)
+            rarity = Rarity.RARE  # nothing hand-made this early: a rare instead
+        base = rng.choice([b for b in self._d.items.bases if b.level <= item_level])
+        rarity = min(max(rarity, Rarity.named(self._d.item_class(base).min_rarity)), max(maximum, Rarity.MAGIC))
         affixes: list[RolledAffix] = []
         if rarity == Rarity.MAGIC:
             prefix = rng.chance(0.75)
@@ -161,20 +201,26 @@ class LootGenerator:
                 self._try_add(affixes, kind, base, item_level, rng)
         return Item(base, rarity, item_level, affixes, self._name(base, rarity, affixes, rng))
 
+    def make_fixed(self, fixed: FixedItemDef, item_level: int, rng: Rng) -> Item:
+        """A unique or a set piece: its own base and name, each line rolled in its range."""
+        rarity = Rarity.SET if fixed.set_id else Rarity.UNIQUE
+        values = [roll_value(p.min, p.max, rng) for p in fixed.props]
+        return Item(self._d.base(fixed.base), rarity, item_level, [], fixed.name, fixed, values)
+
     def _try_add(self, out: list[RolledAffix], kind: str, base: ItemBaseDef, ilvl: int, rng: Rng) -> None:
+        """Adds one affix that makes sense on this item class (items.json 'on'), never two of a group.
+        When no affix of that kind is left, tries the other kind (boots have few prefixes)."""
         used = {a.affix.group for a in out}
-        pool = [
-            a
-            for a in self._d.items.affixes
-            if a.kind == kind and a.group not in used and a.fits(base) and any(t.level <= ilvl for t in a.tiers)
-        ]
+        allowed = [a for a in self._d.items.affix_pool(base.item_class) if a.group not in used and any(t.level <= ilvl for t in a.tiers)]
+        other = "suffix" if kind == "prefix" else "prefix"
+        if sum(1 for a in out if a.affix.kind == other) < 3 and not any(a.kind == kind for a in allowed):
+            kind = other
+        pool = [a for a in allowed if a.kind == kind]
         if not pool:
             return
         aff = rng.choice(pool)
         tier = max((t for t in aff.tiers if t.level <= ilvl), key=lambda t: t.level)
-        v = rng.uniform(tier.min, tier.max)
-        v = round(v) if tier.min >= 1 else round(v, 2)
-        out.append(RolledAffix(aff, v))
+        out.append(RolledAffix(aff, roll_value(tier.min, tier.max, rng)))
 
     def _name(self, base: ItemBaseDef, rarity: Rarity, affixes: list[RolledAffix], rng: Rng) -> str:
         """English order: "<prefix> <base> <suffix>", e.g. "Sharp Short Sword of the Bear"."""
@@ -192,22 +238,32 @@ class LootGenerator:
 
 
 def item_to_dict(item: Item) -> dict:
-    return {
+    out = {
         "base": item.base.id,
         "rarity": int(item.rarity),
         "itemLevel": item.item_level,
         "name": item.name,
         "affixes": [{"id": a.affix.id, "value": a.value} for a in item.affixes],
     }
+    if item.fixed:
+        out["fixed"] = {"id": item.fixed.id, "values": list(item.fixed_values)}
+    return out
 
 
 def item_from_dict(d: GameData, raw: dict) -> Item:
+    """A unique or set item keeps its rolled numbers; a line added to it later in the data loads at its minimum."""
+    fixed = d.fixed_item(raw["fixed"]["id"]) if raw.get("fixed") else None
+    values = list(raw["fixed"]["values"]) if fixed else []
+    if fixed:
+        values = values[: len(fixed.props)] + [p.min for p in fixed.props[len(values) :]]
     return Item(
-        base=d.base(raw["base"]),
+        base=d.base(fixed.base if fixed else raw["base"]),
         rarity=Rarity(raw["rarity"]),
         item_level=raw["itemLevel"],
         affixes=[RolledAffix(d.affix(a["id"]), a["value"]) for a in raw["affixes"]],
-        name=raw["name"],
+        name=fixed.name if fixed else raw["name"],
+        fixed=fixed,
+        fixed_values=values,
     )
 
 
@@ -262,13 +318,14 @@ class Loadout:
 
     LEGACY = {"ring": "ring1"}  # saves before two rings existed
 
-    def __init__(self, accepts: dict[str, list[str]]):
+    def __init__(self, accepts: dict[str, list[str]], sets: list[SetDef] | None = None):
         self.accepts = accepts
+        self.sets = {s.id: s for s in sets or []}
         self.slots: dict[str, Item] = {}
 
     @classmethod
     def for_data(cls, d: GameData) -> Loadout:
-        return cls({k: list(v.accepts) for k, v in d.items.equipment.items()})
+        return cls({k: list(v.accepts) for k, v in d.items.equipment.items()}, d.items.sets)
 
     @classmethod
     def starting(cls, d: GameData) -> Loadout:
@@ -346,6 +403,37 @@ class Loadout:
     @property
     def armor(self) -> float:
         return sum(i.base.armor for i in self.slots.values())
+
+    # ---- bonuses from what is worn (affixes, uniques, set items and set bonuses)
+
+    def set_pieces_worn(self, set_id: str) -> int:
+        """Different pieces of the set being worn (the same piece twice counts once)."""
+        return len({i.fixed.id for i in self.slots.values() if i.set_id == set_id})
+
+    def set_bonuses(self) -> list[tuple[SetDef, int]]:
+        """(set, pieces worn) for every set with a partial or full bonus active."""
+        out = []
+        for set_id in dict.fromkeys(i.set_id for i in self.slots.values() if i.set_id):
+            st, n = self.sets[set_id], self.set_pieces_worn(set_id)
+            if any(b.pieces <= n for b in st.bonuses):
+                out.append((st, n))
+        return out
+
+    def totals(self) -> dict[str, float]:
+        """Every bonus of the equipment summed by stat: one place for combat, the character sheet and tooltips."""
+        out: dict[str, float] = {}
+        for item in self.slots.values():
+            for k, v in item.mods:
+                out[k] = out.get(k, 0.0) + v
+        for st, n in self.set_bonuses():
+            for b in st.bonuses:
+                if b.pieces <= n:
+                    for k, v in b.stats.items():
+                        out[k] = out.get(k, 0.0) + v
+        return out
+
+    def stat_total(self, stat: str) -> float:
+        return self.totals().get(stat, 0.0)
 
     @property
     def shield_armor(self) -> float:

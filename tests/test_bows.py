@@ -123,9 +123,11 @@ def test_bow_affixes_never_carry_blade_skills_and_blades_never_bow_ones(data):
     for _ in range(3000):
         item = loot.roll_item(rng.randint(1, 15), 3, 1, Rarity.MAGIC, rng)
         for a in item.affixes:
-            assert set(a.affix.tags) & set(item.base.tags)
+            assert a.affix in data.items.affix_pool(item.base.item_class)
             if "bow" in item.base.tags:
                 assert a.affix.stat != "bladesSkills"
+            if "sword" in item.base.tags:
+                assert a.affix.stat not in ("bowsSkills", "bowRangeTiles")
 
 
 # ---------------------------------------------------------------- Shift: attack in place, and the melee edge

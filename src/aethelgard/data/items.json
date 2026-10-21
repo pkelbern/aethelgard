@@ -1,5 +1,5 @@
 {
- "_comment": "Bases, affixes and drop rules. An affix only rolls on item types listed in its slots (no attack speed on body armor, no movement speed on a weapon); tags are kept for older rules. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears; startingBackpack = bases it carries. twoHanded (bows) = takes both hands: no shield and no second weapon. rangeTiles = how far a bow shoots (14 tiles reach the edge of a 1280x720 screen). rareNames = parts of rare item names: '<first> <second>'. Wands (slot 'wand', worn in the off hand) carry a spell: while worn you can cast it at spellLevel (plus your own points in it), and casting it is how you learn it (skills.json).",
+ "_comment": "Bases, affixes and drop rules. Every base has an itemClass (itemClasses); an affix only rolls on the classes or class groups in its 'on' list, so bonuses make sense for the item (no blade skills on a bow, no attack speed on boots, no movement speed on gloves). Uniques and set items are hand-made (uniques, sets) and ignore those rules: same base, name and lines every time, only min–max ranges roll. guardEfficiency (shields) reduces the Energy spent per block; blockReduction (shields) adds to the share of a blocked hit the guard stops (balance.json guard). level = minimum item level (iLvl) for the base/affix to appear. size = inventory cells [width, height]. inventory = backpack grid (columns × rows); for now it limits how many items the character carries. startingGear = bases a new character wears; startingBackpack = bases it carries. twoHanded (bows) = takes both hands: no shield and no second weapon. rangeTiles = how far a bow shoots (14 tiles reach the edge of a 1280x720 screen). rareNames = parts of rare item names: '<first> <second>'. Wands (slot 'wand', worn in the off hand) carry a spell: while worn you can cast it at spellLevel (plus your own points in it), and casting it is how you learn it (skills.json). uniques/sets: props are {stat, value} (fixed) or {stat, min, max} (rolled when it drops); level = minimum item level; weight = how often it is picked among the allowed ones. A set's bonuses add up as more different pieces are worn (2 pieces, 3 pieces…).",
  "inventory": {
   "columns": 10,
   "rows": 6
@@ -7,11 +7,11 @@
  "startingGear": ["short_sword", "buckler", "leather_armor"],
  "startingBackpack": ["short_bow", "short_sword", "ember_wand"],
  "trade": {
-  "_comment": "Vendor prices. Item price = (basePrice + perItemLevel x iLvl + perAffix x affixes) x rarityMult[rarity]; the vendor pays sellFraction of that. The stock (stockSize items, normal and magic only, iLvl = character level) is rolled again every time you come to town. Consumables cost their own 'price'. npcRangeTiles = how close you must stand to trade or use the stash.",
+  "_comment": "Vendor prices. Item price = (basePrice + perItemLevel x iLvl + perAffix x lines) x rarityMult[rarity] (normal, magic, rare, set, unique); the vendor pays sellFraction of that. The stock (stockSize items, normal and magic only, iLvl = character level) is rolled again every time you come to town. Consumables cost their own 'price'. npcRangeTiles = how close you must stand to trade or use the stash.",
   "basePrice": 20,
   "perItemLevel": 6,
   "perAffix": 25,
-  "rarityMult": [1, 3, 8, 20],
+  "rarityMult": [1, 3, 8, 15, 20],
   "sellFraction": 0.2,
   "stockSize": 18,
   "npcRangeTiles": 3.0
@@ -40,8 +40,9 @@
   "second": ["Bite", "Ward", "Cry", "Veil", "Fang", "Mark", "Crown", "Edge", "Hide", "Oath"]
  },
  "rarityChances": {
-  "_comment": "Base chance per equipment item, tested in order unique → rare → magic. Multiplied by the monster rank's lootQualityMult and by (1 + magic find).",
+  "_comment": "Base chance per equipment item, tested in order unique → set → rare → magic. Multiplied by the monster rank's lootQualityMult and by (1 + magic find). A unique or set roll picks among the uniques/set items allowed at that item level (by weight); when none is allowed it becomes rare.",
   "unique": 0.004,
+  "set": 0.008,
   "rare": 0.03,
   "magic": 0.18
  },
@@ -82,11 +83,26 @@
   "potion": 0.3,
   "equipment": 0.3
  },
+ "itemClasses": {
+  "_comment": "What each base is. groups let an affix name a family (weapon, armor, jewelry) instead of each class. minRarity = the lowest rarity it drops at: rings and amulets are always at least magic (a plain one would be worth nothing).",
+  "sword": {"groups": ["weapon"]},
+  "bow": {"groups": ["weapon"]},
+  "wand": {"groups": ["caster"]},
+  "shield": {"groups": ["armor"]},
+  "body": {"groups": ["armor"]},
+  "helm": {"groups": ["armor"]},
+  "gloves": {"groups": ["armor"]},
+  "boots": {"groups": ["armor"]},
+  "belt": {"groups": ["armor"]},
+  "ring": {"groups": ["jewelry"], "minRarity": "magic"},
+  "amulet": {"groups": ["jewelry"], "minRarity": "magic"}
+ },
  "bases": [
   {
    "id": "short_bow",
    "name": "Short Bow",
    "slot": "mainhand",
+   "itemClass": "bow",
    "tags": ["bow"],
    "twoHanded": true,
    "rangeTiles": 14,
@@ -100,6 +116,7 @@
    "id": "hunters_bow",
    "name": "Hunter's Bow",
    "slot": "mainhand",
+   "itemClass": "bow",
    "tags": ["bow"],
    "twoHanded": true,
    "rangeTiles": 15,
@@ -113,6 +130,7 @@
    "id": "long_bow",
    "name": "Long Bow",
    "slot": "mainhand",
+   "itemClass": "bow",
    "tags": ["bow"],
    "twoHanded": true,
    "rangeTiles": 16,
@@ -126,6 +144,7 @@
    "id": "composite_bow",
    "name": "Composite Bow",
    "slot": "mainhand",
+   "itemClass": "bow",
    "tags": ["bow"],
    "twoHanded": true,
    "rangeTiles": 16,
@@ -139,6 +158,7 @@
    "id": "long_dagger",
    "name": "Long Dagger",
    "slot": "mainhand",
+   "itemClass": "sword",
    "tags": [
     "sword"
    ],
@@ -158,6 +178,7 @@
    "id": "short_sword",
    "name": "Short Sword",
    "slot": "mainhand",
+   "itemClass": "sword",
    "tags": [
     "sword"
    ],
@@ -177,6 +198,7 @@
    "id": "gladius",
    "name": "Gladius",
    "slot": "mainhand",
+   "itemClass": "sword",
    "tags": [
     "sword"
    ],
@@ -196,6 +218,7 @@
    "id": "sabre",
    "name": "Sabre",
    "slot": "mainhand",
+   "itemClass": "sword",
    "tags": [
     "sword"
    ],
@@ -215,6 +238,7 @@
    "id": "long_sword",
    "name": "Long Sword",
    "slot": "mainhand",
+   "itemClass": "sword",
    "tags": [
     "sword"
    ],
@@ -234,6 +258,7 @@
    "id": "bastard_sword",
    "name": "Bastard Sword",
    "slot": "mainhand",
+   "itemClass": "sword",
    "tags": [
     "sword"
    ],
@@ -253,6 +278,7 @@
    "id": "buckler",
    "name": "Buckler",
    "slot": "offhand",
+   "itemClass": "shield",
    "tags": [
     "shield"
    ],
@@ -272,6 +298,7 @@
    "id": "round_shield",
    "name": "Round Shield",
    "slot": "offhand",
+   "itemClass": "shield",
    "tags": [
     "shield"
    ],
@@ -291,6 +318,7 @@
    "id": "kite_shield",
    "name": "Kite Shield",
    "slot": "offhand",
+   "itemClass": "shield",
    "tags": [
     "shield"
    ],
@@ -310,6 +338,7 @@
    "id": "tower_shield",
    "name": "Tower Shield",
    "slot": "offhand",
+   "itemClass": "shield",
    "tags": [
     "shield"
    ],
@@ -329,6 +358,7 @@
    "id": "leather_armor",
    "name": "Leather Armor",
    "slot": "body",
+   "itemClass": "body",
    "tags": [
     "armor"
    ],
@@ -346,6 +376,7 @@
    "id": "studded_leather",
    "name": "Studded Leather",
    "slot": "body",
+   "itemClass": "body",
    "tags": [
     "armor"
    ],
@@ -363,6 +394,7 @@
    "id": "chain_mail",
    "name": "Chain Mail",
    "slot": "body",
+   "itemClass": "body",
    "tags": [
     "armor"
    ],
@@ -380,6 +412,7 @@
    "id": "scale_mail",
    "name": "Scale Mail",
    "slot": "body",
+   "itemClass": "body",
    "tags": [
     "armor"
    ],
@@ -397,6 +430,7 @@
    "id": "plate_mail",
    "name": "Plate Mail",
    "slot": "body",
+   "itemClass": "body",
    "tags": [
     "armor"
    ],
@@ -414,6 +448,7 @@
    "id": "helm",
    "name": "Helm",
    "slot": "head",
+   "itemClass": "helm",
    "tags": [
     "armor"
    ],
@@ -431,6 +466,7 @@
    "id": "gloves",
    "name": "Gloves",
    "slot": "hands",
+   "itemClass": "gloves",
    "tags": [
     "armor"
    ],
@@ -448,6 +484,7 @@
    "id": "boots",
    "name": "Boots",
    "slot": "feet",
+   "itemClass": "boots",
    "tags": [
     "armor"
    ],
@@ -465,6 +502,7 @@
    "id": "belt",
    "name": "Belt",
    "slot": "waist",
+   "itemClass": "belt",
    "tags": [
     "armor"
    ],
@@ -482,6 +520,7 @@
    "id": "ring",
    "name": "Ring",
    "slot": "ring",
+   "itemClass": "ring",
    "tags": [
     "jewelry"
    ],
@@ -496,6 +535,7 @@
    "id": "amulet",
    "name": "Amulet",
    "slot": "neck",
+   "itemClass": "amulet",
    "tags": [
     "jewelry"
    ],
@@ -510,6 +550,7 @@
    "id": "ember_wand",
    "name": "Ember Wand",
    "slot": "wand",
+   "itemClass": "wand",
    "tags": [
     "wand",
     "fire"
@@ -527,6 +568,7 @@
    "id": "cinder_wand",
    "name": "Cinder Wand",
    "slot": "wand",
+   "itemClass": "wand",
    "tags": [
     "wand",
     "fire"
@@ -546,6 +588,7 @@
    "id": "blaze_wand",
    "name": "Blaze Wand",
    "slot": "wand",
+   "itemClass": "wand",
    "tags": [
     "wand",
     "fire"
@@ -565,6 +608,7 @@
    "id": "star_wand",
    "name": "Star Wand",
    "slot": "wand",
+   "itemClass": "wand",
    "tags": [
     "wand",
     "fire"
@@ -588,47 +632,8 @@
    "name": "Sharp",
    "group": "dmg_pct",
    "stat": "damagePct",
-   "tiers": [
-    {
-     "level": 1,
-     "min": 0.1,
-     "max": 0.2
-    },
-    {
-     "level": 8,
-     "min": 0.21,
-     "max": 0.35
-    }
-   ],
-   "tags": [
-    "bow",
-    "sword"
-   ],
-   "slots": ["mainhand"]
-  },
-  {
-   "id": "sturdy",
-   "kind": "prefix",
-   "name": "Sturdy",
-   "group": "arm_pct",
-   "stat": "armorPct",
-   "tiers": [
-    {
-     "level": 1,
-     "min": 0.1,
-     "max": 0.2
-    },
-    {
-     "level": 8,
-     "min": 0.21,
-     "max": 0.35
-    }
-   ],
-   "tags": [
-    "armor",
-    "shield"
-   ],
-   "slots": ["body", "head", "hands", "feet", "waist", "offhand"]
+   "tiers": [{"level": 1, "min": 0.1, "max": 0.2}, {"level": 8, "min": 0.21, "max": 0.35}],
+   "on": ["weapon"]
   },
   {
    "id": "accurate",
@@ -636,25 +641,8 @@
    "name": "Accurate",
    "group": "acc",
    "stat": "accuracy",
-   "tiers": [
-    {
-     "level": 1,
-     "min": 10,
-     "max": 30
-    },
-    {
-     "level": 10,
-     "min": 31,
-     "max": 60
-    }
-   ],
-   "tags": [
-    "bow",
-    "sword",
-    "jewelry",
-    "armor"
-   ],
-   "slots": ["mainhand", "hands", "ring", "neck"]
+   "tiers": [{"level": 1, "min": 10, "max": 30}, {"level": 10, "min": 31, "max": 60}],
+   "on": ["weapon", "gloves", "jewelry"]
   },
   {
    "id": "flaming",
@@ -662,24 +650,17 @@
    "name": "Flaming",
    "group": "fire_dmg",
    "stat": "fireDamage",
-   "tiers": [
-    {
-     "level": 3,
-     "min": 2,
-     "max": 6
-    },
-    {
-     "level": 10,
-     "min": 5,
-     "max": 12
-    }
-   ],
-   "tags": [
-    "bow",
-    "sword",
-    "jewelry"
-   ],
-   "slots": ["mainhand", "ring", "neck"]
+   "tiers": [{"level": 3, "min": 2, "max": 6}, {"level": 10, "min": 5, "max": 12}],
+   "on": ["weapon", "jewelry"]
+  },
+  {
+   "id": "blazing",
+   "kind": "prefix",
+   "name": "Blazing",
+   "group": "fire_pct",
+   "stat": "fireDamagePct",
+   "tiers": [{"level": 3, "min": 0.1, "max": 0.2}, {"level": 10, "min": 0.21, "max": 0.35}],
+   "on": ["wand", "amulet"]
   },
   {
    "id": "nimble",
@@ -687,19 +668,35 @@
    "name": "Nimble",
    "group": "ias",
    "stat": "attackSpeedPct",
-   "tiers": [
-    {
-     "level": 5,
-     "min": 0.1,
-     "max": 0.2
-    }
-   ],
-   "tags": [
-    "bow",
-    "sword",
-    "armor"
-   ],
-   "slots": ["mainhand", "hands", "neck"]
+   "tiers": [{"level": 5, "min": 0.1, "max": 0.2}],
+   "on": ["weapon", "gloves"]
+  },
+  {
+   "id": "vampiric",
+   "kind": "prefix",
+   "name": "Vampiric",
+   "group": "leech",
+   "stat": "lifeLeechPct",
+   "tiers": [{"level": 6, "min": 0.02, "max": 0.04}],
+   "on": ["weapon", "ring", "amulet"]
+  },
+  {
+   "id": "serpents",
+   "kind": "prefix",
+   "name": "Serpent's",
+   "group": "energy",
+   "stat": "maxEnergy",
+   "tiers": [{"level": 1, "min": 5, "max": 10}, {"level": 8, "min": 11, "max": 20}],
+   "on": ["wand", "helm", "jewelry"]
+  },
+  {
+   "id": "sturdy",
+   "kind": "prefix",
+   "name": "Sturdy",
+   "group": "arm_pct",
+   "stat": "armorPct",
+   "tiers": [{"level": 1, "min": 0.1, "max": 0.2}, {"level": 8, "min": 0.21, "max": 0.35}],
+   "on": ["armor"]
   },
   {
    "id": "masters",
@@ -707,201 +704,35 @@
    "name": "Master's",
    "group": "skill",
    "stat": "bladesSkills",
-   "tiers": [
-    {
-     "level": 12,
-     "min": 1,
-     "max": 1
-    }
-   ],
-   "tags": [
-    "sword",
-    "jewelry"
-   ],
-   "slots": ["mainhand", "neck"]
+   "tiers": [{"level": 12, "min": 1, "max": 1}],
+   "on": ["sword", "amulet"]
   },
   {
-   "id": "of_the_bear",
-   "kind": "suffix",
-   "name": "of the Bear",
-   "group": "vit",
-   "stat": "vit",
-   "tiers": [
-    {
-     "level": 1,
-     "min": 1,
-     "max": 5
-    },
-    {
-     "level": 9,
-     "min": 6,
-     "max": 10
-    }
-   ],
-   "tags": [
-    "armor",
-    "shield",
-    "jewelry"
-   ],
-   "slots": ["body", "head", "offhand", "waist", "ring", "neck"]
+   "id": "archers",
+   "kind": "prefix",
+   "name": "Archer's",
+   "group": "skill",
+   "stat": "bowsSkills",
+   "tiers": [{"level": 12, "min": 1, "max": 1}],
+   "on": ["bow", "amulet"]
   },
   {
-   "id": "of_the_fox",
-   "kind": "suffix",
-   "name": "of the Fox",
-   "group": "dex",
-   "stat": "dex",
-   "tiers": [
-    {
-     "level": 1,
-     "min": 1,
-     "max": 5
-    },
-    {
-     "level": 9,
-     "min": 6,
-     "max": 10
-    }
-   ],
-   "tags": [
-    "bow",
-    "sword",
-    "armor",
-    "jewelry"
-   ],
-   "slots": ["mainhand", "hands", "feet", "ring", "neck"]
+   "id": "guardians",
+   "kind": "prefix",
+   "name": "Guardian's",
+   "group": "skill",
+   "stat": "shieldSkills",
+   "tiers": [{"level": 12, "min": 1, "max": 1}],
+   "on": ["shield", "amulet"]
   },
   {
-   "id": "of_the_bull",
-   "kind": "suffix",
-   "name": "of the Bull",
-   "group": "str",
-   "stat": "str",
-   "tiers": [
-    {
-     "level": 1,
-     "min": 1,
-     "max": 5
-    },
-    {
-     "level": 9,
-     "min": 6,
-     "max": 10
-    }
-   ],
-   "tags": [
-    "bow",
-    "sword",
-    "armor",
-    "shield",
-    "jewelry"
-   ],
-   "slots": ["mainhand", "hands", "waist", "offhand", "ring", "neck"]
-  },
-  {
-   "id": "of_life",
-   "kind": "suffix",
-   "name": "of Life",
-   "group": "life",
-   "stat": "maxLife",
-   "tiers": [
-    {
-     "level": 1,
-     "min": 5,
-     "max": 15
-    },
-    {
-     "level": 8,
-     "min": 16,
-     "max": 30
-    }
-   ],
-   "tags": [
-    "armor",
-    "shield",
-    "jewelry"
-   ],
-   "slots": ["body", "head", "offhand", "waist", "ring", "neck"]
-  },
-  {
-   "id": "of_luck",
-   "kind": "suffix",
-   "name": "of Luck",
-   "group": "mf",
-   "stat": "magicFind",
-   "tiers": [
-    {
-     "level": 4,
-     "min": 0.05,
-     "max": 0.15
-    }
-   ],
-   "tags": [
-    "jewelry",
-    "armor"
-   ],
-   "slots": ["head", "feet", "ring", "neck"]
-  },
-  {
-   "id": "of_the_squire",
-   "kind": "suffix",
-   "name": "of the Squire",
-   "group": "block",
-   "stat": "guardEfficiency",
-   "tiers": [
-    {
-     "level": 3,
-     "min": 0.03,
-     "max": 0.08
-    }
-   ],
-   "tags": [
-    "shield"
-   ],
-   "slots": ["offhand"]
-  },
-  {
-   "id": "of_steadiness",
-   "kind": "suffix",
-   "name": "of Steadiness",
-   "group": "fhr",
-   "stat": "fasterHitRecovery",
-   "tiers": [
-    {
-     "level": 3,
-     "min": 0.1,
-     "max": 0.2
-    },
-    {
-     "level": 10,
-     "min": 0.21,
-     "max": 0.35
-    }
-   ],
-   "tags": [
-    "armor",
-    "jewelry"
-   ],
-   "slots": ["body", "waist", "neck"]
-  },
-  {
-   "id": "of_reflexes",
-   "kind": "suffix",
-   "name": "of Reflexes",
-   "group": "fbr",
-   "stat": "fasterBlockRecovery",
-   "tiers": [
-    {
-     "level": 3,
-     "min": 0.1,
-     "max": 0.25
-    }
-   ],
-   "tags": [
-    "shield",
-    "jewelry"
-   ],
-   "slots": ["offhand", "neck"]
+   "id": "pyromancers",
+   "kind": "prefix",
+   "name": "Pyromancer's",
+   "group": "skill",
+   "stat": "pyromancySkills",
+   "tiers": [{"level": 12, "min": 1, "max": 1}],
+   "on": ["wand", "amulet"]
   },
   {
    "id": "hasty",
@@ -909,21 +740,269 @@
    "name": "Hasty",
    "group": "cdr",
    "stat": "cooldownReduction",
-   "tiers": [
-    {
-     "level": 8,
-     "min": 0.05,
-     "max": 0.1
-    }
-   ],
-   "tags": [
-    "jewelry"
-   ],
-   "slots": ["ring", "neck"]
+   "tiers": [{"level": 8, "min": 0.05, "max": 0.1}],
+   "on": ["jewelry"]
+  },
+  {
+   "id": "of_the_bear",
+   "kind": "suffix",
+   "name": "of the Bear",
+   "group": "vit",
+   "stat": "vit",
+   "tiers": [{"level": 1, "min": 1, "max": 5}, {"level": 9, "min": 6, "max": 10}],
+   "on": ["body", "helm", "shield", "belt", "jewelry"]
+  },
+  {
+   "id": "of_the_fox",
+   "kind": "suffix",
+   "name": "of the Fox",
+   "group": "dex",
+   "stat": "dex",
+   "tiers": [{"level": 1, "min": 1, "max": 5}, {"level": 9, "min": 6, "max": 10}],
+   "on": ["weapon", "gloves", "boots", "jewelry"]
+  },
+  {
+   "id": "of_the_bull",
+   "kind": "suffix",
+   "name": "of the Bull",
+   "group": "str",
+   "stat": "str",
+   "tiers": [{"level": 1, "min": 1, "max": 5}, {"level": 9, "min": 6, "max": 10}],
+   "on": ["sword", "gloves", "belt", "shield", "jewelry"]
+  },
+  {
+   "id": "of_the_owl",
+   "kind": "suffix",
+   "name": "of the Owl",
+   "group": "int",
+   "stat": "int",
+   "tiers": [{"level": 1, "min": 1, "max": 5}, {"level": 9, "min": 6, "max": 10}],
+   "on": ["wand", "helm", "jewelry"]
+  },
+  {
+   "id": "of_life",
+   "kind": "suffix",
+   "name": "of Life",
+   "group": "life",
+   "stat": "maxLife",
+   "tiers": [{"level": 1, "min": 5, "max": 15}, {"level": 8, "min": 16, "max": 30}],
+   "on": ["body", "helm", "shield", "belt", "jewelry"]
+  },
+  {
+   "id": "of_mending",
+   "kind": "suffix",
+   "name": "of Mending",
+   "group": "regen",
+   "stat": "lifeRegenPerSecond",
+   "tiers": [{"level": 3, "min": 0.5, "max": 1.0}, {"level": 10, "min": 1.1, "max": 2.0}],
+   "on": ["body", "helm", "ring", "amulet"]
+  },
+  {
+   "id": "of_the_prism",
+   "kind": "suffix",
+   "name": "of the Prism",
+   "group": "resist",
+   "stat": "elementalResist",
+   "tiers": [{"level": 5, "min": 0.05, "max": 0.1}, {"level": 12, "min": 0.11, "max": 0.2}],
+   "on": ["armor", "jewelry"]
+  },
+  {
+   "id": "of_luck",
+   "kind": "suffix",
+   "name": "of Luck",
+   "group": "mf",
+   "stat": "magicFind",
+   "tiers": [{"level": 4, "min": 0.05, "max": 0.15}],
+   "on": ["helm", "gloves", "boots", "jewelry"]
+  },
+  {
+   "id": "of_haste",
+   "kind": "suffix",
+   "name": "of Haste",
+   "group": "frw",
+   "stat": "moveSpeedPct",
+   "tiers": [{"level": 1, "min": 0.05, "max": 0.1}, {"level": 8, "min": 0.11, "max": 0.2}],
+   "on": ["boots"]
+  },
+  {
+   "id": "of_far_reach",
+   "kind": "suffix",
+   "name": "of Far Reach",
+   "group": "bow_range",
+   "stat": "bowRangeTiles",
+   "tiers": [{"level": 4, "min": 1, "max": 2}],
+   "on": ["bow"]
+  },
+  {
+   "id": "of_quickness",
+   "kind": "suffix",
+   "name": "of Quickness",
+   "group": "fcr",
+   "stat": "fasterCastPct",
+   "tiers": [{"level": 4, "min": 0.05, "max": 0.1}, {"level": 10, "min": 0.11, "max": 0.2}],
+   "on": ["wand", "ring", "amulet"]
+  },
+  {
+   "id": "of_the_squire",
+   "kind": "suffix",
+   "name": "of the Squire",
+   "group": "guard",
+   "stat": "guardEfficiency",
+   "tiers": [{"level": 3, "min": 0.03, "max": 0.08}],
+   "on": ["shield"]
+  },
+  {
+   "id": "of_warding",
+   "kind": "suffix",
+   "name": "of Warding",
+   "group": "block",
+   "stat": "blockReduction",
+   "tiers": [{"level": 6, "min": 0.03, "max": 0.06}],
+   "on": ["shield"]
+  },
+  {
+   "id": "of_steadiness",
+   "kind": "suffix",
+   "name": "of Steadiness",
+   "group": "fhr",
+   "stat": "fasterHitRecovery",
+   "tiers": [{"level": 3, "min": 0.1, "max": 0.2}, {"level": 10, "min": 0.21, "max": 0.35}],
+   "on": ["body", "belt", "amulet"]
+  },
+  {
+   "id": "of_reflexes",
+   "kind": "suffix",
+   "name": "of Reflexes",
+   "group": "fbr",
+   "stat": "fasterBlockRecovery",
+   "tiers": [{"level": 3, "min": 0.1, "max": 0.25}],
+   "on": ["shield", "amulet"]
   }
  ],
  "rareAffixCount": {
   "min": 3,
   "max": 6
- }
+ },
+ "uniques": [
+  {
+   "id": "thornbite",
+   "name": "Thornbite",
+   "base": "short_sword",
+   "level": 3,
+   "props": [
+    {"stat": "damagePct", "min": 0.3, "max": 0.5},
+    {"stat": "accuracy", "min": 20, "max": 35},
+    {"stat": "lifeLeechPct", "value": 0.03},
+    {"stat": "str", "value": 5}
+   ]
+  },
+  {
+   "id": "wanderers_stride",
+   "name": "Wanderer's Stride",
+   "base": "boots",
+   "level": 5,
+   "props": [
+    {"stat": "moveSpeedPct", "value": 0.2},
+    {"stat": "dex", "min": 5, "max": 8},
+    {"stat": "magicFind", "min": 0.1, "max": 0.2},
+    {"stat": "attackSpeedPct", "value": 0.1}
+   ]
+  },
+  {
+   "id": "emberline",
+   "name": "Emberline",
+   "base": "hunters_bow",
+   "level": 6,
+   "props": [
+    {"stat": "damagePct", "min": 0.4, "max": 0.6},
+    {"stat": "fireDamage", "min": 3, "max": 8},
+    {"stat": "attackSpeedPct", "value": 0.2},
+    {"stat": "bowRangeTiles", "value": 2}
+   ]
+  },
+  {
+   "id": "oathkeepers_ward",
+   "name": "Oathkeeper's Ward",
+   "base": "round_shield",
+   "level": 8,
+   "props": [
+    {"stat": "armorPct", "min": 0.5, "max": 0.8},
+    {"stat": "guardEfficiency", "value": 0.1},
+    {"stat": "fasterBlockRecovery", "value": 0.3},
+    {"stat": "maxLife", "min": 15, "max": 25},
+    {"stat": "shieldSkills", "value": 1}
+   ]
+  },
+  {
+   "id": "cinderheart",
+   "name": "Cinderheart",
+   "base": "amulet",
+   "level": 10,
+   "props": [
+    {"stat": "pyromancySkills", "value": 1},
+    {"stat": "fireDamagePct", "min": 0.15, "max": 0.25},
+    {"stat": "int", "min": 8, "max": 12},
+    {"stat": "maxEnergy", "value": 15},
+    {"stat": "elementalResist", "value": 0.1}
+   ]
+  }
+ ],
+ "sets": [
+  {
+   "id": "sentinels_vigil",
+   "name": "Sentinel's Vigil",
+   "pieces": [
+    {
+     "id": "sentinels_visor",
+     "name": "Sentinel's Visor",
+     "base": "helm",
+     "level": 4,
+     "props": [{"stat": "armorPct", "min": 0.3, "max": 0.5}, {"stat": "vit", "value": 5}]
+    },
+    {
+     "id": "sentinels_hauberk",
+     "name": "Sentinel's Hauberk",
+     "base": "chain_mail",
+     "level": 9,
+     "props": [{"stat": "armorPct", "min": 0.4, "max": 0.6}, {"stat": "maxLife", "value": 20}]
+    },
+    {
+     "id": "sentinels_bulwark",
+     "name": "Sentinel's Bulwark",
+     "base": "kite_shield",
+     "level": 11,
+     "props": [{"stat": "guardEfficiency", "value": 0.1}, {"stat": "blockReduction", "value": 0.05}, {"stat": "str", "min": 5, "max": 8}]
+    }
+   ],
+   "bonuses": [{"pieces": 2, "stats": {"maxLife": 20}}, {"pieces": 3, "stats": {"fasterHitRecovery": 0.2, "shieldSkills": 1, "elementalResist": 0.15}}]
+  },
+  {
+   "id": "grey_fletcher",
+   "name": "Grey Fletcher",
+   "pieces": [
+    {
+     "id": "fletchers_bracers",
+     "name": "Fletcher's Bracers",
+     "base": "gloves",
+     "level": 6,
+     "props": [{"stat": "attackSpeedPct", "value": 0.1}, {"stat": "dex", "min": 3, "max": 5}]
+    },
+    {
+     "id": "fletchers_treads",
+     "name": "Fletcher's Treads",
+     "base": "boots",
+     "level": 6,
+     "props": [{"stat": "moveSpeedPct", "value": 0.1}, {"stat": "dex", "min": 3, "max": 5}]
+    },
+    {
+     "id": "fletchers_recurve",
+     "name": "Fletcher's Recurve",
+     "base": "long_bow",
+     "level": 9,
+     "props": [{"stat": "damagePct", "min": 0.3, "max": 0.5}, {"stat": "accuracy", "value": 30}]
+    }
+   ],
+   "bonuses": [{"pieces": 2, "stats": {"accuracy": 40}}, {"pieces": 3, "stats": {"bowsSkills": 1, "attackSpeedPct": 0.1, "moveSpeedPct": 0.05}}]
+  }
+ ]
 }

@@ -41,7 +41,7 @@ FLOAT = {
     "levelup": (255, 210, 80),
 }
 
-RARITY = {0: (220, 220, 220), 1: (110, 140, 255), 2: (255, 224, 102), 3: (200, 160, 80)}
+RARITY = {0: (220, 220, 220), 1: (110, 140, 255), 2: (255, 224, 102), 3: (90, 210, 90), 4: (200, 160, 80)}  # normal, magic, rare, set, unique
 
 # Monster name color by rank (D2 convention): white for the common ones, blue for champions, gold for uniques.
 RANK_NAME = {

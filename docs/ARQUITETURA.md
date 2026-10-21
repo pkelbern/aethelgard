@@ -16,7 +16,8 @@ core/                   regras, sem pygame
    timing.py            Cooldowns, recuperação de golpe e de bloqueio, recarga de habilidade
    monsters.py          MonsterFactory (nível × rank), PackSpawner, nomes de únicos
    items.py             LootGenerator, Item, Loadout (equipamento), Inventory (mochila), SharedStash (baú);
-                        ItemContainer e item_to_dict/item_from_dict são o formato único de itens em todo lugar
+                        ItemContainer e item_to_dict/item_from_dict são o formato único de itens em todo lugar;
+                        Item.mods = linhas de bônus (afixos ou do único/peça); Loadout.totals() soma tudo + bônus de conjunto
    world_gen.py         AreaGenerator (áreas abertas, masmorras e mapas do Tiled) + AreaLayout.validate()
    pathfinding.py       A* do tcod
    world.py             mundo em tempo real dirigido por comandos
@@ -37,6 +38,13 @@ core/                   regras, sem pygame
 | client/vision.py | tcod | campo de visão (`compute_fov`), névoa de guerra, mapa automático |
 | client/ui.py | pygame_gui | janela de árvores (T), console (F1); tema em `data/ui/theme.json` |
 | client/* | pygame-ce | janela, desenho isométrico, entrada, HUD |
+
+## Itens (GDD 10)
+
+- Raridades (`items.Rarity`, número salvo no save): normal, mágico, raro, conjunto, único. Só cresce no fim.
+- `items.json itemClasses`: o que cada base é (sword, bow, boots…) e seus grupos (weapon, armor, jewelry). Afixo só rola nas classes/grupos do seu `on`; `ItemsData.affix_pool(classe)` é o único filtro. `minRarity` (anel, amuleto = magic) vale no drop e na loja.
+- Únicos (`uniques`) e peças de conjunto (`sets[].pieces`) são o mesmo `FixedItemDef`: base, nome e `props` fixos, com faixas min–max roladas por `roll_value` (a mesma conta dos afixos). O save guarda o id e os números.
+- Bônus de conjunto: `sets[].bonuses` com `pieces` crescentes, somados em `Loadout.totals()` pelas peças diferentes vestidas. Combate, ficha e tooltips devem ler só de `totals()`.
 
 ## Tooltips, atalhos e teclas
 

@@ -13,7 +13,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 | M3 – Árvores | 2 | 4 | 12 | 18 |
 | M4 – Monstros | 2 | 2 | 8 | 9.5 |
 | M5 – Mundo | 4 | 2 | 8 | 6 |
-| M6 – Loot | 2 | 4 | 8 | 3.5 |
+| M6 – Loot | 2 | 6 | 10 | 2.5 |
 | M7 – Vertical slice | 0 | 4 | 10 | 24.5 |
 | M8 – Vitrine | 0 | 0 | 7 | 11 |
 | M9 – Lançamento | 1 | 0 | 7 | 22 |
@@ -183,13 +183,15 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M6-02** Itens no chão e coleta _(código, ~2 d)_ — **escrito, validar**  
   Drops caem em volta do corpo com cor de raridade; clique anda até o item e coleta (comando PickUp); ouro coletado ao passar por cima (balance.loot.autoPickupGold); Alt mostra todos os nomes sem sobreposição; mochila cheia deixa o item no chão. Some ao sair da área.
 - [ ] **M6-03** Inventário em grade 10×6 e equipamento _(UI, ~4 d)_ — parte **escrito, validar**  
-  Feito: tela no I (client/inventory_view.py) com slots de equipamento e grade 10×6; equipar arrastando para o slot, duplo clique ou Ctrl+clique; o mesmo tira; requisitos (borda vermelha, aviso); troca no lugar da mochila; comandos EquipItem/UnequipItem no World; tooltip do item (describe_item). Slots de equipamento em items.json (equipment): dois anéis; a mão secundária aceita escudo ou arma de uma mão (duas armas alternam os golpes, sem guarda nem habilidades ativas de Escudo). Falta: itens ocupando várias células (size) e os afixos valerem no combate (hoje só a base conta: dano, armadura, escudo).
+  Feito: tela no I (client/inventory_view.py) com slots de equipamento e grade 10×6; equipar arrastando para o slot, duplo clique ou Ctrl+clique; o mesmo tira; requisitos (borda vermelha, aviso); troca no lugar da mochila; comandos EquipItem/UnequipItem no World; tooltip do item (describe_item). Slots de equipamento em items.json (equipment): dois anéis; a mão secundária aceita escudo ou arma de uma mão (duas armas alternam os golpes, sem guarda nem habilidades ativas de Escudo). Falta: itens ocupando várias células (size) e os afixos valerem no combate (hoje só a base conta: dano, armadura, escudo); a soma já existe em `Loadout.totals()` (afixos, únicos, peças e bônus de conjunto), falta ler dela em combat.py, CharacterSheet.item_bonus e velocidade de movimento.
 - [ ] **M6-04** Tooltip com comparação ao equipado _(UI, ~1.5 d)_ — **escrito, validar**  
   Shift sobre um item da mochila: diferenças em verde/vermelho por atributo (describe.compare_items) e o item vestido ao lado.
 - [ ] **M6-05** Tela do baú compartilhado e vendedor _(UI, ~2 d)_ — **escrito, validar**  
   client/item_windows.py: uma janela-base para inventário, baú e loja (grades, arrastar, Shift/Ctrl/duplo clique, tooltip). Baú: itens e ouro, arquivo próprio shared_stash.json com backup. Loja: estoque normal/mágico renovado a cada volta à vila, preços em items.json trade, venda a 20%, o que você vende pode ser recomprado, poções e pergaminho sempre à venda. Comandos Buy/Sell/BuyConsumable/StashPut/StashTake/StashGold exigem estar perto do NPC.
-- [ ] **M6-06** 5 itens únicos do MVP _(conteúdo, ~1 d)_  
-  Tabela de únicos com propriedades fixas e faixas; tirar o 'único vira raro'.
+- [ ] **M6-06** 5 itens únicos do MVP _(conteúdo, ~1 d)_ — **escrito, validar**  
+  items.json `uniques`: Thornbite (Short Sword), Wanderer's Stride (Boots), Emberline (Hunter's Bow), Oathkeeper's Ward (Round Shield), Cinderheart (Amulet). Base, nome e linhas fixos; só as faixas min–max rolam. Podem fugir das regras de afixo (ex.: bota com velocidade de ataque). Sem único permitido no iLvl, vira raro.
+- [ ] **M6-09** Regras de afixo por classe, joias nunca normais e conjuntos _(código + conteúdo, ~1.5 d)_ — **escrito, validar**  
+  items.json `itemClasses` (sword, bow, wand, shield, body, helm, gloves, boots, belt, ring, amulet; grupos weapon/armor/jewelry); cada afixo diz em `on` onde pode rolar (arco nunca dá habilidade de Lâminas nem bloqueio; bota dá velocidade de movimento e nunca de ataque; luva nunca dá movimento). Anel e amuleto caem no mínimo mágicos (`minRarity`), inclusive na loja. Raridade Conjunto (verde) entre raro e único: Sentinel's Vigil (elmo, cota, escudo) e Grey Fletcher (luvas, botas, arco), bônus parciais com 2 e 3 peças (`Loadout.totals`). Tooltip mostra o conjunto e acende os bônus ativos. Falta: os bônus valerem no combate (vem com o M6-03).
 - [ ] **M6-07** Save completo _(código, ~2 d)_  
   Feito: save v2 do personagem (níveis, pontos, equipamento, mochila, ouro, consumíveis) em arquivo versionado com backup (core/saves.py), F5/`save`, salva ao sair e reabre na vila. Waypoints (v4) e baú compartilhado em disco também.
 - [x] **M6-08** Baú compartilhado no núcleo _(código, ~0.5 d)_  

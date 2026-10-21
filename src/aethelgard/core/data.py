@@ -561,12 +561,56 @@ class AffixDef:
     group: str = ""
     stat: str = ""
     tiers: list[AffixTier] = field(default_factory=list)
-    tags: list[str] = field(default_factory=list)
-    slots: list[str] = field(default_factory=list)  # item types it may roll on (bases' 'slot')
+    on: list[str] = field(default_factory=list)  # item classes or class groups it may roll on (items.json itemClasses)
 
-    def fits(self, base) -> bool:
-        """Its item type is listed AND it shares a tag (keeps blade affixes off bows and the reverse)."""
-        return (not self.slots or base.slot in self.slots) and bool(set(self.tags) & set(base.tags))
+
+@dataclass
+class ItemClassDef:
+    """What an item is (sword, bow, boots, ring…): decides which affixes make sense on it (GDD 10.2)."""
+
+    groups: list[str] = field(default_factory=list)  # e.g. weapon, armor, jewelry: affixes may name a group instead of each class
+    min_rarity: str = "normal"  # jewelry is never plain: a ring with nothing on it is worth nothing
+
+
+@dataclass
+class PropDef:
+    """One numbered line of a unique, a set item or a set bonus: fixed (``value``) or rolled in ``min``–``max``."""
+
+    stat: str = ""
+    min: float = 0
+    max: float = 0
+    value: float | None = None
+
+    def __post_init__(self):
+        if self.value is not None:
+            self.min = self.max = self.value
+
+
+@dataclass
+class FixedItemDef:
+    """A hand-made item (unique or set piece): always the same base, name and lines; only the ranges roll."""
+
+    id: str = ""
+    name: str = ""
+    base: str = ""
+    level: int = 1  # minimum item level to drop
+    weight: float = 1.0  # how often it is picked among the ones allowed at that item level
+    props: list[PropDef] = field(default_factory=list)
+    set_id: str | None = None  # filled for set pieces when the data loads
+
+
+@dataclass
+class SetBonusDef:
+    pieces: int = 2  # active while at least this many different pieces of the set are worn
+    stats: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class SetDef:
+    id: str = ""
+    name: str = ""
+    pieces: list[FixedItemDef] = field(default_factory=list)
+    bonuses: list[SetBonusDef] = field(default_factory=list)  # partial bonuses add up as more pieces are worn
 
 
 @dataclass
@@ -587,6 +631,7 @@ class ItemBaseDef:
     spell_level: int = 0  # wands: levels of that spell it gives while equipped
     size: list[int] = field(default_factory=lambda: [1, 1])
     req: dict[str, int] = field(default_factory=dict)
+    item_class: str = ""  # items.json itemClasses: which affixes may roll on it
 
 
 @dataclass
@@ -599,6 +644,7 @@ class DropCountDef:
 @dataclass
 class RarityChances:
     unique: float = 0.004
+    set: float = 0.008
     rare: float = 0.03
     magic: float = 0.18
 
@@ -630,7 +676,7 @@ class TradeParams:
     base_price: float = 20
     per_item_level: float = 6
     per_affix: float = 25
-    rarity_mult: list[float] = field(default_factory=lambda: [1, 3, 8, 20])
+    rarity_mult: list[float] = field(default_factory=lambda: [1, 3, 8, 15, 20])
     sell_fraction: float = 0.2
     stock_size: int = 18
     npc_range_tiles: float = 3.0
@@ -668,6 +714,24 @@ class ItemsData:
     bases: list[ItemBaseDef] = field(default_factory=list)
     affixes: list[AffixDef] = field(default_factory=list)
     rare_affix_count: MinMax = field(default_factory=MinMax)
+    item_classes: dict[str, ItemClassDef] = field(default_factory=dict)
+    uniques: list[FixedItemDef] = field(default_factory=list)
+    sets: list[SetDef] = field(default_factory=list)
+    _pools: dict[str, list[AffixDef]] = field(default_factory=dict, repr=False)
+
+    def classes_named(self, names: list[str]) -> set[str]:
+        """Item classes listed directly or through one of their groups."""
+        return {cid for cid, c in self.item_classes.items() if cid in names or set(c.groups) & set(names)}
+
+    def affix_pool(self, item_class: str) -> list[AffixDef]:
+        """Every affix that may roll on this item class, in file order (built once)."""
+        if item_class not in self._pools:
+            self._pools[item_class] = [a for a in self.affixes if item_class in self.classes_named(a.on)]
+        return self._pools[item_class]
+
+    @property
+    def set_pieces(self) -> list[FixedItemDef]:
+        return [p for s in self.sets for p in s.pieces]
 
 
 # ---------------------------------------------------------------- everything together
@@ -745,6 +809,9 @@ class GameData:
         return cls.load(lambda name: (p / name).read_text(encoding="utf-8"))
 
     def _build_tables(self) -> None:
+        for st in self.items.sets:
+            for piece in st.pieces:
+                piece.set_id = st.id
         c = self.curves.proficiency_xp_to_next
         total, acc = [0], 0
         for n in range(1, c.max_level):
@@ -803,6 +870,16 @@ class GameData:
     def affix(self, affix_id: str) -> AffixDef:
         return _find(self.items.affixes, affix_id, "affix")
 
+    def item_class(self, base: ItemBaseDef) -> ItemClassDef:
+        return self.items.item_classes[base.item_class]
+
+    def fixed_item(self, item_id: str) -> FixedItemDef:
+        """A unique or a set piece by id (the ids never clash: validate() checks)."""
+        return _find(self.items.uniques + self.items.set_pieces, item_id, "unique or set item")
+
+    def item_set(self, set_id: str) -> SetDef:
+        return _find(self.items.sets, set_id, "set")
+
     def stat(self, stat_id: str) -> StatDef:
         return _find(self.stats.stats, stat_id, "stat")
 
@@ -817,6 +894,8 @@ def _validate_stats(d: GameData) -> list[str]:
     used = {(f"node '{n.id}'", k) for n in d.skills.nodes for k in n.stat_ids}
     used |= {(f"synergy into '{s.target}'", s.stat) for s in d.skills.synergies}
     used |= {(f"affix '{a.id}'", a.stat) for a in d.items.affixes}
+    used |= {(f"item '{f.id}'", p.stat) for f in d.items.uniques + d.items.set_pieces for p in f.props}
+    used |= {(f"set '{st.id}' bonus", k) for st in d.items.sets for b in st.bonuses for k in b.stats}
     used |= {(f"aura of '{t.id}'", k) for t in d.monsters.types if t.leader and t.leader.aura for k in t.leader.aura.stats}
     errors += [f"stats: {where} uses '{stat}', missing from stats.json" for where, stat in sorted(used) if stat not in stat_ids]
     for n in d.skills.nodes:
@@ -929,15 +1008,7 @@ def validate(d: GameData) -> list[str]:
         errors.append("skills: barSlots must be at least 1")
     errors += _validate_stats(d)
 
-    item_types = {b.slot for b in d.items.bases}
-    for a in d.items.affixes:
-        if not a.slots:
-            errors.append(f"items: affix '{a.id}' has no slots (which item types it may roll on)")
-        errors += [f"items: affix '{a.id}' lists unknown item type '{t}'" for t in a.slots if t not in item_types]
-        if not a.tiers:
-            errors.append(f"items: affix '{a.id}' has no tiers")
-    if len({a.id for a in d.items.affixes}) != len(d.items.affixes):
-        errors.append("items: duplicate affix ids")
+    errors += _validate_item_kinds(d)
     base_ids = {b.id for b in d.items.bases}
     errors += [f"items: starting gear '{b}' is not a base" for b in d.items.starting_gear + d.items.starting_backpack if b not in base_ids]
     errors += [f"items: bow '{b.id}' needs rangeTiles" for b in d.items.bases if "bow" in b.tags and b.range_tiles <= 0]
@@ -950,4 +1021,52 @@ def validate(d: GameData) -> list[str]:
     errors += [f"items: consumable '{k}' restores unknown '{c.restore}'" for k, c in d.items.consumables.items() if c.restore not in (None, "life", "energy")]
     if d.items.inventory.capacity <= 0:
         errors.append("items: inventory has no room")
+    return errors
+
+
+RARITY_NAMES = ("normal", "magic", "rare", "set", "unique")  # same order as items.Rarity
+
+
+def _validate_item_kinds(d: GameData) -> list[str]:
+    """Item classes, affix rules, uniques and sets (GDD 10)."""
+    it, errors = d.items, []
+    groups = {g for c in it.item_classes.values() for g in c.groups}
+    for cid, c in it.item_classes.items():
+        if c.min_rarity not in RARITY_NAMES[:3]:
+            errors.append(f"items: class '{cid}' minRarity '{c.min_rarity}' must be normal, magic or rare")
+        if cid in groups:
+            errors.append(f"items: '{cid}' is both an item class and a class group")
+    errors += [f"items: base '{b.id}' has unknown itemClass '{b.item_class}'" for b in it.bases if b.item_class not in it.item_classes]
+    for b in it.bases:
+        if b.id in it.starting_gear + it.starting_backpack and b.item_class in it.item_classes and it.item_classes[b.item_class].min_rarity != "normal":
+            errors.append(f"items: starting item '{b.id}' can never be a plain item (class minRarity)")
+    for a in it.affixes:
+        if not a.on:
+            errors.append(f"items: affix '{a.id}' has no 'on' (which item classes it may roll on)")
+        errors += [f"items: affix '{a.id}' rolls on unknown class or group '{n}'" for n in a.on if n not in it.item_classes and n not in groups]
+        if not a.tiers:
+            errors.append(f"items: affix '{a.id}' has no tiers")
+        errors += [f"items: affix '{a.id}' has a tier with min > max" for t in a.tiers if t.min > t.max]
+    if len({a.id for a in it.affixes}) != len(it.affixes):
+        errors.append("items: duplicate affix ids")
+    base_ids = {b.id for b in it.bases}
+    fixed = it.uniques + it.set_pieces
+    if len({f.id for f in fixed}) != len(fixed):
+        errors.append("items: unique and set item ids must all be different")
+    for f in fixed:
+        if f.base not in base_ids:
+            errors.append(f"items: '{f.id}' uses unknown base '{f.base}'")
+        elif f.level < d.base(f.base).level:
+            errors.append(f"items: '{f.id}' drops below the level of its base '{f.base}'")
+        if not f.props:
+            errors.append(f"items: '{f.id}' has no properties")
+        errors += [f"items: '{f.id}' property '{p.stat}' has min > max" for p in f.props if p.min > p.max]
+        if f.weight <= 0:
+            errors.append(f"items: '{f.id}' needs a weight above 0")
+    for st in it.sets:
+        if len(st.pieces) < 2:
+            errors.append(f"items: set '{st.id}' needs at least 2 pieces")
+        counts = [b.pieces for b in st.bonuses]
+        if not counts or counts != sorted(set(counts)) or counts[0] < 2 or counts[-1] > len(st.pieces):
+            errors.append(f"items: set '{st.id}' bonuses must go up from 2 pieces to at most {len(st.pieces)}, one per count")
     return errors

@@ -9,10 +9,10 @@ from .rng import Rng
 
 
 def item_price(d: GameData, item: Item) -> int:
-    """What the vendor asks for an item (rarity, item level and number of affixes)."""
+    """What the vendor asks for an item (rarity, item level and number of bonus lines)."""
     t = d.items.trade
     mult = t.rarity_mult[min(int(item.rarity), len(t.rarity_mult) - 1)]
-    return max(1, round((t.base_price + t.per_item_level * item.item_level + t.per_affix * len(item.affixes)) * mult))
+    return max(1, round((t.base_price + t.per_item_level * item.item_level + t.per_affix * len(item.mods)) * mult))
 
 
 def sell_price(d: GameData, item: Item) -> int:
@@ -21,7 +21,7 @@ def sell_price(d: GameData, item: Item) -> int:
 
 
 class Vendor:
-    """The merchant's items. Normal and magic only (rares and uniques are found, not bought)."""
+    """The merchant's items. Normal and magic only (rares, set items and uniques are found, not bought)."""
 
     def __init__(self, d: GameData):
         self._d = d
@@ -31,7 +31,4 @@ class Vendor:
         loot = LootGenerator(self._d)
         self.stock = []
         for _ in range(self._d.items.trade.stock_size):
-            item = loot.roll_item(max(1, item_level), 1.0, 0.0, Rarity.NORMAL, rng)
-            if item.rarity > Rarity.MAGIC:
-                item = Item.plain(item.base)
-            self.stock.append(item)
+            self.stock.append(loot.roll_item(max(1, item_level), 1.0, 0.0, Rarity.NORMAL, rng, maximum=Rarity.MAGIC))

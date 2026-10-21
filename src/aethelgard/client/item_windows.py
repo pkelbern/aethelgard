@@ -203,7 +203,7 @@ class ItemWindow:
         item = self.item_at(h)
         if item is not None:
             s = self.g.session
-            lines = describe_item(self.g.data, item, s.missing_requirements(item)) + self.tooltip_extra(h, item)
+            lines = describe_item(self.g.data, item, s.missing_requirements(item), s.gear) + self.tooltip_extra(h, item)
             self.draw_item_tooltip(screen, lines, item, mouse, h)
 
     # ---- compare (hold Shift over an item in a grid: backpack, stash or merchant)
@@ -227,7 +227,7 @@ class ItemWindow:
         worn = self.worn_for(item) if self.comparing(h) else None
         if worn is not None:  # the worn one beside it, for a side-by-side read
             s = self.g.session
-            worn_lines = [Line("Equipped", "hint"), *describe_item(self.g.data, worn, s.missing_requirements(worn))]
+            worn_lines = [Line("Equipped", "hint"), *describe_item(self.g.data, worn, s.missing_requirements(worn), s.gear)]
             draw_tooltip(screen, self.g.fonts, worn_lines, (box.x, box.y), edge=C.RARITY[int(worn.rarity)], right_edge=box.x, top=box.y)
         return box
 
