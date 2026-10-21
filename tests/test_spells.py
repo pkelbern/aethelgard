@@ -278,3 +278,16 @@ def test_ground_spells_need_a_clear_line_of_sight(data):
     assert "cannot see" in w.apply(UseSkill(0, "fire_wall", None, 7.0, 5.0)), "not inside a wall either"
     s.skills.learned.add("fire_bolt")
     assert w.apply(UseSkill(0, "fire_bolt", None, 9.0, 5.0)) is None, "a bolt can be fired at a wall (it just stops there)"
+
+
+def test_a_wand_in_the_main_hand_goes_with_a_shield(data):
+    s, w, p, m = arena(data, at=(10.0, 5.0))
+    s.inventory.add(Item.plain(data.base("ember_wand")))
+    i = next(i for i, it in enumerate(s.inventory.items) if it.base.id == "ember_wand")
+    r, msg = s.equip_from_backpack(i, "mainhand")
+    assert r.value == "ok", msg
+    assert s.gear.has_shield and s.gear.main_hand.base.id == "ember_wand" and not s.gear.dual_wielding
+    assert w.skill_block_reason(p, "fire_bolt") is None
+    from aethelgard.core.combat import player_attack
+    a = player_attack(s.character, s.skills, s.gear)
+    assert (a.dmg_min, a.dmg_max) == (1, 2), "a wand hits like a fist"

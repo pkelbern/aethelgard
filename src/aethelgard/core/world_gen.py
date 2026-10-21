@@ -5,6 +5,7 @@ Same master seed + same area + same floor = same map, whatever the order of visi
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -184,7 +185,7 @@ class AreaGenerator:
 
         _remove_unreachable(L)
         if area.waypoint:
-            L.waypoint = _nearest_floor(L, (center[0] + 3, center[1]))
+            L.waypoint = _waypoint_spot(L, (center[0] + 3, center[1]))
         _place_spawns(L, spawn_count, 14, 7, rng)
         return L
 
@@ -234,7 +235,7 @@ class AreaGenerator:
         else:
             L.exits.append(Exit(far, ExitKind.STAIRS_DOWN, None))
         if area.waypoint and floor == 0:
-            L.waypoint = _nearest_floor(L, (L.entry[0] + 2, L.entry[1]))
+            L.waypoint = _waypoint_spot(L, (L.entry[0] + WAYPOINT_EXIT_GAP, L.entry[1]))
         _place_spawns(L, spawn_count, 10, 5, rng)
         return L
 
@@ -348,6 +349,21 @@ def _carve_line(L: AreaLayout, a: Cell, b: Cell) -> None:
 def _remove_unreachable(L: AreaLayout) -> None:
     dist = L.distances_from(L.entry)
     L.tiles[(L.tiles == FLOOR) & (dist < 0)] = WALL
+
+
+WAYPOINT_EXIT_GAP = 4  # tiles between a waypoint and any exit (stairs, entrance, edge), so neither covers the other
+
+
+def _waypoint_spot(L: AreaLayout, near: Cell) -> Cell:
+    """The floor cell closest to ``near`` that is reachable and at least WAYPOINT_EXIT_GAP from every exit."""
+    dist = L.distances_from(L.entry)
+    for r in range(max(L.width, L.height)):
+        ring = [(near[0] + dx, near[1] + dy) for dy in range(-r, r + 1) for dx in range(-r, r + 1) if max(abs(dx), abs(dy)) == r]
+        for c in ring:
+            if (L.is_floor(c) and dist[c[1], c[0]] >= 0
+                    and all(math.hypot(c[0] - e.pos[0], c[1] - e.pos[1]) >= WAYPOINT_EXIT_GAP for e in L.exits)):
+                return c
+    return _nearest_floor(L, near)
 
 
 def _nearest_floor(L: AreaLayout, c: Cell) -> Cell:

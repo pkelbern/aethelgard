@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pytest
 
@@ -408,3 +410,20 @@ def test_leaving_an_area_you_come_in_on_the_facing_side_at_the_same_point(data, 
 def test_linked_areas_must_sit_side_by_side_on_the_act_map(fresh_data):
     fresh_data.area("woods").map_pos = [5, 5]
     assert any("not side by side" in e for e in validate(fresh_data))
+
+
+def test_waypoints_never_stand_next_to_an_exit(data):
+    from aethelgard.core.world_gen import WAYPOINT_EXIT_GAP, AreaGenerator
+
+    gen = AreaGenerator(data)
+    checked = 0
+    for area in data.all_areas:
+        if not area.waypoint or area.kind == "town":
+            continue
+        for seed in range(12):
+            L = gen.generate(area, 0, seed, 6)
+            assert L.waypoint is not None
+            near = [e for e in L.exits if math.hypot(e.pos[0] - L.waypoint[0], e.pos[1] - L.waypoint[1]) < WAYPOINT_EXIT_GAP]
+            assert not near, f"{area.id} seed {seed}: waypoint {L.waypoint} next to {near[0].kind}"
+            checked += 1
+    assert checked

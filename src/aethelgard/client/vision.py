@@ -47,8 +47,9 @@ class Vision:
         v = self.visible
         return v is not None and 0 <= cy < v.shape[0] and 0 <= cx < v.shape[1] and bool(v[cy, cx])
 
-    def draw_automap(self, screen: pygame.Surface, layout: AreaLayout, px: float, py: float, big: bool) -> None:
-        """Automap: small in the corner, or large over the screen (Tab)."""
+    def draw_automap(self, screen: pygame.Surface, layout: AreaLayout, px: float, py: float, big: bool,
+                     portal: tuple[float, float] | None = None) -> None:
+        """Automap: small in the corner, or large over the screen (Tab). ``portal`` = the player's town portal here."""
         h, w = layout.tiles.shape
         scale = max(1, min(6, (min(screen.get_width(), screen.get_height()) - 80) // max(w, h))) if big else 2
         # map image: only what was already explored
@@ -74,4 +75,8 @@ class Vision:
         if layout.waypoint and self.explored[layout.waypoint[1], layout.waypoint[0]]:
             wx, wy = layout.waypoint
             pygame.draw.rect(screen, C.WAYPOINT, (pos[0] + wx * scale - 1, pos[1] + wy * scale - 1, scale + 2, scale + 2))
+        if portal is not None:  # a blue gate, a little taller than wide
+            gx, gy = pos[0] + int(portal[0] * scale), pos[1] + int(portal[1] * scale)
+            r = max(2, scale)
+            pygame.draw.ellipse(screen, C.PORTAL, (gx - r, gy - r * 2, r * 2 + 1, r * 3 + 1))
         pygame.draw.circle(screen, C.PLAYER_BODY, (pos[0] + int(px * scale), pos[1] + int(py * scale)), max(2, scale))

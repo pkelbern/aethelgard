@@ -8,6 +8,7 @@ LIFE = (176, 38, 38)
 ENERGY = (48, 102, 214)
 XP = (206, 170, 64)
 EXIT = (232, 196, 82)
+PORTAL = (180, 220, 255)  # the town portal (on the automap too)
 WAYPOINT = (90, 160, 255)
 GUARD = (130, 200, 255)
 NPC = {"vendor": (120, 210, 140), "stash": (200, 170, 110)}

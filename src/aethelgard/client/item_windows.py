@@ -20,7 +20,7 @@ from ..core.describe import Line, compare_items, describe_item
 from ..core.town import item_price, sell_price
 from ..core.world import Buy, BuyConsumable, EquipItem, Sell, StashGold, StashPut, StashTake, UnequipItem
 from . import palette as C
-from .tooltip import draw_panel, draw_tooltip, wrap
+from .tooltip import draw_button, draw_panel, draw_tooltip, wrap
 
 if TYPE_CHECKING:
     from .app import Game
@@ -245,11 +245,7 @@ class ItemWindow:
             y += font.get_height()
 
     def button(self, screen, rect: pygame.Rect, text: str, enabled: bool = True) -> None:
-        hot = enabled and rect.collidepoint(pygame.mouse.get_pos())
-        pygame.draw.rect(screen, (44, 44, 58) if hot else C.PANEL, rect, border_radius=4)
-        pygame.draw.rect(screen, C.GOLD if hot else C.PANEL_EDGE, rect, 1, border_radius=4)
-        img = self.g.fonts["tiny"].render(text, True, C.TEXT if enabled else C.MUTED)
-        screen.blit(img, img.get_rect(center=rect.center))
+        draw_button(screen, self.g.fonts["tiny"], rect, text, enabled)
 
 
 class BagMixin:

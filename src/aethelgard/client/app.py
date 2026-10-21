@@ -45,6 +45,7 @@ from ..core.world import (
 from ..core.world_gen import ExitKind
 from . import palette as C
 from .character_view import CharacterWindow
+from .game_menu import GameMenu
 from .hud import Hud
 from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
@@ -114,6 +115,7 @@ class Game:
         self.art = ArtDownload(self.sprites.lib)
         self.effects = EffectArt(self.sprites.lib)
         self.spell_view = SpellView(self)
+        self.menu = GameMenu(self)
         self.ground_view.art = self.effects
         self.big_map = False
         self.floaters: list[Floater] = []
@@ -476,6 +478,8 @@ class Game:
             if ev.type == pygame.KEYDOWN and ev.key == pygame.K_F1:
                 self.ui.toggle_console()
                 continue
+            if self.menu.handle(ev):
+                continue  # paused: the menu takes everything
             if self.ui.process(ev) or self.ui.typing:
                 continue  # the interface (windows, text field) consumed the event
             if not self.dead and any(w.handle(ev) for w in self.windows):
@@ -486,7 +490,8 @@ class Game:
                 self.hold = None
             elif ev.type == pygame.KEYDOWN:
                 self._on_key(ev.key)
-        if self.dead:
+        if self.dead or self.menu.open:
+            self.hold = None
             return
         self._repeat_held_click()
 
@@ -608,7 +613,7 @@ class Game:
             if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self.respawn()
             elif self.keys.action_for(key) == "cancel":
-                self.running = False
+                self.menu.open = True
             return
         slot = self.keys.slot_for(key)
         if slot is not None:
@@ -642,7 +647,7 @@ class Game:
                 self.ui.close_all()
                 self.close_windows()
             else:
-                self.running = False
+                self.menu.open = True  # nothing to close: the game menu (Resume, Save, Quit)
 
     # ------------------------------------------------------------ console
 
@@ -748,7 +753,8 @@ class Game:
             img.set_alpha(int(255 * max(0, min(1, f.life / 0.9))))
             screen.blit(img, (sx - img.get_width() // 2, sy - 56 - (0.9 - f.life) * 45))
 
-        self.vision.draw_automap(screen, self.world.layout, self.player.x, self.player.y, big=self.big_map)
+        self.vision.draw_automap(screen, self.world.layout, self.player.x, self.player.y, big=self.big_map,
+                                 portal=self.world.portal_spot(self.session.player_id))
         if self.art.status_text:
             img = self.fonts["small"].render(self.art.status_text, True, C.MUTED)
             screen.blit(img, img.get_rect(midtop=(screen.get_width() // 2, 8)))
@@ -765,6 +771,7 @@ class Game:
             tip = None if self.window_at(pygame.mouse.get_pos()) else self.skill_tooltip()
             if tip:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
+        self.menu.draw(screen)
         pygame.display.flip()
 
     def _draw_death_screen(self) -> None:
@@ -992,6 +999,9 @@ class Game:
 
     def tick(self) -> None:
         self.handle_events()
+        if self.menu.open:  # paused (single player): only the picture is kept up to date
+            self.draw()
+            return
         self.world.step(DT)  # the world keeps running while windows are open
         self._update_hover()
         if self.talk_to and self.world.npc_near(self.player, self.talk_to):

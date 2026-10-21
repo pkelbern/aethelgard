@@ -419,7 +419,9 @@ class MonsterActor:
 
     @property
     def reach(self) -> float:
-        return max(1.2, self.monster.type.range)
+        """From its center: arm's length (or its range) plus however much wider than a man it is, so a big
+        body (a boss at 2.2 times the size) still reaches someone standing against it."""
+        return max(1.2, self.monster.type.range) + max(0.0, self.radius - DEFAULT_BODY_RADIUS)
 
     @property
     def radius(self) -> float:

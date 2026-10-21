@@ -41,6 +41,15 @@ def wrap(text: str, font: pygame.font.Font, width: int) -> list[str]:
     return [*out, line]
 
 
+def draw_button(screen: pygame.Surface, font, rect: pygame.Rect, text: str, enabled: bool = True) -> None:
+    """A clickable box that lights up under the mouse (item windows, the game menu)."""
+    hot = enabled and rect.collidepoint(pygame.mouse.get_pos())
+    pygame.draw.rect(screen, (44, 44, 58) if hot else C.PANEL, rect, border_radius=4)
+    pygame.draw.rect(screen, C.GOLD if hot else C.PANEL_EDGE, rect, 1, border_radius=4)
+    img = font.render(text, True, C.TEXT if enabled else C.MUTED)
+    screen.blit(img, img.get_rect(center=rect.center))
+
+
 def draw_panel(screen: pygame.Surface, rect: pygame.Rect, edge=C.PANEL_EDGE, opaque: bool = False) -> None:
     """Background box; ``opaque`` for windows that cover other HUD text."""
     box = pygame.Surface(rect.size, pygame.SRCALPHA)

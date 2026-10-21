@@ -263,3 +263,15 @@ def test_a_cornered_archer_shoots_from_where_it_is(data):
         w.step(DT)
         seen = seen or bool(w.projectiles)
     assert seen
+
+
+def test_a_huge_boss_reaches_whoever_stands_against_it(data):
+    s, w, p, m = arena(data, at=(6.4, 5.0), monster_dmg=(5, 5))
+    m.monster.rank = data.rank("boss")  # 2.2 times the size: its center stays far from the player's
+    contact = m.radius + p.radius
+    assert contact > 1.2, "the old reach (1.2 from the center) could never touch the player"
+    m.x = p.x + contact + 0.05
+    m.alert = True
+    life = p.life
+    run(w, 3.0)
+    assert p.life < life

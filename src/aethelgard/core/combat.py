@@ -182,7 +182,7 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: 
     """STR: damage per point. DEX: accuracy and crit per point (GDD 4.2; balance.json attributes)."""
     a, ap = sheet.attributes, sheet.data.balance.attributes
     w = gear.weapon(hand)
-    dmg_min, dmg_max = (w.base.dmg_min, w.base.dmg_max) if w else (1, 2)
+    dmg_min, dmg_max = (w.base.dmg_min, w.base.dmg_max) if w and w.base.dmg_max > 0 else (1, 2)  # a wand hits like a fist
     if hand == "off" and gear.dual_wielding:  # the weaker hand (Off-Hand Training narrows the gap)
         mult = min(1.0, sheet.data.balance.dual_wield.off_hand_damage_mult + skills.effect("off_hand_training", "offHandDamagePct"))
         dmg_min, dmg_max = dmg_min * mult, dmg_max * mult
