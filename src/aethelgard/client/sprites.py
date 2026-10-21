@@ -24,6 +24,13 @@ from .animation import DIRECTION_NAMES, Pose, choose_pose, direction8, pose_fram
 from .iso import Camera
 
 FADE_SECONDS = 1.5
+MIRROR_PREFIX = "mirror:"
+# facing seen in a horizontal mirror (screen left ↔ right): SW↔NE, W↔N, S↔E; NW and SE stay
+MIRROR = (4, 3, 2, 1, 0, 7, 6, 5)
+
+
+def toggle_mirror(sheet_id: str) -> str:
+    return sheet_id[len(MIRROR_PREFIX) :] if sheet_id.startswith(MIRROR_PREFIX) else MIRROR_PREFIX + sheet_id
 MOVE_EPSILON = 0.002  # tiles per frame below which an actor is standing still
 MISSING_SIZE = (22, 46)  # the "no sprite" stand-in, about the size of a person
 MISSING_COLORS = ((255, 0, 220), (20, 0, 20))
@@ -75,6 +82,25 @@ class SpriteSheet:
         return out
 
 
+class MirroredSheet:
+    """A sheet seen in a mirror: frame (anim, i, d) is the base frame of the mirrored facing, flipped.
+    Gives left-hand weapons from right-hand art (the art has none of its own)."""
+
+    def __init__(self, base: SpriteSheet):
+        self.base = base
+        self.anims = base.anims
+        self._cache: dict[tuple, tuple] = {}
+
+    def frame(self, anim: str, index: int, direction: int, scale: float = 1.0, flash: int = 0):
+        key = (anim, index, direction, round(scale, 3), flash)
+        hit = self._cache.get(key)
+        if hit is None:
+            surf, ox, oy = self.base.frame(anim, index, MIRROR[direction], scale, flash)
+            hit = (None, 0, 0) if surf is None else (pygame.transform.flip(surf, True, False), surf.get_width() - ox, oy)
+            self._cache[key] = hit
+        return hit
+
+
 class SpriteLibrary:
     def __init__(self, config: dict | None = None, art_dir: Path | None = None):
         self.cfg = config if config is not None else load_config()
@@ -88,7 +114,11 @@ class SpriteLibrary:
     def sheet(self, sheet_id: str) -> SpriteSheet | None:
         """The sheet, or None when its files are missing or broken (the actor is drawn as "missing")."""
         if sheet_id not in self._sheets:
-            self._sheets[sheet_id] = self._load(sheet_id)
+            if sheet_id.startswith(MIRROR_PREFIX):
+                base = self.sheet(sheet_id[len(MIRROR_PREFIX) :])
+                self._sheets[sheet_id] = MirroredSheet(base) if base is not None else None
+            else:
+                self._sheets[sheet_id] = self._load(sheet_id)
         return self._sheets[sheet_id]
 
     def _load(self, sheet_id: str) -> SpriteSheet | None:
@@ -130,10 +160,22 @@ class SpriteLibrary:
             return None
         out = dict(look["layers"])
         allowed = self.cfg.get("slotLayers", {})
+        mirrored = self.cfg.get("mirroredLayers", {})
         for slot, base_id in equipped:
-            layers = self.gear.get(base_id, {})
+            layers = dict(self.gear.get(base_id, {}))
+            for src, dst in mirrored.get(slot, {}).items():  # a sword in the off hand: its right-hand art, mirrored
+                if src in layers and dst not in layers:
+                    layers[dst] = toggle_mirror(layers.pop(src))
             keep = allowed.get(slot)
             out.update({k: v for k, v in layers.items() if keep is None or k in keep})
+        return out
+
+    @staticmethod
+    def swap_hands(layers: dict[str, str]) -> dict[str, str]:
+        """Layers for a figure drawn in a mirror (the off hand's swing): each weapon goes to the other hand."""
+        out = dict(layers)
+        if "main" in layers and layers.get("off", "").startswith(MIRROR_PREFIX):  # only a mirrored weapon; never a shield
+            out["main"], out["off"] = toggle_mirror(layers["off"]), toggle_mirror(layers["main"])
         return out
 
     def ordered(self, layers: dict[str, str], direction: int) -> list[str]:
@@ -220,8 +262,12 @@ class ActorSprites:
     # ---- drawing
 
     def draw_actor(self, screen: pygame.Surface, cam: Camera, key: tuple[str, int], actor, layers: dict[str, str],
-                   *, attack_anim: str = "swing", scale: float = 1.0, guarding: bool = False, hit_flash: bool = True) -> pygame.Rect:
-        """Draws one actor and returns the screen box it covers (also kept in ``rects``)."""
+                   *, attack_anim: str = "swing", scale: float = 1.0, guarding: bool = False, hit_flash: bool = True,
+                   mirrored: bool = False) -> pygame.Rect:
+        """Draws one actor and returns the screen box it covers (also kept in ``rects``).
+
+        ``mirrored``: the whole figure seen in a mirror, so its left arm does what the art's right arm does
+        (the off hand's swing); pass the layers through ``swap_hands`` so the right weapon is in that arm."""
         t = self._track(key, actor)
         duration = getattr(actor, "attack_duration", 0.0) or 0.0
         pose = choose_pose(
@@ -235,7 +281,15 @@ class ActorSprites:
             stride_cycles=t.stride / self.lib.cfg.get("strideTiles", 1.7),
         )
         flash = self.lib.cfg.get("hitFlash", 0) if hit_flash and actor.state in ("hit_recovery", "stunned") else 0
-        rect = self._blit(screen, cam.to_screen(actor.x, actor.y), self.lib.ordered(layers, t.direction), pose, t.direction, scale, flash)
+        if mirrored:  # drawn from the mirrored facing, every sheet flipped: same direction on screen
+            sheets = [toggle_mirror(s) for s in self.lib.ordered(layers, MIRROR[t.direction])]
+        else:
+            sheets = self.lib.ordered(layers, t.direction)
+        held = None
+        if actor.state == "attacking" and "off" in layers and layers.get("main", "").split(":")[-1] != layers["off"].split(":")[-1]:
+            # two weapons: the one in the hand that is not striking stays in its guard pose
+            held = toggle_mirror(layers["off"]) if mirrored else layers["off"]
+        rect = self._blit(screen, cam.to_screen(actor.x, actor.y), sheets, pose, t.direction, scale, flash, held=held)
         self.rects[key] = rect
         return rect
 
@@ -260,7 +314,8 @@ class ActorSprites:
         self.rects[key] = rect
         return rect
 
-    def _blit(self, screen, pos, sheets: list[str], pose: Pose, direction: int, scale: float, flash: int, alpha: int = 255) -> pygame.Rect:
+    def _blit(self, screen, pos, sheets: list[str], pose: Pose, direction: int, scale: float, flash: int, alpha: int = 255,
+              held: str | None = None) -> pygame.Rect:
         sx, sy = pos
         loaded = [self.lib.sheet(s) for s in sheets]
         if not loaded or any(s is None for s in loaded):  # one missing layer is enough: the stand-in shows something is wrong
@@ -274,10 +329,11 @@ class ActorSprites:
                 surf.set_alpha(alpha)
             return screen.blit(surf, (sx - surf.get_width() // 2, sy - surf.get_height()))
         box = pygame.Rect(sx, sy, 0, 0)
-        for sheet in loaded:
-            anim = self.lib.anim_for(sheet, pose.anim)
+        for sheet_id, sheet in zip(sheets, loaded, strict=True):
+            p = Pose("stance", "clock", 0.0) if sheet_id == held else pose
+            anim = self.lib.anim_for(sheet, p.anim)
             a = sheet.anims[anim]
-            index = pose_frame(pose, a["frames"], a["seconds"], a["loop"])
+            index = pose_frame(p, a["frames"], a["seconds"], a["loop"])
             surf, ox, oy = sheet.frame(anim, index, direction, scale, flash)
             if surf is None:
                 continue

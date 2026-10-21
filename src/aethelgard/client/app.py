@@ -792,8 +792,11 @@ class Game:
             self._draw_player_shapes(p)
             return
         sx, sy = self.cam.to_screen(p.x, p.y)
+        off_swing = p.state == "attacking" and p.attack_hand == "off" and p.session.gear.dual_wielding
+        if off_swing:  # the left arm strikes: the figure is drawn mirrored, weapons swapped
+            layers = self.sprites.lib.swap_hands(layers)
         self.sprites.draw_actor(self.screen, self.cam, ("p", p.player_id), p, layers, scale=self.sprites.lib.draw_scale("player"),
-                                guarding=p.guarding)
+                                guarding=p.guarding, mirrored=off_swing)
         if p.guarding and p.state != "dead":
             self._draw_guard_arc(p, sx, sy)
 

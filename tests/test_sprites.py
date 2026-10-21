@@ -363,7 +363,11 @@ def test_missing_sprite_draws_an_obvious_stand_in(screen, cfg, tmp_path):
     assert layers["main"] == "flare/male/shortsword" and layers["off"] == "flare/male/buckler"
     assert layers["chest"] == "flare/male/chain_cuirass", "armor replaces the bare chest"
     dual = lib.layers("player", [("mainhand", "long_sword"), ("offhand", "short_sword")])
-    assert dual["main"] == "flare/male/longsword" and "off" not in dual, "an off-hand sword never takes the main hand's place"
+    assert dual["main"] == "flare/male/longsword", "an off-hand sword never takes the main hand's place"
+    assert dual["off"] == "mirror:flare/male/shortsword", "it is drawn in the left hand: right-hand art, mirrored"
+    swapped = lib.swap_hands(dual)
+    assert swapped["main"] == "flare/male/shortsword" and swapped["off"] == "mirror:flare/male/longsword"
+    assert lib.swap_hands(layers) == layers, "a shield never changes hands"
 
     screen.fill((0, 0, 0))
     box = spr.draw_actor(screen, Camera(200, 200), ("p", 0), Actor(), layers)
@@ -406,3 +410,38 @@ def test_draws_real_frames_fallback_animations_and_corpses(screen, cfg, tmp_path
     spr.draw_corpses(screen, Camera(200, 200), lambda x, y: True)
     spr.tick(60)
     assert spr.corpses == [], "bodies go away"
+
+
+def test_mirrored_sheet_flips_the_mirrored_facing(screen, cfg, tmp_path):
+    from aethelgard.client.sprites import MIRROR, SpriteLibrary
+
+    assert all(MIRROR[MIRROR[d]] == d for d in range(DIRECTIONS)), "mirroring twice is the identity"
+    assert [DIRECTION_NAMES[MIRROR[d]] for d in range(DIRECTIONS)] == ["NE", "N", "NW", "W", "SW", "S", "SE", "E"]
+    c = small_cfg(cfg)
+    fetch_art(c, tmp_path / "art", fake_web(tmp_path, c))
+    lib = SpriteLibrary(c, tmp_path / "art")
+    base, mirrored = lib.sheet("flare/male/shortsword"), lib.sheet("mirror:flare/male/shortsword")
+    for d in range(DIRECTIONS):
+        surf, ox, oy = mirrored.frame("swing", 0, d)
+        src, sx, sy = base.frame("swing", 0, MIRROR[d])
+        assert surf.get_size() == src.get_size() and (ox, oy) == (src.get_width() - sx, sy)
+        assert surf.get_at((0, 0)) == src.get_at((src.get_width() - 1, 0)), "flipped left ↔ right"
+    assert lib.sheet("mirror:flare/male/nothing") is None
+
+
+def test_dual_wield_swings_draw_both_weapons(screen, cfg, tmp_path):
+    from aethelgard.client.iso import Camera
+    from aethelgard.client.sprites import ActorSprites, SpriteLibrary
+
+    c = small_cfg(cfg)
+    c["gear"]["long_sword"] = cfg["gear"]["long_sword"]
+    c["gear"]["long_sword"]["main"] = cfg["gear"]["short_sword"]["main"]  # the fake web only has the short sword
+    fetch_art(c, tmp_path / "art", fake_web(tmp_path, c))
+    lib = SpriteLibrary(c, tmp_path / "art")
+    spr = ActorSprites(lib)
+    layers = lib.layers("player", [("mainhand", "short_sword"), ("offhand", "short_sword")])
+    for mirrored in (False, True):
+        screen.fill((0, 0, 0))
+        drawn = layers if not mirrored else lib.swap_hands(layers)
+        box = spr.draw_actor(screen, Camera(200, 200), ("p", 0), Actor(), drawn, mirrored=mirrored)
+        assert box.w > 0 and not _has_magenta(screen, box)
