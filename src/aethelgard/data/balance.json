@@ -94,6 +94,10 @@
     "playerTilesPerSecond": 6.5,
     "monsterBaseTilesPerSecond": 3.75
   },
+  "exits": {
+    "_comment": "An exit (edge, entrance, stairs) takes you when you step within touchRadiusTiles of its cell: a target of about three cells instead of one. It fires when you walk in; arriving inside the zone does not send you back until you step out and in again.",
+    "touchRadiusTiles": 1.4
+  },
   "guard": {
     "_comment": "Active block (hold the guard button). Blocks physical hits inside the front arc; each block costs Energy. A block never stops everything: it stops blockReduction of the hit (+ shield base + Defensive Stance), at most blockReductionCap, and armor works on what passes. Perfect window at the start of the guard: zero cost, blockReductionCap stopped and counterattack (Parry). After lowering the guard, it can only be raised again after guardRaiseCooldownSeconds (prevents perfect-parry abuse).",
     "arcDegrees": 120,
@@ -108,8 +112,9 @@
     "blockReductionCap": 0.95
   },
   "collision": {
-    "_comment": "Bodies do not overlap: the player and monsters block each other, and monsters block monsters. Radii in tiles; a monster's radius = its type radius x its rank sizeMult. A monster type with collides=false (monsters.json) passes through bodies, and the target frame says so.",
-    "playerRadius": 0.3
+    "_comment": "Bodies do not overlap: the player and monsters block each other, and monsters block monsters. Radii in tiles; a monster's radius = its type radius x its rank sizeMult. Bodies are about as wide as their sprites (a 0.42 radius is ~19 px each side on screen for a ~45 px wide hero). Walls stop the edge of the body, not only its center: up to wallMarginMax (a corridor one cell wide still fits anyone). A monster type with collides=false (monsters.json) passes through bodies, and the target frame says so.",
+    "playerRadius": 0.42,
+    "wallMarginMax": 0.45
   },
   "timing": {
     "_comment": "Action timings (GDD 7.7). All durations in seconds. 'faster…' shortens the duration: duration = base / (1 + bonus).",

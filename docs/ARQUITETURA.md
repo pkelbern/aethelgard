@@ -49,6 +49,10 @@ core/                   regras, sem pygame
 ## Bloqueio e colisão
 
 - `CombatMath.resolve_physical`: acerto → guarda (para `stopped` = golpe × parcela, no máximo `blockReductionCap`) → armadura sobre `raw − stopped` → dano final. Bloqueio nunca zera o dano.
+- Corpos e saídas (`balance.json`): raio do jogador 0,42 e dos monstros pelo tipo (do tamanho do sprite); `World.clear_of_walls`
+  não deixa a borda do corpo (caixa de ±raio, até `wallMarginMax`) entrar em parede — quem já nasceu encostado pode se mover.
+  `World.exit_at` = saída cuja zona (`exits.touchRadiusTiles` em volta da célula) contém o ponto; `PlayerActor.in_exit`
+  faz a saída disparar só ao entrar na zona.
 - `World._step_towards`: um passo; se bate em parede desliza pelos eixos, se bate em corpo desliza pela borda dele. `blocked_by_body` sempre deixa se afastar de uma sobreposição. Corpo morto não bloqueia.
 
 ## Projéteis, loot no chão e líderes

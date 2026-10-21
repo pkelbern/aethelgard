@@ -699,6 +699,7 @@ class Game:
         for prop in props:
             if prop.flat:  # stairs going down, the waypoint: part of the floor
                 self.map.draw_prop(screen, cam, prop)
+        self.map.draw_exit_zones(screen, cam, self.data.balance.exits.touch_radius_tiles, self.sprites.clock, self.vision.explored)
         self.map.draw_markers(screen, cam, self.fonts["tiny"], self.area_names, self.vision.explored)
         drops = self.visible_drops()
         self.sprites.draw_corpses(screen, cam, self.vision.sees)  # bodies lie under what they dropped
@@ -727,6 +728,7 @@ class Game:
 
         for proj in self.world.projectiles.values():
             self._draw_projectile(proj)
+        self.map.draw_exit_labels(screen, cam, self.fonts["small"], self.area_names, self.vision.explored)
         self.ground_view.draw_labels(screen, cam, drops, self.keys.held("showItems"), self.hovered_drop, pygame.mouse.get_pos())
 
         for f in self.floaters:

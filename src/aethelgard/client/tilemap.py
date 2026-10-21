@@ -90,6 +90,8 @@ class MapArt:
         self.under = bool(theme.get("under"))
         self.scale = lib.cfg.get("tiles", {}).get("objectScale", 1.0)
         self._props: dict[tuple[int, int], list[Prop]] = {}
+        self._exits = [e.pos for e in layout.exits]
+        self.exit_clearance = lib.cfg.get("tiles", {}).get("exitClearance", 3)
         self.objects, self.npcs = self._place_objects()
 
     # ---- building
@@ -152,7 +154,7 @@ class MapArt:
             if self._touches_floor(x, y) and self.wall_back:  # between the camera and the room
                 return Prop(x, y, self.sheet, weighted_pick(self.wall_back, h), wall=True, alpha=self.theme.get("backAlpha", 255))
             return None
-        if self.props_weights:  # open ground: trees and rocks, dense at the edge of the clearings
+        if self.props_weights and not self._near_exit(x, y):  # open ground: trees and rocks, dense at the edge of the clearings
             chances = self.theme.get("propChance", [0.5])
             chances = chances if isinstance(chances, list) else [chances]
             for r, chance in enumerate(chances, 1):
@@ -161,6 +163,11 @@ class MapArt:
                         return Prop(x, y, self.sheet, weighted_pick(self.props_weights, h >> 10), scale=self.scale, wall=True)
                     break
         return None
+
+    def _near_exit(self, x: int, y: int) -> bool:
+        """Nothing tall around an exit: its sign and its zone stay in sight."""
+        r = self.exit_clearance
+        return any(abs(x - ex) <= r and abs(y - ey) <= r for ex, ey in self._exits)
 
     def _near_floor(self, x: int, y: int, r: int) -> bool:
         L = self.layout

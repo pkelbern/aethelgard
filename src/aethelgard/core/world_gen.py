@@ -176,7 +176,7 @@ class AreaGenerator:
         _carve_room(L, center, 4)
         for e in L.exits:
             _carve_path(L, center, e.pos, 1, rng)
-            _carve_room(L, e.pos, 2 if e.kind == ExitKind.ENTRANCE else 1)
+            _carve_room(L, e.pos, 3 if e.kind == ExitKind.ENTRANCE else 2)  # room around it: its touch zone is open ground
         L.tiles[0, :] = L.tiles[-1, :] = WALL
         L.tiles[:, 0] = L.tiles[:, -1] = WALL
         for e in L.exits:

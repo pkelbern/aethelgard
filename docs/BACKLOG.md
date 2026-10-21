@@ -34,7 +34,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [x] **M0-05** Movimento por clique com A* _(código, ~1 d)_  
   A* com 8 direções sem cortar quinas; deslizar em paredes.
 - [ ] **M0-06** Medir FPS com 60 monstros _(código, ~0.5 d)_  
-  Contador de FPS e cena de estresse. Se faltar desempenho: só atualizar monstros perto do jogador e agrupar o desenho.
+  Contador de FPS e cena de estresse. Se faltar desempenho: só atualizar monstros perto do jogador e agrupar o desenho. Medido sem tela (out/2026): 60 monstros amontoados num quadrado 8×8 na planície ~51 fps, cripta ~70 fps; o custo maior é colisão entre corpos (`blocked_by_body` é O(n²)): grade espacial resolve.
 - [ ] **M0-07** Gamepad: andar com analógico _(código, ~1 d)_  
   pygame.joystick: analógico esquerdo anda, A ataca o mais próximo, LT ergue a guarda.
 - [x] **M0-08** Adotar bibliotecas de jogo _(código, ~1.5 d)_  
@@ -71,7 +71,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M1-11** Bloqueio parcial: o golpe bloqueado ainda fere _(balanceamento, ~0.5 d)_ — **escrito, validar**  
   O bloqueio para 70% do golpe (balance.guard.blockReduction) + base do escudo (0/5/10/15%) + Postura Defensiva (+2,5%/ponto), no máximo 95% (blockReductionCap); a armadura age sobre o que passa. Aparo perfeito para 95%. Validar no jogo se 70% de base está bom.
 - [ ] **M1-12** Colisão entre corpos _(código, ~1 d)_ — **escrito, validar**  
-  Jogador e monstros não se atravessam; contorno pela borda do corpo; grupos nascem sem sobreposição. Raio por tipo (monsters.json) × sizeMult do rank; monstro sem corpo exige collides=false explícito e o quadro do alvo avisa ("Ethereal"). Bichos largos com corpo maior (Lobo 0,45, Lobo Alfa e Javali 0,5; humanoides 0,3): o alcance corpo a corpo conta até a borda do corpo.
+  Jogador e monstros não se atravessam; contorno pela borda do corpo; grupos nascem sem sobreposição. Raio por tipo (monsters.json) × sizeMult do rank; monstro sem corpo exige collides=false explícito e o quadro do alvo avisa ("Ethereal"). Corpos do tamanho dos sprites (out/2026): humanoides 0,42, Zumbi 0,46, Lobo 0,6, Lobo Alfa e Javali 0,66; o alcance corpo a corpo conta até a borda do corpo. Paredes param a borda do corpo (caixa de ±raio, até `collision.wallMarginMax` 0,45, então corredor de 1 célula ainda passa).
 - [ ] **M1-13** Segurar o botão do mouse repete o clique _(UI, ~0.5 d)_ — **escrito, validar**  
   Segurando no chão continua andando para o cursor; segurando num monstro continua atacando-o até ele morrer.
 - [ ] **M1-17** Sem combate na cidade _(regra, ~0.2 d)_ — **escrito, validar**  
@@ -149,7 +149,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [x] **M5-01** Gerador de áreas abertas e masmorras por seed _(código, ~2 d)_  
   AreaGenerator com validação e 100 seeds por área nos testes.
 - [x] **M5-02** Transições: bordas, entradas, escadas _(código, ~0.5 d)_  
-  Chegada ao lado da saída de origem, sem voltar sem querer.
+  Chegada ao lado da saída de origem, sem voltar sem querer. Saída é uma zona (raio `exits.touchRadiusTiles` 1,4) que dispara ao entrar nela; chegar dentro dela não leva de volta. No mapa: área dourada pulsando do tamanho da zona, placa/escada/boca de caverna maiores, nome do destino numa plaqueta por cima de tudo, sem árvores num raio de 3 células.
 - [ ] **M5-03** Prefabs feitos à mão nas áreas abertas _(código, ~3 d)_  
   Acampamentos, ruínas, santuários e baús desenhados no Tiled (.tmx) e carimbados na geração pela seed.
 - [ ] **M5-04** Salas pré-montadas nas masmorras _(código, ~3 d)_  

@@ -223,7 +223,7 @@ def test_no_fighting_in_town(data):
 def test_wide_beasts_have_a_bigger_hitbox(data):
     s, w, p, m = arena(data)
     m.monster.type = data.monster_type("wolf")
-    assert m.radius == pytest.approx(0.45)
+    assert m.radius == pytest.approx(0.6)
     m.x = 5.0 + 1.5  # 1.5 tiles from the center: too far for a man-sized body, in reach of a wolf's side
     assert w.in_reach(p, m)
     m.monster.type = data.monster_type("bandit")

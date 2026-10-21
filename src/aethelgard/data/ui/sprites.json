@@ -55,7 +55,7 @@
   },
   "fallbacks": { "hit": ["block", "stance"], "block": ["stance"], "die": ["critdie", "stance"], "cast": ["swing"], "shoot": ["swing"], "swing": ["stance"], "run": ["stance"] },
   "tiles": {
-    "_comment": "Map art (client only). themes: one per kind of area; areaThemes picks one by area id, else by kind (town | open | dungeon). sheet = a Flare tileset (tile ids are Flare's). floor = weights of the floor tiles (random per cell, the same every time). Dungeon-like themes: a wall cell next to the floor shows wallE when the floor is east of it (+x, down-right on screen: its face looks at the room), wallS when it is south (+y), and wallBack otherwise (walls between the camera and the room; they turn see-through when the hero is behind). backAlpha = opacity of wallBack (0–255). Open themes: grass under everything (under = true) and props (trees, rocks) on wall cells; propChance = chance by distance to the nearest floor (1, 2, 3 cells), dense at the edge so blocked ground reads as blocked. objects: map features (tile on a sheet, or a look for NPCs); 'flat' ones lie on the floor, the others are sorted with the actors; scale shrinks Flare's big set pieces to our cells; a theme can override an object. objectScale: props and objects are 1/3 of Flare's size, like the tiles.",
+    "_comment": "Map art (client only). themes: one per kind of area; areaThemes picks one by area id, else by kind (town | open | dungeon). sheet = a Flare tileset (tile ids are Flare's). floor = weights of the floor tiles (random per cell, the same every time). Dungeon-like themes: a wall cell next to the floor shows wallE when the floor is east of it (+x, down-right on screen: its face looks at the room), wallS when it is south (+y), and wallBack otherwise (walls between the camera and the room; they turn see-through when the hero is behind). backAlpha = opacity of wallBack (0–255). Open themes: grass under everything (under = true) and props (trees, rocks) on wall cells; propChance = chance by distance to the nearest floor (1, 2, 3 cells), dense at the edge so blocked ground reads as blocked. objects: map features (tile on a sheet, or a look for NPCs); 'flat' ones lie on the floor, the others are sorted with the actors; scale shrinks Flare's big set pieces to our cells; a theme can override an object. objectScale: props and objects are 1/3 of Flare's size, like the tiles. exitClearance: no trees or rocks within this many cells of an exit, so its sign and glowing zone stay in sight.",
     "themes": {
       "open": {
         "sheet": "flare/tiles/grassland",
@@ -92,12 +92,13 @@
     "areaThemes": { "village": "town", "cave": "cave", "crypt": "crypt" },
     "kindThemes": { "town": "town", "open": "open", "dungeon": "crypt" },
     "objectScale": 1.0,
+    "exitClearance": 3,
     "objects": {
       "waypoint":   { "sheet": "flare/tiles/grassland", "tiles": [264, 265], "flat": true, "scale": 0.5 },
-      "stairsDown": { "sheet": "flare/tiles/dungeon", "tile": 286, "flat": true, "scale": 0.45 },
-      "stairsUp":   { "sheet": "flare/tiles/dungeon", "tile": 284, "scale": 0.45 },
-      "entrance":   { "sheet": "flare/tiles/grassland", "tile": 227, "scale": 0.8 },
-      "exit":       { "sheet": "flare/tiles/grassland", "tile": 138, "scale": 0.8 },
+      "stairsDown": { "sheet": "flare/tiles/dungeon", "tile": 286, "flat": true, "scale": 0.7 },
+      "stairsUp":   { "sheet": "flare/tiles/dungeon", "tile": 284, "scale": 0.7 },
+      "entrance":   { "sheet": "flare/tiles/grassland", "tile": 227, "scale": 1.25 },
+      "exit":       { "sheet": "flare/tiles/grassland", "tile": 138, "scale": 1.2 },
       "stash":      { "sheet": "flare/tiles/grassland", "tile": 76, "scale": 0.8 },
       "vendor":     { "look": "trader" }
     }

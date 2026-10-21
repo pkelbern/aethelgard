@@ -218,9 +218,14 @@ def test_area_exit_emits_an_event(data):
     p = w.players[0]
     target = next(e for e in w.layout.exits if e.target_area == "village")
     w.monsters.clear()
-    p.x, p.y = float(target.pos[0]), float(target.pos[1])
+    p.x, p.y = map(float, w._inward(target.pos))  # just outside its zone, as on arrival
     run(w, 1.0)
-    assert exits and exits[0].target_area == "village"
+    assert not exits, "standing next to it does nothing"
+    w.apply(MoveTo(0, *target.pos))
+    run(w, 2.0)
+    assert len(exits) == 1 and exits[0].target_area == "village", "walking in takes you"
+    r = data.balance.exits.touch_radius_tiles
+    assert w.exit_at(target.pos[0] + r * 0.9, target.pos[1]) is target, "a zone, not a single cell"
 
 
 def test_arrival_next_to_the_exit_you_came_from(data):
@@ -230,7 +235,8 @@ def test_arrival_next_to_the_exit_you_came_from(data):
     p = w.players[0]
     entrance = next(e for e in w.layout.exits if e.target_area == "cave")
     assert (round(p.x), round(p.y)) != entrance.pos
-    assert abs(p.x - entrance.pos[0]) + abs(p.y - entrance.pos[1]) <= 2
+    d = abs(p.x - entrance.pos[0]) + abs(p.y - entrance.pos[1])
+    assert d <= 3 and w.exit_at(p.x, p.y) is None, "beside it, outside its zone"
 
 
 # ---------------------------------------------------------------- bodies and death
@@ -335,3 +341,27 @@ def test_first_areas_have_smaller_packs(data):
         for p in sp.spawn_area(data.area("plains"), 0, Rng(seed)):
             if p.kind == PackKind.NORMAL:
                 assert 2 <= len(p.members) <= 3
+
+
+def test_walls_stop_the_edge_of_the_body_and_corridors_still_fit(data):
+    from aethelgard.core.world_gen import WALL
+
+    s, w, p, m = arena(data, monster_dmg=(0.01, 0.01), at=(10.0, 10.0))
+    w.monsters.clear()
+    L = w.layout
+    L.tiles[:, 8] = WALL  # a wall along x = 8 (its face at x = 7.5)
+    L.tiles[5, 8] = 1  # with a one-cell gap at y = 5
+    w.apply(MoveTo(0, 7.4, 3.0))
+    run(w, 3.0)
+    edge = min(p.radius, data.balance.collision.wall_margin_max)
+    assert p.x <= 7.5 - edge + 1e-6, "the body stops at the wall, not half inside it"
+    p.x, p.y = 5.0, 5.0
+    w.apply(MoveTo(0, 10.0, 5.0))
+    run(w, 3.0)
+    assert p.x == pytest.approx(10.0, abs=0.05), "a one-cell corridor fits the body"
+
+
+def test_bodies_are_about_as_wide_as_their_sprites(data):
+    assert data.balance.collision.player_radius >= 0.4
+    t = {x.id: x for x in data.monsters.types}
+    assert t["skeleton"].radius >= 0.4 and t["wolf"].radius > t["skeleton"].radius

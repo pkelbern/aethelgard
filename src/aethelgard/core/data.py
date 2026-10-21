@@ -216,7 +216,13 @@ class DualWieldParams:
 
 @dataclass
 class CollisionParams:
-    player_radius: float = 0.3
+    player_radius: float = 0.42
+    wall_margin_max: float = 0.45
+
+
+@dataclass
+class ExitParams:
+    touch_radius_tiles: float = 1.4
 
 
 @dataclass
@@ -245,6 +251,7 @@ class BalanceData:
     death: DeathParams = field(default_factory=DeathParams)
     guard: GuardParams = field(default_factory=GuardParams)
     movement: MovementParams = field(default_factory=MovementParams)
+    exits: ExitParams = field(default_factory=ExitParams)
     timing: TimingParams = field(default_factory=TimingParams)
     collision: CollisionParams = field(default_factory=CollisionParams)
     dual_wield: DualWieldParams = field(default_factory=DualWieldParams)
@@ -335,7 +342,7 @@ class MonsterTypeDef:
     attack_rate: float = 1.0
     range: float = 1
     ai: str = "melee"
-    radius: float = 0.3  # body, in tiles (times the rank sizeMult)
+    radius: float = 0.42  # body, in tiles (times the rank sizeMult)
     collides: bool = True  # False: passes through bodies (must be explicit in monsters.json)
     projectile: ProjectileDef | None = None  # ranged attacker
     leader: LeaderDef | None = None  # spawns only at the head of a pack and buffs the others

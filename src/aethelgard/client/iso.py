@@ -176,6 +176,42 @@ class MapRenderer:
         self._fog[(cx, cy)] = (seen, fog)
         return fog
 
+    def draw_exit_zones(self, screen: pygame.Surface, cam: Camera, radius: float, clock: float, explored=None) -> None:
+        """On the floor, under everything: a glowing area as big as the exit's touch zone, gently pulsing."""
+        key = round(radius, 2)
+        if getattr(self, "_zone_key", None) != key:
+            w, h = round(2 * radius * HALF_W * math.sqrt(2)), round(2 * radius * HALF_H * math.sqrt(2))
+            self._zone_key, self._zone = key, (w, h)
+        w, h = self._zone
+        pulse = 0.5 + 0.5 * math.sin(clock * 3.0)
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        r, g, b = C.EXIT
+        pygame.draw.ellipse(surf, (r, g, b, int(35 + 35 * pulse)), surf.get_rect())
+        pygame.draw.ellipse(surf, (r, g, b, int(140 + 90 * pulse)), surf.get_rect(), 2)
+        pygame.draw.ellipse(surf, (255, 255, 230, int(60 + 60 * pulse)), surf.get_rect().inflate(-w // 3, -h // 3), 1)
+        for e in self.layout.exits:
+            if explored is None or explored[e.pos[1], e.pos[0]]:
+                sx, sy = cam.to_screen(*e.pos)
+                screen.blit(surf, (sx - w // 2, sy - h // 2))
+
+    def draw_exit_labels(self, screen: pygame.Surface, cam: Camera, font: pygame.font.Font, area_names: dict[str, str], explored=None) -> None:
+        """Over everything: where each exit goes, on a dark plate above its art (stairs, sign, cave mouth)."""
+        tops = {(p.x, p.y): self.prop_rect(cam, p).top for p in self.art.objects} if self.art else {}
+        for e in self.layout.exits:
+            if explored is not None and not explored[e.pos[1], e.pos[0]]:
+                continue
+            sx, sy = cam.to_screen(*e.pos)
+            name = area_names.get(e.target_area or "", "")
+            label = {ExitKind.STAIRS_DOWN: "Stairs down", ExitKind.STAIRS_UP: "Stairs up"}.get(e.kind) or (f"To {name}" if name else "Exit")
+            img = font.render(label, True, C.EXIT)
+            top = min(tops.get(tuple(e.pos), sy - 30), sy - 30)
+            box = img.get_rect(midbottom=(sx, top - 4)).inflate(12, 6)
+            plate = pygame.Surface(box.size, pygame.SRCALPHA)
+            plate.fill((0, 0, 0, 170))
+            screen.blit(plate, box.topleft)
+            pygame.draw.rect(screen, C.EXIT, box, 1)
+            screen.blit(img, img.get_rect(center=box.center))
+
     def draw_markers(self, screen: pygame.Surface, cam: Camera, font: pygame.font.Font, area_names: dict[str, str], explored=None) -> None:
         """Exits, waypoint and NPCs, but only where the fog of war has been lifted (same rule as the automap)."""
         L = self.layout
@@ -184,16 +220,6 @@ class MapRenderer:
             return explored is None or bool(explored[round(c[1]), round(c[0])])
 
         art = self.art
-        for e in L.exits:
-            if not seen(e.pos):
-                continue
-            sx, sy = cam.to_screen(*e.pos)
-            if art is None or not art.has_art(e.pos):
-                pygame.draw.polygon(screen, C.EXIT, diamond(sx, sy, 0.8))
-            label = {ExitKind.STAIRS_DOWN: "Down", ExitKind.STAIRS_UP: "Up"}.get(e.kind) or area_names.get(e.target_area or "", "")
-            img = font.render(label, True, C.EXIT)
-            lift = 30 if art is None or not art.has_art(e.pos) else 95  # above the signpost or the stairs
-            screen.blit(img, (sx - img.get_width() // 2, sy - lift))
         if L.waypoint and seen(L.waypoint) and (art is None or not art.has_art(L.waypoint)):
             sx, sy = cam.to_screen(*L.waypoint)
             pygame.draw.polygon(screen, C.WAYPOINT, diamond(sx, sy, 0.7))

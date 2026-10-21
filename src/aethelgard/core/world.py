@@ -28,6 +28,7 @@ from .combat import (
     player_guard,
     with_bonus,
 )
+from .data import MonsterTypeDef
 from .events import (
     ConsumableUsed,
     DamageDealt,
@@ -57,7 +58,7 @@ from .timing import (
     skill_cooldown,
 )
 from .town import Vendor, item_price, sell_price
-from .world_gen import AreaLayout, Exit, ExitKind
+from .world_gen import FLOOR, AreaLayout, Exit, ExitKind
 
 # Skills with behavior implemented in the prototype; the rest are in the backlog (M3-04).
 TARGET_SKILLS = {"precise_strike", "shield_bash", "double_strike", "frenzy"}
@@ -80,7 +81,7 @@ def is_implemented(node_id: str) -> bool:
     return node_id in IMPLEMENTED_SKILLS or node_id in IMPLEMENTED_PASSIVES
 
 MELEE_RANGE = 1.4
-DEFAULT_BODY_RADIUS = 0.3  # a man-sized body; wider ones (wolves, boars) are reached that much sooner
+DEFAULT_BODY_RADIUS = MonsterTypeDef.radius  # a man-sized body (monsters.json default); wider ones are reached that much sooner
 AGGRO_RADIUS = 8.0
 EXIT_COOLDOWN = 0.8
 
@@ -282,6 +283,7 @@ class PlayerActor:
     aim_y: float | None = None
     restores: list[list] = field(default_factory=list)  # [stat, per second, seconds left] from potions
     on_waypoint: bool = False  # standing on it; the list opens again only after stepping off
+    in_exit: bool = False  # inside an exit's zone: it takes you only when you walk in, not when you arrive in it
     # states: idle | attacking | hit_recovery | block_recovery | stunned | dead
     state: str = "idle"
     state_left: float = 0.0
@@ -479,6 +481,7 @@ class World:
             p.x, p.y = sx, sy
             p.restores.clear()
             p.on_waypoint = True  # arriving on a waypoint does not open its list until you step off
+            p.in_exit = True  # nor does an exit you arrive next to
             p.path.clear()
             p.target_id = None
             p.exit_cooldown = EXIT_COOLDOWN
@@ -511,7 +514,7 @@ class World:
     def _inward(self, c: tuple[int, int]) -> tuple[int, int]:
         L = self.layout
         exits = {e.pos for e in L.exits}
-        for dist in (2, 1):
+        for dist in (3, 2, 1):  # outside the exit's zone when there is room
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 n = (c[0] + dx * dist, c[1] + dy * dist)
                 if L.is_floor(n) and n not in exits:
@@ -785,14 +788,15 @@ class World:
                 self.bus.publish(ExitReached(p.player_id, kind.value, portal.area_id if back else self.data.town_id))
                 return
 
-        # exits
-        if p.exit_cooldown <= 0 and self.layout:
-            c = cell_of(p.x, p.y)
-            for e in self.layout.exits:
-                if e.pos == c:
-                    p.exit_cooldown = EXIT_COOLDOWN
-                    self.bus.publish(ExitReached(p.player_id, e.kind.value, e.target_area))
-                    break
+        # exits: a zone around the cell, entered on foot
+        if self.layout:
+            here = self.exit_at(p.x, p.y)
+            if here is not None and not p.in_exit and p.exit_cooldown <= 0:
+                p.exit_cooldown = EXIT_COOLDOWN
+                p.in_exit = True
+                self.bus.publish(ExitReached(p.player_id, here.kind.value, here.target_area))
+                return
+            p.in_exit = here is not None
 
     # ------------------------------------------------------------ waypoints and town
 
@@ -1460,8 +1464,26 @@ class World:
             o is not a and o.collides and math.hypot(x - o.x, y - o.y) < a.radius + o.radius for o in self._bodies()
         )
 
+    def _hits_wall(self, x: float, y: float, r: float) -> bool:
+        """The body's box (±r) at (x, y) reaches a wall cell: at most the 2×2 cells it straddles."""
+        L = self.layout
+        x0, x1 = math.floor(x - r + 0.5), math.floor(x + r + 0.5)
+        y0, y1 = math.floor(y - r + 0.5), math.floor(y + r + 0.5)
+        if x0 < 0 or y0 < 0 or x1 >= L.width or y1 >= L.height:
+            return True
+        tiles = L.tiles
+        return any(tiles[cy, cx] != FLOOR for cy in range(y0, y1 + 1) for cx in range(x0, x1 + 1))
+
+    def clear_of_walls(self, a, x: float, y: float) -> bool:
+        """Center on the floor and the body's edge off the walls (up to collision.wallMarginMax, so a one-cell
+        corridor fits anyone). A body that already touches a wall (a spawn) may still move: never stuck."""
+        if not self.layout.is_floor(cell_of(x, y)):
+            return False
+        r = min(getattr(a, "radius", 0.0), self.data.balance.collision.wall_margin_max)
+        return r <= 0 or not self._hits_wall(x, y, r) or self._hits_wall(a.x, a.y, r)
+
     def _free(self, a, x: float, y: float) -> bool:
-        return self.layout.is_floor(cell_of(x, y)) and self.blocked_by_body(a, x, y) is None
+        return self.clear_of_walls(a, x, y) and self.blocked_by_body(a, x, y) is None
 
     def _try_move(self, a, x: float, y: float) -> bool:
         if self._free(a, x, y):
@@ -1476,12 +1498,12 @@ class World:
         dist = math.hypot(dx, dy)
         step = speed * dt
         if dist <= step:
-            return self._try_move(a, float(tx), float(ty)) or not self.layout.is_floor(cell_of(tx, ty))
+            return self._try_move(a, float(tx), float(ty)) or not self.clear_of_walls(a, float(tx), float(ty))
         ux, uy = dx / dist, dy / dist
         nx, ny = a.x + ux * step, a.y + uy * step
         if self._try_move(a, nx, ny):
             return False
-        body = self.blocked_by_body(a, nx, ny) if self.layout.is_floor(cell_of(nx, ny)) else None
+        body = self.blocked_by_body(a, nx, ny) if self.clear_of_walls(a, nx, ny) else None
         if body is None:  # a wall: slide along it, one axis at a time
             if abs(ux) > 1e-6 and abs(uy) > 1e-6:
                 self._try_move(a, nx, a.y) or self._try_move(a, a.x, ny)
@@ -1498,5 +1520,8 @@ class World:
         return False
 
     def exit_at(self, x: float, y: float) -> Exit | None:
-        c = cell_of(x, y)
-        return next((e for e in self.layout.exits if e.pos == c), None) if self.layout else None
+        """The exit whose zone (balance.json → exits.touchRadiusTiles around its cell) contains (x, y)."""
+        if not self.layout:
+            return None
+        r = self.data.balance.exits.touch_radius_tiles
+        return next((e for e in self.layout.exits if math.hypot(e.pos[0] - x, e.pos[1] - y) <= r), None)

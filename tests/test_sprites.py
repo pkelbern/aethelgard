@@ -599,6 +599,9 @@ def test_walls_face_the_room_and_open_ground_gets_trees(screen, cfg, tmp_path):
     assert MapArt.build(lib, L, "crypt", "dungeon").props_in_chunk(0, 0, 8) == art.props_in_chunk(0, 0, 8), "same map, same look"
 
     open_art = MapArt.build(lib, L, "plains", "open")
+    assert not open_art.props_in_chunk(0, 0, 10), "no trees within exitClearance of an exit: its sign stays in sight"
+    L.exits.clear()
+    open_art = MapArt.build(lib, L, "plains", "open")
     near = [p for p in open_art.props_in_chunk(0, 0, 10) if max(abs(p.x - 4.5), abs(p.y - 4.5)) <= 3]
     assert near and all(p.tile == 240 for p in near), "the edge of a clearing is lined with trees"
     assert open_art.floor_tile(0, 0) is not None, "grass under the trees"
