@@ -31,7 +31,7 @@ def test_bad_key_maps_are_refused():
     raw = {"skillBar": ["q", "w"], "guard": "space", "skillTrees": "t", "inventory": "i", "character": "k", "map": "tab",
            "console": "f1", "save": "f5", "cancel": "escape",
            "showItems": ["left alt", "right alt"], "compare": ["left shift", "right shift"],
-           "lifePotion": "z", "energyPotion": "x", "townPortal": "c", "standStill": "v"}
+           "lifePotion": "z", "energyPotion": "x", "townPortal": "c", "standStill": "v", "fps": "f3"}
     with pytest.raises(ValueError, match="slots"):
         KeyMap(raw, 6)
     with pytest.raises(ValueError, match="twice"):

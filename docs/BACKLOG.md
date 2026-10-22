@@ -33,8 +33,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Projeção 2:1, mapa em blocos pré-renderizados de 16×16 tiles, câmera suave.
 - [x] **M0-05** Movimento por clique com A* _(código, ~1 d)_  
   A* com 8 direções sem cortar quinas; deslizar em paredes.
-- [ ] **M0-06** Medir FPS com 60 monstros _(código, ~0.5 d)_  
-  Contador de FPS e cena de estresse. Se faltar desempenho: só atualizar monstros perto do jogador e agrupar o desenho. Medido sem tela (out/2026): 60 monstros amontoados num quadrado 8×8 na planície ~51 fps, cripta ~70 fps; o custo maior é colisão entre corpos (`blocked_by_body` é O(n²)): grade espacial resolve.
+- [ ] **M0-06** Medir FPS com 60 monstros _(código, ~0.5 d)_ — **escrito, validar**  
+  Contador de FPS e cena de estresse. Se faltar desempenho: só atualizar monstros perto do jogador e agrupar o desenho. Medido sem tela (out/2026): 60 monstros amontoados num quadrado 8×8 na planície ~51 fps, cripta ~70 fps; o custo maior é colisão entre corpos (`blocked_by_body` é O(n²)): grade espacial resolve. Feito: grade de corpos (células de 2,5 tiles, refeita a cada passo), F3 mostra o FPS e o console `stress [n]` cria n monstros em volta. Medido sem tela e sem arte: 119 monstros na planície 72 fps, cripta 126 fps. Validar no seu PC com a arte.
 - [ ] **M0-07** Gamepad: andar com analógico _(código, ~1 d)_  
   pygame.joystick: analógico esquerdo anda, A ataca o mais próximo, LT ergue a guarda.
 - [x] **M0-08** Adotar bibliotecas de jogo _(código, ~1.5 d)_  
@@ -144,14 +144,14 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Multiplicadores do D2 em Normal; testes.
 - [x] **M4-02** Pacotes: normal, champion (com berserker), único + minions _(código, ~1 d)_  
   PackSpawner com testes de distribuição (~80% únicos).
-- [ ] **M4-03** Efeitos dos modificadores _(código, ~3 d)_  
-  Ígneo explode, Gélido desacelera, Elétrico descarga, Vampírico cura, Teleportador, Aura de Fúria.
-- [ ] **M4-04** IA por arquétipo _(código, ~3 d)_  
-  flanker, charger, ranged, caster_revive, support_heal (monsters.json → ai).
-- [ ] **M4-05** Chefe do Ato 1 com padrão de ataque próprio _(código, ~3 d)_  
-  2–3 ataques telegrafados e uma fase abaixo de 50% de vida.
-- [ ] **M4-06** Desativar monstros longe do jogador _(desempenho, ~0.5 d)_  
-  Pausar _Process fora de um raio. Critério: custo de CPU estável em áreas cheias.
+- [ ] **M4-03** Efeitos dos modificadores _(código, ~3 d)_ — **escrito, validar**  
+  core/monster_ai.py com números em monster_modifiers.json (params): Fire/Cold/Lightning Enchanted somam o elemento a cada golpe (resistência do jogador), Fire e Cold explodem ao morrer (o frio desacelera), Cold desacelera ao acertar (movimento e ataque), Lightning solta faíscas em todas as direções quando apanha, Vampiric rouba vida, Teleporting aparece ao seu lado, Fury Aura é aura como a de líder.
+- [ ] **M4-04** IA por arquétipo _(código, ~3 d)_ — **escrito, validar**  
+  flanker (lobos vêm pelo lado), charger (javali corre em linha reta e atordoa ao encostar; Steadfast encurta), ranged (recua do corpo a corpo), caster_revive (necromante levanta um seguidor morto, sem XP nem loot de novo), support_heal (xamã cura aliado ferido). Números em balance.json monsterAi; validate() recusa ai desconhecida.
+- [ ] **M4-05** Chefe do Ato 1 com padrão de ataque próprio _(código, ~3 d)_ — **escrito, validar**  
+  The Crypt Warden: Cleave (cone de 150°) e Bone Slam (círculo) aparecem em vermelho no chão e acertam quem ainda estiver dentro; abaixo de 50% entra em fúria (+30% velocidade de ataque, +20% movimento) e chama 4 esqueletos (sem XP nem loot). Dados em monsters.json bosses (abilities, phaseTwo*).
+- [ ] **M4-06** Desativar monstros longe do jogador _(desempenho, ~0.5 d)_ — **escrito, validar**  
+  Pausar _Process fora de um raio. Critério: custo de CPU estável em áreas cheias. Feito: monstro não alerta a mais de 30 tiles de todos os jogadores não é simulado (monsterAi.sleepTiles).
 - [ ] **M4-08** Líderes: Xamã e Necromante _(código, ~1 d)_ — **escrito, validar**  
   Nunca aparecem sozinhos nem em grupos champion/único: lideram um grupo normal (mesmo tamanho, então o XP do Ato 1 não muda), até 3 por área/andar. Aura enquanto vivos: Xamã +15% dano e +10% velocidade de ataque; Necromante −10% dano físico recebido, num raio de 6 tiles. O quadro do alvo explica (Leader / Empowered).
 - [ ] **M4-07** Nome do monstro ao passar o mouse (GDD 12.1) _(UI, ~0.5 d)_ — **escrito, validar**  

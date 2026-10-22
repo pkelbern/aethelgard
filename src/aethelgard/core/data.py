@@ -245,6 +245,27 @@ class ExitParams:
 
 
 @dataclass
+class MonsterAiParams:
+    """How each monsters.json 'ai' behaves (core/monster_ai.py)."""
+
+    flank_offset_tiles: float = 1.6  # flanker: comes at you from the side
+    charge_min_tiles: float = 3.0  # charger: rushes when you are this far…
+    charge_max_tiles: float = 7.0  # …and no farther
+    charge_speed_mult: float = 3.0
+    charge_cooldown: float = 6.0
+    charge_damage_pct: float = 0.5
+    charge_stun_seconds: float = 0.5
+    revive_cooldown: float = 8.0  # caster_revive: raises a dead follower nearby
+    revive_radius_tiles: float = 7.0
+    revive_hp_pct: float = 0.5
+    heal_cooldown: float = 6.0  # support_heal: heals a wounded ally instead of attacking
+    heal_radius_tiles: float = 7.0
+    heal_pct: float = 0.25
+    heal_below_pct: float = 0.6
+    sleep_tiles: float = 30.0  # monsters farther than this from every player, and not alert, are not simulated
+
+
+@dataclass
 class TimingParams:
     attack_seconds: float = 0.55
     attack_hit_fraction: float = 0.45
@@ -278,6 +299,7 @@ class BalanceData:
     bow: BowParams = field(default_factory=BowParams)
     loot: LootParams = field(default_factory=LootParams)
     magic: MagicParams = field(default_factory=MagicParams)
+    monster_ai: MonsterAiParams = field(default_factory=MonsterAiParams)
 
 
 # ---------------------------------------------------------------- monsters
@@ -309,10 +331,12 @@ class MonsterModifierDef:
     id: str = ""
     name: str = ""
     stats: dict[str, float] = field(default_factory=dict)
-    on_death: str | None = None
-    on_hit: str | None = None
-    on_hurt: str | None = None
-    ability: str | None = None
+    on_death: str | None = None  # burst
+    on_hit: str | None = None  # slow
+    on_hurt: str | None = None  # charged_bolt
+    ability: str | None = None  # teleport
+    params: dict[str, float | str] = field(default_factory=dict)  # numbers of the effects above
+    aura: AuraDef | None = None  # like a leader's aura (Fury Aura)
     unique_only: bool = False
 
 
@@ -371,6 +395,23 @@ class MonsterTypeDef:
 
 
 @dataclass
+class BossAbilityDef:
+    """A boss's special attack (core/monster_ai.py): the area shows on the ground for windupSeconds, then hits
+    whoever is still inside. ``summon``: instead, calls ``count`` monsters of that type around itself."""
+
+    id: str = ""
+    name: str = ""
+    windup_seconds: float = 1.0
+    radius_tiles: float = 3.0
+    arc_degrees: float = 360  # 360 = a circle around it; less = a cone toward the player
+    damage_mult: float = 1.0  # times its normal hit
+    cooldown: float = 8.0
+    phase: int = 1  # usable from this phase on
+    summon: str | None = None
+    count: int = 0
+
+
+@dataclass
 class BossDef:
     id: str = ""
     name: str = ""
@@ -380,6 +421,9 @@ class BossDef:
     dmg_min: float = 1
     dmg_max: float = 2
     exp_pct: float = 100
+    abilities: list[BossAbilityDef] = field(default_factory=list)
+    phase_two_at_pct: float = 0.5  # below this share of life it enters phase 2
+    phase_two_stats: dict[str, float] = field(default_factory=dict)  # added in phase 2 (attackSpeedPct…)
 
 
 @dataclass
@@ -1019,6 +1063,17 @@ def validate(d: GameData) -> list[str]:
     for b in d.monsters.bosses:
         if b.base_type not in type_ids:
             errors.append(f"monsters: boss '{b.id}' has a missing base type")
+        for ab in b.abilities:
+            if ab.summon is not None and ab.summon not in type_ids:
+                errors.append(f"monsters: boss '{b.id}' ability '{ab.id}' summons unknown '{ab.summon}'")
+            if ab.summon is None and (ab.radius_tiles <= 0 or not 0 < ab.arc_degrees <= 360):
+                errors.append(f"monsters: boss '{b.id}' ability '{ab.id}' needs radiusTiles > 0 and 0 < arcDegrees <= 360")
+    ais = ("melee", "ranged", "flanker", "charger", "caster_revive", "support_heal")
+    errors += [f"monsters: '{t.id}' has unknown ai '{t.ai}' (one of {', '.join(ais)})" for t in d.monsters.types if t.ai not in ais]
+    for m in d.modifiers.modifiers:
+        for hook, allowed in ((m.on_death, ("burst",)), (m.on_hit, ("slow",)), (m.on_hurt, ("charged_bolt",)), (m.ability, ("teleport",))):
+            if hook is not None and hook not in allowed:
+                errors.append(f"monster_modifiers: '{m.id}' has unknown effect '{hook}'")
 
     area_ids = {a.id for a in d.all_areas}
     for a in d.all_areas:

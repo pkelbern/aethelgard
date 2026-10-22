@@ -1,14 +1,17 @@
 {
-  "_comment": "Modifiers for uniques and champions. 'stats' are added on top of the monster; special effects are handled by id in code.",
+  "_comment": "Modifiers for uniques and champions (core/monster_ai.py). 'stats' are added on top of the monster: <element>DamagePct adds that share of each hit as the element (the player's resistance takes its share), lifeLeech heals it by that share of what it deals. onHit 'slow': the player moves and swings slowerPct slower for slowSeconds. onDeath 'burst': it explodes (burstRadiusTiles, burstDamagePct of its average hit, burstElement; a cold burst slows too). onHurt 'charged_bolt': with chargedChance, each hit taken sends chargedBolts lightning sparks in every direction. ability 'teleport': if the player is farther than teleportMinTiles it appears beside them every teleportCooldown seconds. aura: like a leader's (radiusTiles + stats) for the monsters around it.",
   "modifiers": [
-    { "id": "swift",        "name": "Swift",          "stats": { "moveSpeedPct": 0.5, "attackSpeedPct": 0.5 } },
-    { "id": "brutal",       "name": "Brutal",         "stats": { "damagePct": 0.75, "critChance": 0.10 } },
-    { "id": "stoneskin",   "name": "Stoneskin",  "stats": { "physicalReduction": 0.5 } },
-    { "id": "fire_enchanted",        "name": "Fire Enchanted",          "stats": { "fireDamagePct": 0.5, "fireResist": 0.5 }, "onDeath": "explode_fire" },
-    { "id": "cold_enchanted",       "name": "Cold Enchanted",         "stats": { "coldDamagePct": 0.3 }, "onHit": "slow", "onDeath": "frost_nova" },
-    { "id": "lightning_enchanted",     "name": "Lightning Enchanted",       "stats": { "lightningDamagePct": 0.3 }, "onHurt": "charged_bolt" },
-    { "id": "vampiric",    "name": "Vampiric",      "stats": { "lifeLeech": 0.15 } },
-    { "id": "teleporting", "name": "Teleporting",   "stats": {}, "ability": "teleport_to_player" },
-    { "id": "fury_aura",   "name": "Fury Aura",  "stats": {}, "aura": { "radiusTiles": 6, "damagePct": 0.3, "attackSpeedPct": 0.2 }, "uniqueOnly": true }
+    { "id": "swift",               "name": "Swift",               "stats": { "moveSpeedPct": 0.5, "attackSpeedPct": 0.5 } },
+    { "id": "brutal",              "name": "Brutal",              "stats": { "damagePct": 0.75, "critChance": 0.10 } },
+    { "id": "stoneskin",           "name": "Stoneskin",           "stats": { "physicalReduction": 0.5 } },
+    { "id": "fire_enchanted",      "name": "Fire Enchanted",      "stats": { "fireDamagePct": 0.5, "fireResist": 0.5 }, "onDeath": "burst",
+      "params": { "burstRadiusTiles": 2.0, "burstDamagePct": 1.5, "burstElement": "fire" } },
+    { "id": "cold_enchanted",      "name": "Cold Enchanted",      "stats": { "coldDamagePct": 0.3, "coldResist": 0.5 }, "onHit": "slow", "onDeath": "burst",
+      "params": { "slowPct": 0.3, "slowSeconds": 2.0, "burstRadiusTiles": 2.5, "burstDamagePct": 0.8, "burstElement": "cold" } },
+    { "id": "lightning_enchanted", "name": "Lightning Enchanted", "stats": { "lightningDamagePct": 0.3, "lightningResist": 0.5 }, "onHurt": "charged_bolt",
+      "params": { "chargedChance": 0.35, "chargedBolts": 4, "chargedDamagePct": 0.3 } },
+    { "id": "vampiric",            "name": "Vampiric",            "stats": { "lifeLeech": 0.15 } },
+    { "id": "teleporting",         "name": "Teleporting",         "stats": {}, "ability": "teleport", "params": { "teleportMinTiles": 4, "teleportCooldown": 5 } },
+    { "id": "fury_aura",           "name": "Fury Aura",           "stats": {}, "aura": { "radiusTiles": 6, "stats": { "damagePct": 0.3, "attackSpeedPct": 0.2 } }, "uniqueOnly": true }
   ]
 }

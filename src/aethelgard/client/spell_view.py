@@ -47,7 +47,9 @@ class SpellView:
         self.clock = 0.0
         # a spell's look → its element (bursts only carry the look)
         self.look_element = {n.spell.look: n.spell.element for n in game.data.skills.nodes if n.spell is not None}
-        self.look_element.update({"war_cry": "physical", "rain": "physical"})
+        self.look_element.update({"war_cry": "physical", "rain": "physical", "monster_fire": "fire", "monster_cold": "cold",
+                                  "raise": "cold", "monster_heal": "holy", "teleport": "lightning", "boss_strike": "physical",
+                                  "boss_phase": "fire"})
 
     def listen(self, bus) -> None:
         bus.subscribe(SpellBurst, lambda e: self.bursts.append(Burst(e.x, e.y, e.radius, self.look_element.get(e.look, "fire"))))
@@ -147,6 +149,32 @@ class SpellView:
             for i in range(3):
                 k = (self.clock * 1.5 + i / 3) % 1.0
                 pygame.draw.circle(screen, BLOOD, (sx - 6 + 6 * i, sy - 20 + 18 * k), 2)
+
+    def draw_telegraphs(self, screen) -> None:
+        """A boss special winding up: its area in red on the ground, filling up until it lands (step out!)."""
+        for g in self.g.world.brains.telegraphs.values():
+            k = 1 - g.left / max(1e-6, g.total)
+            if g.arc >= 360:
+                self._ellipse(screen, g.x, g.y, g.radius, (200, 40, 30), 2, 220)
+                self._ellipse(screen, g.x, g.y, g.radius * k, (200, 40, 30), 0, 90)
+                continue
+            sx, sy = self.g.cam.to_screen(g.x, g.y)
+            base = math.atan2(g.dir_y, g.dir_x)
+            half = math.radians(g.arc) / 2
+            for frac, alpha, width in ((1.0, 220, 2), (k, 90, 0)):
+                pts = [(sx, sy)]
+                for i in range(13):
+                    a = base - half + 2 * half * i / 12
+                    px, py = self.g.cam.to_screen(g.x + math.cos(a) * g.radius * frac, g.y + math.sin(a) * g.radius * frac)
+                    pts.append((px, py))
+                surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+                pygame.draw.polygon(surf, (200, 40, 30, alpha), pts, width)
+                screen.blit(surf, (0, 0))
+
+    def draw_slowed(self, screen, p) -> None:
+        """Chilled by a monster: a pale ring at the hero's feet."""
+        if getattr(p, "slow_left", 0) > 0:
+            self._ellipse(screen, p.x, p.y, 0.5, CHILL, 2, 200)
 
     def draw_spin(self, screen, p) -> None:
         """Whirlwind: blades sweeping around the hero while the key is held."""

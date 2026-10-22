@@ -34,6 +34,8 @@ class MonsterInstance:
     xp_base: float
     modifiers: list[MonsterModifierDef] = field(default_factory=list)
     leader_id: int | None = None
+    boss: BossDef | None = None  # its pattern (core/monster_ai.py)
+    no_reward: bool = False  # raised or summoned: no XP and no loot
 
     @property
     def alive(self) -> bool:
@@ -41,7 +43,7 @@ class MonsterInstance:
 
     @property
     def xp_info(self) -> MonsterXpInfo:
-        return MonsterXpInfo(self.instance_id, self.level, self.xp_base, self.max_hp)
+        return MonsterXpInfo(self.instance_id, self.level, 0.0 if self.no_reward else self.xp_base, self.max_hp)
 
     def stat(self, name: str) -> float:
         return sum(m.stats.get(name, 0.0) for m in self.modifiers)
@@ -117,6 +119,7 @@ class MonsterFactory:
             accuracy=lv.accuracy,
             defense=lv.defense,
             xp_base=lv.xp * boss.exp_pct / 100 * rank.xp_mult,
+            boss=boss,
         )
 
 

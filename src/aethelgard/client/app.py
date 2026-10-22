@@ -67,7 +67,7 @@ PX_PER_TILE = 33  # body radius on screen = collision radius (tiles, from the co
 HOLD_REPEAT_SECONDS = 0.12  # holding the mouse button repeats the click this often (move/attack)
 CONSOLE_HELP = (
     "save · load · bag · xp <prof> <amount> · level <prof> <n> · point <node> · skill <node> [level] · area <id> [floor] · "
-    "god · kill · heal · reveal · sim · seed"
+    "god · kill · heal · reveal · sim · seed · stress [n] (n monsters around you, for the FPS counter: F3)"
 )
 
 
@@ -120,6 +120,7 @@ class Game:
         self.effects = EffectArt(self.sprites.lib)
         self.spell_view = SpellView(self)
         self.menu = GameMenu(self)
+        self.show_fps = False
         self.ground_view.art = self.effects
         self.big_map = False
         self.floaters: list[Floater] = []
@@ -649,6 +650,8 @@ class Game:
             self.open_only(self.character_view)
         elif action == "map":
             self.big_map = not self.big_map
+        elif action == "fps":
+            self.show_fps = not self.show_fps
         elif action == "cancel":
             if self.ui.any_open or any(w.open for w in self.windows) or self.waypoint_menu is not None:
                 self.ui.close_all()
@@ -703,6 +706,14 @@ class Game:
             return "map revealed"
         if name == "seed":
             return str(self.seed)
+        if name == "stress":  # M0-06: a crowd around the hero to measure the frame rate (F3 shows it)
+            n, p = int(args[0]) if args else 60, self.player
+            made = 0
+            for i in range(n):
+                m = w.spawn_monster("bandit", max(1, s.character.level), p.x + 3 + (i % 8), p.y - 4 + (i // 8))
+                made += m is not None
+            self.show_fps = True
+            return f"{made} monsters"
         return f"unknown command: {name}"
 
     # ------------------------------------------------------------ drawing
@@ -727,6 +738,8 @@ class Game:
         self.ground_view.draw_shapes(screen, cam, drops)
         self._draw_portal()
         self.spell_view.draw_ground(screen)
+        self.spell_view.draw_telegraphs(screen)
+        self.spell_view.draw_slowed(screen, self.player)
 
         # walls, trees and actors in depth order: what is nearer the camera covers what is behind (as in D2).
         # Monsters outside the field of view are not drawn.
@@ -782,6 +795,10 @@ class Game:
             if tip:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
         self.menu.draw(screen)
+        if self.show_fps:
+            n = len(self.world.monsters)
+            img = self.fonts["small"].render(f"{self.clock.get_fps():.0f} fps · {n} monsters", True, C.GOLD)
+            screen.blit(img, img.get_rect(midtop=(screen.get_width() // 2, 28)))
         pygame.display.flip()
 
     def _draw_death_screen(self) -> None:

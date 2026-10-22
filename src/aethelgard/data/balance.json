@@ -146,5 +146,23 @@
     "castSeconds": 0.5,
     "castReleaseFraction": 0.5,
     "tickSeconds": 0.5
+  },
+  "monsterAi": {
+    "_comment": "Monster behaviours by monsters.json 'ai' (core/monster_ai.py). flanker: wolves come at you from the side (flankOffsetTiles). charger: boars rush in a straight line when you are between chargeMinTiles and chargeMaxTiles, at chargeSpeedMult their speed; touching you deals +chargeDamagePct and stuns for chargeStunSeconds; then chargeCooldown. caster_revive: necromancers raise a dead follower within reviveRadiusTiles at reviveHpPct life every reviveCooldown (raised monsters give no XP or loot). support_heal: shamans heal an ally below healBelowPct life by healPct of its life every healCooldown. sleepTiles: monsters farther than that from every player, and not alert, are not simulated (performance).",
+    "flankOffsetTiles": 1.6,
+    "chargeMinTiles": 3.0,
+    "chargeMaxTiles": 7.0,
+    "chargeSpeedMult": 3.0,
+    "chargeCooldown": 6.0,
+    "chargeDamagePct": 0.5,
+    "chargeStunSeconds": 0.5,
+    "reviveCooldown": 8.0,
+    "reviveRadiusTiles": 7.0,
+    "reviveHpPct": 0.5,
+    "healCooldown": 6.0,
+    "healRadiusTiles": 7.0,
+    "healPct": 0.25,
+    "healBelowPct": 0.6,
+    "sleepTiles": 30.0
   }
 }

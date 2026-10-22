@@ -13,7 +13,7 @@ import pygame
 
 ACTIONS = (
     "guard", "skillTrees", "inventory", "character", "map", "console", "save", "cancel", "showItems", "compare",
-    "lifePotion", "energyPotion", "townPortal", "standStill",
+    "lifePotion", "energyPotion", "townPortal", "standStill", "fps",
 )
 SHARED_MODIFIERS = ("compare", "standStill")
 CONSUMABLE_KEYS = {"lifePotion": "life_potion", "energyPotion": "energy_potion"}

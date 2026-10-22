@@ -86,6 +86,8 @@ def choose_pose(
         return Pose("die", "clock", state_time)
     if state == "attacking":
         return Pose(attack_anim, "progress", attack_progress)
+    if state == "winding":  # a boss special: the swing is raised and held until the area lands
+        return Pose(attack_anim, "progress", min(1.0, attack_progress) * 0.4)
     if state in ("hit_recovery", "stunned"):
         return Pose("hit", "clock", state_time)
     if state == "block_recovery" or guarding:

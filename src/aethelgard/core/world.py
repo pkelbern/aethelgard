@@ -49,6 +49,7 @@ from .events import (
 )
 from .items import GoldDrop, GroundItem, SharedStash
 from .maneuvers import Dash, Maneuvers
+from .monster_ai import MonsterBrains
 from .monsters import MonsterInstance, PackKind
 from .pathfinding import find_path
 from .projectiles import Projectile, line_of_sight
@@ -110,6 +111,7 @@ MELEE_REACH_AROUND = MELEE_RANGE + 0.4  # 360° hits (Whirlwind spins) reach thi
 DEFAULT_BODY_RADIUS = MonsterTypeDef.radius  # a man-sized body (monsters.json default); wider ones are reached that much sooner
 AGGRO_RADIUS = 8.0
 EXIT_COOLDOWN = 0.8
+BODY_CELL = 2.5  # tiles per cell of the spatial grid of bodies (collision queries look at the 3 × 3 cells around)
 
 
 # ---------------------------------------------------------------- commands
@@ -371,6 +373,8 @@ class PlayerActor:
     rhythm_stacks: int = 0  # Combat Rhythm: hits in a row, while rhythm_left > 0
     rhythm_left: float = 0.0
     riposte_ready: bool = False  # Riposte: the next swing after a block hits harder
+    slow_pct: float = 0.0  # chilled by a monster (Cold Enchanted): moves and swings slower while slow_left > 0
+    slow_left: float = 0.0
     deferred: list[list[float]] = field(default_factory=list)  # Unshakable: [damage per second, seconds left]
     dash: Dash | None = None  # Charge, Blade Dance (core/maneuvers.py)
     channel: str | None = None  # Whirlwind, while its key is held
@@ -448,6 +452,12 @@ class MonsterActor:
     debuffs: dict[str, list[float]] = field(default_factory=dict)  # stat → [value, seconds left] (War Cry: damagePct)
     chill_left: float = 0.0  # cold: slower to move and to attack while it lasts
     chill_pct: float = 0.0
+    ai_cooldowns: dict[str, float] = field(default_factory=dict)  # core/monster_ai.py: charge, heal, revive, boss specials
+    rush: list[float] | None = None  # charger: [dir x, dir y, tiles left]
+    phase: int = 1  # bosses: 2 below phaseTwoAtPct of life
+    boost: dict[str, float] = field(default_factory=dict)  # lasting stats (a boss's second phase)
+    winding: object | None = None  # the boss special being wound up
+    attack_duration_override: float = 0.0  # length of a wind-up, for the pose
 
     @property
     def burn_left(self) -> float:
@@ -475,7 +485,7 @@ class MonsterActor:
 
     def extra(self, name: str) -> float:
         """What is on it right now from others: leader auras and debuffs (War Cry)."""
-        return self.buffs.get(name, 0.0) + sum(v for k, (v, _) in self.debuffs.items() if k == name)
+        return self.buffs.get(name, 0.0) + self.boost.get(name, 0.0) + sum(v for k, (v, _) in self.debuffs.items() if k == name)
 
     @property
     def speed(self) -> float:
@@ -489,6 +499,8 @@ class MonsterActor:
     @property
     def attack_duration(self) -> float:
         """The swing itself: short and snappy; slow attackers just wait longer between swings."""
+        if self.state == "winding":
+            return self.attack_duration_override
         return min(self.swing_seconds / (1 + self.stat("attackSpeedPct")), self.attack_interval / 1.3)
 
     @property
@@ -544,6 +556,9 @@ class World:
         self._next_projectile = 1
         self.spells = SpellCaster(self)
         self.moves = Maneuvers(self)
+        self.brains = MonsterBrains(self)
+        self.fallen: list[MonsterActor] = []  # dead monsters of this area (a necromancer may raise them)
+        self._grid: dict[tuple[int, int], list] | None = None  # bodies by cell, rebuilt every step (M0-06)
         self.ground: dict[int, GroundItem] = {}
         self._next_ground = 1
         self.portals: dict[int, TownPortal] = {}
@@ -579,6 +594,9 @@ class World:
         self.layout, self.area_id, self.floor = layout, area_id, floor
         self.projectiles.clear()
         self.spells.clear()
+        self.brains.clear()
+        self.fallen = []
+        self._grid = None  # rebuilt at the next step; until then collision looks at every body
         if area_id == self.data.town_id:  # the merchant has new wares every time you come back
             self._town_visits += 1
             level = max(p.session.character.level for p in self.players.values())
@@ -870,12 +888,19 @@ class World:
 
     def step(self, dt: float) -> None:
         self.time += dt
+        self._rebuild_grid()
         for p in self.players.values():
             self._step_player(p, dt)
         self._apply_auras()
+        sleep = self.data.balance.monster_ai.sleep_tiles
+        awake = [p for p in self.players.values() if p.state != "dead"]
         for m in list(self.monsters.values()):
-            if m.alive:
-                self._step_monster(m, dt)
+            if not m.alive:
+                continue
+            if not m.alert and all(abs(p.x - m.x) + abs(p.y - m.y) > sleep for p in awake):
+                continue  # far from everyone and not hunting: not simulated (M4-06)
+            self._step_monster(m, dt)
+        self.brains.step(dt)
         self._step_projectiles(dt)
         self.spells.step(dt)
         self._step_afflictions(dt)
@@ -912,6 +937,7 @@ class World:
         if p.frenzy_left <= 0:
             p.frenzy_stacks = 0
         p.rhythm_left = max(0.0, p.rhythm_left - dt)
+        p.slow_left = max(0.0, p.slow_left - dt)
         if p.rhythm_left <= 0:
             p.rhythm_stacks = 0
         if p.deferred:  # Unshakable: the delayed share of earlier hits, a little every frame
@@ -1253,6 +1279,8 @@ class World:
     def player_speed(self, p: PlayerActor) -> float:
         """Tiles per second: base, + moveSpeedPct (boots), halved with the guard up."""
         base = self.data.balance.movement.player_tiles_per_second * (1 + p.session.stat("moveSpeedPct"))
+        if p.slow_left > 0:
+            base *= 1 - p.slow_pct
         return base * (self.data.balance.guard.move_speed_mult if p.guarding else 1.0)
 
     def player_reach(self, p: PlayerActor) -> float:
@@ -1285,6 +1313,8 @@ class World:
         if gear.dual_wielding:
             ias += t.effect("ambidexterity", "dualAttackSpeedPct")
         ias += p.rhythm_stacks * t.effect("combat_rhythm", "attackSpeedPerStackPct")
+        if p.slow_left > 0:
+            ias -= p.slow_pct
         return ias + p.frenzy_stacks * t.effect("frenzy", "attackSpeedPerStackPct")
 
     def swing_proficiency(self, p: PlayerActor) -> str:
@@ -1444,6 +1474,7 @@ class World:
         if not t.alive:
             self._kill(t, p)
             return
+        self.brains.on_hurt(t)
         rec = monster_hit_recovery(self.timing, amount, t.monster.max_hp, t.monster.rank.id) if recover else 0.0
         if rec > 0 and t.state != "stunned":
             t.state, t.state_left = "hit_recovery", rec
@@ -1481,11 +1512,15 @@ class World:
     def _kill(self, t: MonsterActor, killer: PlayerActor) -> None:
         """Drops fall around the body (GDD 10.3); the player has to pick them up."""
         m = t.monster
+        self.brains.on_death(t)
         self.bus.publish(MonsterKilled(m.xp_info, m.rank.id, killer.player_id))
         s = killer.session
-        for drop in s.loot.roll_drops(m.rank.id, m.level, s.stat("magicFind"), s.loot_rng):
-            self.drop_at(drop, t.x, t.y, s.world_rng)
+        if not m.no_reward:
+            for drop in s.loot.roll_drops(m.rank.id, m.level, s.stat("magicFind"), s.loot_rng):
+                self.drop_at(drop, t.x, t.y, s.world_rng)
         del self.monsters[t.id]
+        t.dots, t.debuffs, t.rush, t.winding = {}, {}, None, None
+        self.fallen.append(t)
 
     def drop_at(self, drop, x: float, y: float, rng) -> GroundItem:
         """Puts a drop on a floor spot near (x, y)."""
@@ -1537,13 +1572,15 @@ class World:
         for m in self.monsters.values():
             m.buffs = {}
         for lead in self.monsters.values():
-            aura = lead.aura
-            if aura is None or not lead.alive:
+            if not lead.alive:
                 continue
-            for o in self.monsters.values():
-                if o is not lead and o.alive and math.hypot(o.x - lead.x, o.y - lead.y) <= aura.radius_tiles:
-                    for k, v in aura.stats.items():
-                        o.buffs[k] = o.buffs.get(k, 0.0) + v
+            auras = [lead.aura] if lead.aura is not None else []
+            auras += [mod.aura for mod in lead.monster.modifiers if mod.aura is not None]  # Fury Aura on a unique
+            for aura in auras:
+                for o in self.monsters.values():
+                    if o is not lead and o.alive and math.hypot(o.x - lead.x, o.y - lead.y) <= aura.radius_tiles:
+                        for k, v in aura.stats.items():
+                            o.buffs[k] = o.buffs.get(k, 0.0) + v
 
     def _alert(self, m: MonsterActor) -> None:
         if m.alert:
@@ -1561,8 +1598,9 @@ class World:
             m.knock_left -= step
             if not self._try_move(m, m.x + m.knock_vx * step, m.y + m.knock_vy * step):
                 m.knock_left = 0.0  # hit a wall or a body
-        if m.state in ("hit_recovery", "stunned"):
+        if m.state in ("hit_recovery", "stunned", "winding"):
             m.state_left -= dt
+            m.attack_elapsed += dt
             if m.state_left <= 0:
                 m.state = "idle"
             return
@@ -1588,6 +1626,8 @@ class World:
 
         if m.alert:
             self._face(m, target.x - m.x, target.y - m.y)
+            if self.brains.think(m, target, dist, dt):
+                return
             if m.ranged and dist < self.data.balance.combat.ranged_kite_tiles and self._step_back(m, target, dt):
                 return  # an archer caught up close backs off before shooting again
             sees = not m.ranged or line_of_sight(self.layout, (m.x, m.y), (target.x, target.y))
@@ -1619,8 +1659,8 @@ class World:
         if not m.collides:
             return
         push_x = push_y = 0.0
-        for o in self.monsters.values():
-            if o is m or not o.collides:
+        for o in self._near_bodies(m.x, m.y):
+            if o is m or not o.collides or o in self.players.values():
                 continue
             dx, dy = m.x - o.x, m.y - o.y
             d, touch = math.hypot(dx, dy), m.radius + o.radius
@@ -1633,7 +1673,52 @@ class World:
 
     def _monster_hit(self, m: MonsterActor, p: PlayerActor) -> None:
         atk = melee_edge(m.attack, self.data.balance.combat) if p.session.gear.has_bow else m.attack  # an archer caught in melee
-        self._hit_player(p, atk, m.monster.xp_info, m.x, m.y, magic=False, melee=m)
+        dealt = self._hit_player(p, atk, m.monster.xp_info, m.x, m.y, magic=False, melee=m, extra=self.brains.elemental_extra(m))
+        self.brains.on_hit_player(m, p, dealt)
+
+    def stun_player(self, p: PlayerActor, seconds: float) -> None:
+        """Stunned by a monster (a boar's charge): Steadfast (ccReduction) shortens it."""
+        seconds *= max(0.0, 1 - p.session.stat("ccReduction"))
+        if seconds <= 0 or p.state == "dead":
+            return
+        self._lower_guard(p, start_cooldown=True)
+        self._cancel_portal(p)
+        p.dash = p.channel = None
+        p.state, p.state_left = "stunned", seconds
+        p.path.clear()
+        self._float(p.x, p.y, "stunned", "hurt")
+
+    def slow_player(self, p: PlayerActor, pct: float, seconds: float) -> None:
+        """Chilled by a monster: moves and swings slower for a while (the strongest slow wins)."""
+        if pct >= p.slow_pct or p.slow_left <= 0:
+            p.slow_pct, p.slow_left = min(0.9, pct), seconds
+
+    def spawn_monster(self, type_id: str, level: int, x: float, y: float, no_reward: bool = False) -> MonsterActor | None:
+        """A new monster in the area (a boss's summons), at the nearest free spot."""
+        host = next(iter(self.sessions.values()))
+        inst = host.monster_factory.create(self.data.monster_type(type_id), level, "normal", host.spawn_rng)
+        inst.no_reward = no_reward
+        a = MonsterActor(inst, x, y, base_speed=self.data.balance.movement.monster_base_tiles_per_second,
+                         swing_seconds=self.timing.monster_swing_seconds)
+        for r in (0.0, 0.6, 1.2, 1.8):
+            for k in range(8):
+                cx, cy = x + math.cos(k * math.pi / 4) * r, y + math.sin(k * math.pi / 4) * r
+                if self.clear_of_walls(a, cx, cy) and not self._overlaps_any(a, cx, cy):
+                    a.x, a.y = cx, cy
+                    a.pack_ids = [inst.instance_id]
+                    self.monsters[inst.instance_id] = a
+                    return a
+        return None
+
+    @property
+    def _host_rng(self):
+        return next(iter(self.sessions.values())).world_rng
+
+    @staticmethod
+    def _in_arc(fx: float, fy: float, dx: float, dy: float, arc: float) -> bool:
+        from .combat import CombatMath
+
+        return CombatMath.in_arc(fx, fy, dx, dy, arc)
 
     def player_resist(self, p: PlayerActor, element: str) -> float:
         """Share of an element's damage the player ignores: Elemental Resistance and items (elementalResist, or
@@ -1645,7 +1730,7 @@ class World:
         return min(r, self.data.balance.combat.resist_cap)
 
     def _hit_player(self, p: PlayerActor, attack, info, from_x: float, from_y: float, magic: bool, melee: MonsterActor | None,
-                    element: str | None = None, extra: dict[str, float] | None = None) -> None:
+                    element: str | None = None, extra: dict[str, float] | None = None) -> float:
         """A swing or a shot reaches the player. (from_x, from_y) is where it comes from, for the guard arc.
         Magic gets past the guard unless Bulwark is up; only melee hits can be counterattacked.
         ``element``: the whole hit is of that element (a shaman's bolt): armor does nothing, resistance takes its
@@ -1673,7 +1758,7 @@ class World:
         r = s.combat.resolve_physical(attack, defense, s.combat_rng, guard)
         if not r.hit:
             self._float(p.x, p.y, "dodged", "miss")
-            return
+            return 0.0
         p.energy = max(0.0, p.energy - r.guard_energy_cost)
         final, mitigated = r.final, r.mitigated
         if element is not None:  # all of it elemental: past the guard as usual, then resistance instead of armor
@@ -1708,7 +1793,7 @@ class World:
             secs = max(0.1, s.skills.effect("unshakable", "deferSeconds"))
             p.deferred.append([final * defer / secs, secs])
         if self._lose_life(p, final * (1 - defer)):
-            return
+            return final
         if not r.blocked and p.state != "stunned":
             fhr = s.stat("fasterHitRecovery")
             rec = player_hit_recovery(self.timing, final, p.max_life, fhr)
@@ -1716,6 +1801,7 @@ class World:
                 p.state, p.state_left = "hit_recovery", rec  # interrupts attack, movement and an opening portal
                 p.attack_hit_done = True
                 self._cancel_portal(p)
+        return final
 
     def _lose_life(self, p: PlayerActor, amount: float) -> bool:
         """Takes life (not in god mode). Second Wind heals once when it falls low. True: the player died."""
@@ -1906,15 +1992,35 @@ class World:
         yield from self.players.values()
         yield from self.monsters.values()
 
+    def _rebuild_grid(self) -> None:
+        """Bodies by cell of BODY_CELL tiles: collision looks only at the cells around instead of every body.
+        Built once a step; bodies move a fraction of a tile per step, so the 3 × 3 cells around still hold them."""
+        grid: dict[tuple[int, int], list] = {}
+        for b in self._bodies():
+            if b.collides:
+                grid.setdefault((math.floor(b.x / BODY_CELL), math.floor(b.y / BODY_CELL)), []).append(b)
+        self._grid = grid
+
+    def _near_bodies(self, x: float, y: float):
+        """Bodies that may touch a point: from the grid when there is one (inside a step), else all of them."""
+        if self._grid is None:
+            yield from self._bodies()
+            return
+        cx, cy = math.floor(x / BODY_CELL), math.floor(y / BODY_CELL)
+        for gx in (cx - 1, cx, cx + 1):
+            for gy in (cy - 1, cy, cy + 1):
+                yield from self._grid.get((gx, gy), ())
+
     def blocked_by_body(self, a, x: float, y: float):
         """The body ``a`` would overlap at (x, y), or None. Moving away from an overlap is always allowed,
         so actors that start on top of each other (spawns) can get apart."""
         if not a.collides:
             return None
-        for o in self._bodies():
+        ar = a.radius
+        for o in self._near_bodies(x, y):
             if o is a or not o.collides:
                 continue
-            touch = a.radius + o.radius
+            touch = ar + o.radius
             dx, dy = x - o.x, y - o.y
             if abs(dx) >= touch or abs(dy) >= touch:
                 continue
@@ -1924,7 +2030,7 @@ class World:
 
     def _overlaps_any(self, a, x: float, y: float) -> bool:
         return a.collides and any(
-            o is not a and o.collides and math.hypot(x - o.x, y - o.y) < a.radius + o.radius for o in self._bodies()
+            o is not a and o.collides and math.hypot(x - o.x, y - o.y) < a.radius + o.radius for o in self._near_bodies(x, y)
         )
 
     def _hits_wall(self, x: float, y: float, r: float) -> bool:

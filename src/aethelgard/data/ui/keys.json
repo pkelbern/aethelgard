@@ -8,6 +8,7 @@
   "map": "tab",
   "console": "f1",
   "save": "f5",
+  "fps": "f3",
   "cancel": "escape",
   "showItems": ["left alt", "right alt"],
   "compare": ["left shift", "right shift"],
