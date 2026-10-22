@@ -67,7 +67,7 @@ class SkillDrag:
                 return True
             if source is not None:  # a click on the bar: choose a skill for that key
                 if source == RIGHT:
-                    g.hud.add("Right click: right-click a skill in the trees, or drag one here.", C.MUTED)
+                    g.hud.add(g.tr("bar.rightHint"), C.MUTED)
                 else:
                     g.ui.open_picker(source)
                 return True

@@ -74,7 +74,7 @@ class Gamepad:
         """True when the event was the pad's."""
         if ev.type == pygame.CONTROLLERDEVICEADDED and self._controller is not None:
             self._open(ev.device_index)
-            self.g.hud.add("Gamepad connected.", (200, 200, 160))
+            self.g.hud.add(self.g.tr("gamepad.connected"), (200, 200, 160))
             return True
         if ev.type == pygame.CONTROLLERDEVICEREMOVED:
             self.pads.pop(ev.instance_id, None)

@@ -14,12 +14,14 @@ from ..core.saves import SaveStore, slot_name
 from . import palette as C
 from .keys import ACTIONS
 from .settings import RESOLUTIONS
+from .strings import languages
 from .tooltip import draw_button, draw_panel
 
 if TYPE_CHECKING:
     from .app import Game
 
 BTN_H, GAP = 36, 10
+KEY_COLS = 3  # key bindings in the options, side by side
 ACTION_NAMES = {
     "guard": "Guard", "skillTrees": "Skill trees", "inventory": "Inventory", "character": "Character", "map": "Map",
     "console": "Console", "save": "Save", "showItems": "Show items", "compare": "Compare", "lifePotion": "Life potion",
@@ -125,14 +127,14 @@ class OptionsScreen(Panel):
     """Volumes, window size, full screen and keys. Every change is saved at once (settings.json)."""
 
     title = "Options"
-    width = 620
+    width = 780
 
     def __init__(self, game: Game):
         super().__init__(game)
         self.waiting: tuple[str, int | None] | None = None  # (action, bar slot) waiting for a key
 
     def height(self) -> int:
-        return 80 + 4 * (BTN_H + GAP) + ((len(REBINDABLE) + 6 + 1) // 2) * 30 + 2 * (BTN_H + GAP) + 30
+        return 80 + len(self.items()) * (BTN_H + GAP) + -(-(len(REBINDABLE) + 6) // KEY_COLS) * 30 + BTN_H + GAP + 40
 
     def items(self) -> list[tuple[str, str, bool]]:
         st = self.g.settings
@@ -142,18 +144,19 @@ class OptionsScreen(Panel):
             ("sfx", f"Effects volume: {st.sfx_volume * 100:.0f}%   (click: +10%, right click: −10%)", True),
             ("size", f"Window: {w} × {h}   (click for the next size)", True),
             ("fullscreen", f"Full screen: {'on' if st.fullscreen else 'off'}", True),
+            ("language", f"Language: {st.language}", len(languages()) > 1),
         ]
 
     def layout(self) -> None:
         super().layout()
         r = self.rect
-        y0 = r.y + 60 + 4 * (BTN_H + GAP)
-        col_w = (r.w - 60) // 2
+        y0 = r.y + 60 + len(self.items()) * (BTN_H + GAP)
+        col_w = (r.w - 60) // KEY_COLS
         rows = [("skillBar", i) for i in range(len(self.g.keys.slot_keys))] + [(a, None) for a in REBINDABLE]
         for i, (action, slot) in enumerate(rows):
-            col, row = i % 2, i // 2
+            col, row = i % KEY_COLS, i // KEY_COLS
             self._buttons[f"key:{action}:{'' if slot is None else slot}"] = pygame.Rect(r.x + 30 + col * col_w, y0 + row * 30, col_w - 8, 26)
-        bottom = y0 + ((len(rows) + 1) // 2) * 30 + 12
+        bottom = y0 + -(-len(rows) // KEY_COLS) * 30 + 12
         self._buttons["reset_keys"] = pygame.Rect(r.x + 30, bottom, (r.w - 70) // 2, BTN_H)
         self._buttons["back"] = pygame.Rect(r.centerx + 5, bottom, (r.w - 70) // 2, BTN_H)
 
@@ -195,6 +198,10 @@ class OptionsScreen(Panel):
         elif bid == "fullscreen":
             st.fullscreen = not st.fullscreen
             self.g.apply_settings(display=True)
+        elif bid == "language":
+            langs = languages()
+            st.language = langs[(langs.index(st.language) + 1) % len(langs)] if st.language in langs else langs[0]
+            self.g.apply_settings()
         elif bid == "reset_keys":
             st.keys = {}
             self.g.apply_settings()
@@ -217,7 +224,7 @@ class OptionsScreen(Panel):
         draw_button(screen, f["small"], self._buttons["back"], "Back")
         r = self.rect
         img = f["tiny"].render("Click a key to change it; a key already in use swaps places.", True, C.MUTED)
-        screen.blit(img, img.get_rect(midtop=(r.centerx, r.y + 44 + 4 * (BTN_H + GAP))))
+        screen.blit(img, img.get_rect(midtop=(r.centerx, r.y + 44 + len(self.items()) * (BTN_H + GAP))))
 
 
 # ---------------------------------------------------------------- credits

@@ -64,6 +64,7 @@ from .skill_drag import RIGHT, SkillDrag
 from .skill_tree_view import SkillTreeWindow
 from .spell_view import SpellView
 from .sprites import ActorSprites, ArtDownload, EffectArt, SpriteLibrary
+from .strings import Strings
 from .tilemap import MapArt
 from .tooltip import draw_panel, draw_tooltip
 from .ui import GameUI
@@ -100,6 +101,7 @@ class Game:
         pygame.display.set_caption("Aethelgard")
         self.store = SaveStore(save_dir)
         self.settings = Settings.load(self.store.directory)
+        self.tr = Strings(self.settings.language)
         if size is None:
             size = tuple(self.settings.resolution)
         self.screen = pygame.display.set_mode(size, pygame.FULLSCREEN if self.settings.fullscreen and size == tuple(self.settings.resolution) else 0)
@@ -161,8 +163,8 @@ class Game:
         self.ui = GameUI(self, size)
         self.load_area(self.data.town_id)
         if loaded:
-            self.hud.add(f"Welcome back, {loaded.name}. Save loaded.", C.GOLD)
-        self.hud.add(f"World seed: {self.seed}", C.MUTED)
+            self.hud.add(self.tr("save.welcomeBack", name=loaded.name), C.GOLD)
+        self.hud.add(self.tr("game.worldSeed", seed=self.seed), C.MUTED)
         self._check_art(download_art)
         if title:
             self.title.open = True
@@ -179,7 +181,7 @@ class Game:
             session = loaded or GameSession(self.data, self.seed, name=new_name or slot)
             self._bind(session)
             self.load_area(self.data.town_id)
-            self.hud.add(f"Welcome, {session.name}." if loaded is None else f"Welcome back, {session.name}.", C.GOLD)
+            self.hud.add(self.tr("game.welcome" if loaded is None else "game.welcomeBack", name=session.name), C.GOLD)
             if new_name is not None:
                 self.store.save_session(session)
         self.audio.theme = None
@@ -189,6 +191,7 @@ class Game:
         """After a change in the options: keys, volumes and (``display``) the window; saved at once."""
         st = self.settings
         st.save(self.store.directory)
+        self.tr = Strings(st.language)
         self.keys = KeyMap.load(self.data.skills.bar_slots, st.keys)
         self.hud.keys = self.keys
         self.audio.apply_volume()
@@ -216,11 +219,11 @@ class Game:
         print(f"[art] {lib.art_dir / 'sprites'}: {lib.total() - sheets}/{lib.total()} sheets ready, {len(missing) - sheets} other file(s) missing", flush=True)
         if no_look:
             print(f"[art] no art defined for: {', '.join(no_look)} (magenta stand-ins)", flush=True)
-            self.hud.add(f"No art yet for: {', '.join(no_look)} (magenta squares).", C.MUTED)
+            self.hud.add(self.tr("art.noLook", names=', '.join(no_look)), C.MUTED)
         if not missing:
             return
         if not download:
-            self.hud.add(f"{len(missing)} art/sound file(s) missing (magenta squares, silence). Run: python -m aethelgard.tools.fetch_art", C.MUTED)
+            self.hud.add(self.tr("art.missingFiles", count=len(missing)), C.MUTED)
             return
         print(f"[art] downloading {len(missing)} missing sheet(s)…", flush=True)
         self.art.start()
@@ -233,7 +236,7 @@ class Game:
                     self.running = False
                     return
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
-                    self.hud.add("The art keeps downloading in the background; sprites appear when it ends.", C.MUTED)
+                    self.hud.add(self.tr("art.inBackground"), C.MUTED)
                     return
             self._draw_loading(["Checking the art and downloading what is missing…", self.art.status_text.split("…")[0]],
                                self.art.fraction, "Esc: play now with placeholders (the download goes on)")
@@ -258,7 +261,7 @@ class Game:
                     self.art.start()
                     return self._loading_screen()
                 if (ev.type == pygame.KEYDOWN and ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE)) or ev.type == pygame.MOUSEBUTTONDOWN:
-                    self.hud.add("Missing sprites show as magenta squares. Retry: python -m aethelgard.tools.fetch_art", C.LIFE)
+                    self.hud.add(self.tr("art.retryLater"), C.LIFE)
                     return
             self._draw_loading(lines, 1.0, "R: try again  ·  Enter: play with placeholders", error=True)
             self.clock.tick(30)
@@ -298,7 +301,7 @@ class Game:
         bus.subscribe(PlayerDied, self._on_death)
         bus.subscribe(MonsterKilled, self._on_monster_killed)
         bus.subscribe(WaypointReached, self._on_waypoint)
-        bus.subscribe(SkillLeveledUp, lambda e: self.hud.add(f"{self.data.node(e.skill_id).name} reached level {e.level}.", C.GOLD))
+        bus.subscribe(SkillLeveledUp, lambda e: self.hud.add(self.tr("skill.leveledUp", name=self.data.node(e.skill_id).name, level=e.level), C.GOLD))
         self.spell_view.listen(bus)
         self.audio.listen(bus)
         bus.subscribe(FloatingText, lambda e: e.kind == "crit" and self._shake(SHAKE_SECONDS))
@@ -326,7 +329,7 @@ class Game:
         if e.player_id != self.session.player_id:
             return
         if e.new:
-            self.hud.add(f"Waypoint activated: {self.area_names.get(e.area_id, e.area_id)}", C.WAYPOINT)
+            self.hud.add(self.tr("waypoint.activated", area=self.area_names.get(e.area_id, e.area_id)), C.WAYPOINT)
         self.open_waypoints()
 
     def open_waypoints(self) -> None:
@@ -351,7 +354,7 @@ class Game:
 
     def save_game(self) -> str:
         path = self.store.save_session(self.session)
-        self.hud.add("Game saved.", C.GOLD)
+        self.hud.add(self.tr("save.saved"), C.GOLD)
         return str(path)
 
     def load_game(self) -> str:
@@ -361,14 +364,14 @@ class Game:
             return "no save to load"
         self._bind(loaded)
         self.load_area(self.data.town_id)
-        self.hud.add(f"Save loaded: {loaded.name}.", C.GOLD)
+        self.hud.add(self.tr("save.loaded", name=loaded.name), C.GOLD)
         return "loaded"
 
     # ------------------------------------------------------------ core events
 
     def _on_level_up(self, e: ProficiencyLeveledUp) -> None:
         name = self.session.proficiencies[e.proficiency_id].name
-        self.hud.add(f"{name} reached level {e.new_level}! Tree point available.", C.GOLD)
+        self.hud.add(self.tr("proficiency.leveledUp", name=name, new_level=e.new_level), C.GOLD)
 
     def _on_loot(self, e: LootPicked) -> None:
         if e.player_id != self.session.player_id:
@@ -376,14 +379,14 @@ class Game:
         d = e.drop
         text = drop_name(d)
         if isinstance(d, ChestDrop):
-            self.hud.add("Chest opened.", C.GOLD)
+            self.hud.add(self.tr("loot.chestOpened"), C.GOLD)
             return
         if isinstance(d, ItemDrop):
             text += f"  ({d.item.base.name}, iLvl {d.item.item_level})"
         if not e.stored:
-            self.hud.add(f"Backpack full: {text} stays on the ground.", C.MUTED)
+            self.hud.add(self.tr("loot.backpackFull", text=text), C.MUTED)
         elif isinstance(d, GoldDrop):
-            self.hud.add(f"+{text}", C.GOLD)
+            self.hud.add(self.tr("loot.gold", text=text), C.GOLD)
         else:
             self.hud.add(text, C.RARITY[int(d.item.rarity)] if isinstance(d, ItemDrop) else C.MUTED)
 
@@ -408,7 +411,7 @@ class Game:
         extra = "".join(f", {v:.0f} {self.session.proficiencies[k].name} XP" for k, v in r.xp_lost.items())
         self.death_text = f"Lost {r.gold_lost} gold{extra}." + (" Your gear lies on your corpse: walk over it to take it back."
                                                               if self.session.corpses else "")
-        self.hud.add(f"You died. {self.death_text}", C.LIFE)
+        self.hud.add(self.tr("death.youDied", death_text=self.death_text), C.LIFE)
         self.hold = None
         self.ui.close_all()
         self.close_windows()
@@ -510,11 +513,12 @@ class Game:
         bar, label = self.session.skill_bar, self.keys.slot_label(slot)
         if node_id is None:
             bar.clear(slot)
-            self.hud.add(f"Key {label} cleared.", C.MUTED)
+            self.hud.add(self.tr("bar.keyCleared", label=label), C.MUTED)
         else:
             name = self.data.node(node_id).name
             r = bar.bind(slot, node_id)
-            self.hud.add(f"{name} on key {label}." if r is Bind.OK else f"{name}: {r.value}", C.TEXT if r is Bind.OK else C.MUTED)
+            ok = r is Bind.OK
+            self.hud.add(self.tr("bar.onKey", name=name, key=label) if ok else self.tr("skill.cannot", name=name, reason=r.value), C.TEXT if ok else C.MUTED)
 
     def _on_key_up(self, key: int) -> None:
         """Letting go of a channelled skill's key (Whirlwind) stops it."""
@@ -528,13 +532,14 @@ class Game:
     def set_right_skill(self, node_id: str | None) -> None:
         r = self.session.skill_bar.set_right(node_id)
         if node_id is None:
-            self.hud.add("Right click cleared.", C.MUTED)
+            self.hud.add(self.tr("bar.rightCleared"), C.MUTED)
         else:
             name = self.data.node(node_id).name
-            self.hud.add(f"{name} on the right click." if r is Bind.OK else f"{name}: {r.value}", C.TEXT if r is Bind.OK else C.MUTED)
+            ok = r is Bind.OK
+            self.hud.add(self.tr("bar.onRight", name=name) if ok else self.tr("skill.cannot", name=name, reason=r.value), C.TEXT if ok else C.MUTED)
 
     def use_slot(self, slot: int, aim: tuple[float, float] | None = None) -> None:
-        self.use_skill(self.session.skill_bar.skill_at(slot), f"Key {self.keys.slot_label(slot)} is empty: click the slot to choose a skill.", aim)
+        self.use_skill(self.session.skill_bar.skill_at(slot), self.tr("bar.emptyKey", key=self.keys.slot_label(slot)), aim)
 
     def use_skill(self, skill: str | None, empty: str, aim: tuple[float, float] | None = None) -> None:
         """A bar key or the right click: the skill aimed at the mouse (or the monster under it, or the nearest).
@@ -681,7 +686,7 @@ class Game:
                 self.set_right_skill(None) if slot == RIGHT else self.bind_slot(slot, None)
             return
         if button == 3:  # right click in the world: the right-click skill (GDD 7.1)
-            self.use_skill(self.session.skill_bar.right, "Right click has no skill: right-click one in the trees (T).")
+            self.use_skill(self.session.skill_bar.right, self.tr("bar.noRight"))
             return
         if button != 1:
             return

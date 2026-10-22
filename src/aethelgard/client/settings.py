@@ -20,6 +20,7 @@ class Settings:
     resolution: list[int] = field(default_factory=lambda: [1280, 720])
     fullscreen: bool = False
     keys: dict[str, str | list[str]] = field(default_factory=dict)  # action (or skillBar) → key name(s)
+    language: str = "en"  # data/ui/strings/<language>.json (M7-06)
 
     @staticmethod
     def path(directory: Path | None = None) -> Path:

@@ -148,7 +148,7 @@ class SkillTreeWindow:
                     return True
             if self._forget is not None and self._forget.collidepoint(ev.pos):
                 msg = self.g.world.apply(ForgetTree(self.g.session.player_id, self.tab))
-                self.g.hud.add(msg or f"{self.g.data.proficiency(self.tab).name}: every point is back.", C.MUTED if msg else C.GOLD)
+                self.g.hud.add(msg or self.g.tr("tree.forgotten", tree=self.g.data.proficiency(self.tab).name), C.MUTED if msg else C.GOLD)
                 return True
             self._pressed = self.node_at(ev.pos)  # a point is spent when the button comes up (a drag spends none)
         elif ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
@@ -156,7 +156,7 @@ class SkillTreeWindow:
             if node_id is not None and node_id == pressed:
                 r = self.g.session.allocate_skill(node_id)
                 if r not in (Allocate.OK, Allocate.BY_USE):
-                    self.g.hud.add(f"{self.g.data.node(node_id).name}: {r.value}", C.MUTED)
+                    self.g.hud.add(self.g.tr("skill.cannot", name=self.g.data.node(node_id).name, reason=r.value), C.MUTED)
         elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 3:  # right click: the right-click skill
             node_id = self.node_at(ev.pos)
             if node_id is not None and self.g.data.node(node_id).kind == "active":
