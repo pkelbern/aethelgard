@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from .data import GameData
@@ -18,6 +19,18 @@ from .items import SharedStash
 from .session import GameSession
 
 STASH_SLOT = "shared_stash"  # one file for every character (GDD 10.5)
+
+
+@dataclass(frozen=True)
+class CharacterSummary:
+    """One line of the character selection."""
+
+    slot: str
+    name: str
+    level: int
+    title: str
+    gold: int
+    played: float  # the save's modified time
 
 APP_DIR = "Aethelgard"
 ENV_SAVE_DIR = "AETHELGARD_SAVE_DIR"  # override for tests, CI and portable installs
@@ -107,7 +120,7 @@ class SaveStore:
         out = []
         for p in folder.glob("*.json") if folder.is_dir() else []:
             slot = p.stem
-            if slot == STASH_SLOT or slot.endswith(".bak"):
+            if slot == STASH_SLOT or slot.endswith((".bak", ".deleted")):
                 continue
             try:
                 name = json.loads(p.read_text(encoding="utf-8")).get("name", slot)
@@ -115,6 +128,26 @@ class SaveStore:
                 continue
             out.append((slot, name, p.stat().st_mtime))
         return sorted(out, key=lambda c: -c[2])
+
+    @classmethod
+    def summaries(cls, data: GameData, directory: Path | str | None = None) -> list[CharacterSummary]:
+        """What the character selection shows, most recently played first (unreadable saves are left out)."""
+        out = []
+        for slot, _name, mtime in cls.characters(directory):
+            try:
+                s = cls(directory, slot).load_session(data)
+            except ValueError:
+                continue
+            if s is not None:
+                out.append(CharacterSummary(slot, s.name, s.character.level, s.character.title, s.gold, mtime))
+        return out
+
+    def delete(self) -> None:
+        """Deletes this character: its save (and backup) become ``<slot>.deleted.json``, which the game never lists
+        but a player can rename back by hand."""
+        for src in (self.path, self.backup_path):
+            if src.exists():
+                src.replace(src.with_name(src.name.replace(".json", ".deleted.json")))
 
     # ---- the shared stash: same safe writing and backup, its own file
 

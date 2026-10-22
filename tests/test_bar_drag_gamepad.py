@@ -184,12 +184,12 @@ def test_the_keyboard_arrows_walk_the_title_and_an_empty_name_is_hero(game):
     g = game
     g.title.open = True
     g.title.press("new")
-    g.title.focus = "create"
-    g.title.press_focus()
-    assert g.session.name == "Hero" and not g.title.open
+    g.select.focus = "create"
+    g.select.press_focus()
+    assert g.session.name == "Hero" and not g.title.open and not g.select.open
     g.title.open = True
     g.title.press("new")
-    g.title.press("create")
+    g.select.press("create")
     assert g.store.slot == "hero_2", "never over another save"
 
 

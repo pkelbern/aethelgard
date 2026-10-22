@@ -58,7 +58,7 @@ from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
-from .screens import CreditsScreen, OptionsScreen, TitleScreen
+from .screens import CharacterSelectScreen, CreditsScreen, OptionsScreen, TitleScreen
 from .settings import Settings
 from .skill_drag import RIGHT, SkillDrag
 from .skill_tree_view import SkillTreeWindow
@@ -148,6 +148,7 @@ class Game:
         self.options = OptionsScreen(self)
         self.credits = CreditsScreen(self)
         self.title = TitleScreen(self)
+        self.select = CharacterSelectScreen(self)
         self.show_fps = False
         self.ground_view.art = self.effects
         self.big_map = False
@@ -604,7 +605,7 @@ class Game:
                 continue
             if self.pad.handle(ev):
                 continue  # the gamepad (menus too)
-            if self.options.handle(ev) or self.credits.handle(ev) or self.title.handle(ev):
+            if self.options.handle(ev) or self.credits.handle(ev) or self.select.handle(ev) or self.title.handle(ev):
                 continue  # full-screen menus take everything
             if self.menu.handle(ev):
                 continue  # paused: the menu takes everything
@@ -847,13 +848,14 @@ class Game:
 
     @property
     def paused(self) -> bool:
-        return self.menu.open or self.title.open or self.options.open or self.credits.open
+        return self.menu.open or self.title.open or self.options.open or self.credits.open or self.select.open
 
     def draw(self) -> None:
         screen, cam = self.screen, self.cam
         if self.title.open:  # the title screen: no world behind it
             screen.fill(C.BG)
             self.title.draw(screen, dim=False)
+            self.select.draw(screen)
             self.options.draw(screen)
             self.credits.draw(screen)
             pygame.display.flip()
@@ -944,6 +946,7 @@ class Game:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
             self.drag.draw(screen)
         self.menu.draw(screen)
+        self.select.draw(screen)
         self.options.draw(screen)
         self.credits.draw(screen)
         if self.show_fps:

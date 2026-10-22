@@ -17,8 +17,8 @@ class GameMenu(Panel):
     width = 280
 
     def items(self) -> list[tuple[str, str, bool]]:
-        return [("resume", "Resume", True), ("save", "Save game", True), ("options", "Options", True),
-                ("credits", "Credits", True), ("quit", "Save and quit", True)]
+        return [("resume", "Resume", True), ("save", "Save game", True), ("characters", "Change character", True),
+                ("options", "Options", True), ("credits", "Credits", True), ("quit", "Save and quit", True)]
 
     def height(self) -> int:
         return super().height() + 16
@@ -38,6 +38,9 @@ class GameMenu(Panel):
             self.open = False
         elif bid == "save":
             self.g.save_game()
+        elif bid == "characters":
+            self.g.save_game()
+            self.g.select.open_list()
         elif bid == "options":
             self.g.options.open = True
         elif bid == "credits":

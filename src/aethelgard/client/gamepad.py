@@ -96,7 +96,7 @@ class Gamepad:
 
     def _menu(self):
         g = self.g
-        for panel in (g.options, g.credits, g.title, g.menu):
+        for panel in (g.options, g.credits, g.select, g.title, g.menu):
             if panel.open:
                 return panel
         return None

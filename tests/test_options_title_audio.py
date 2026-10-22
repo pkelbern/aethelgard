@@ -116,14 +116,55 @@ def test_the_title_screen_pauses_and_makes_a_new_character(game):
     assert g.world.time > t
 
 
-def test_the_title_lists_saves_and_continues_one(game, data):
+def test_the_title_continues_the_last_character(game, data):
     g = game
     SaveStore(g.store.directory, slot="bo").save_session(GameSession(data, 1, name="Bo"))
-    ids = [bid for bid, _, _ in g.title.items()]
-    assert ids[0] == "play:bo" and {"new", "options", "credits", "quit"} <= set(ids)
+    items = g.title.items()
+    assert items[0] == ("continue", "Continue: Bo", True) and {"characters", "new", "options", "credits", "quit"} <= {i for i, _, _ in items}
     g.title.layout()
-    click(g, g.title._buttons["play:bo"])
+    click(g, g.title._buttons["continue"])
     assert g.session.name == "Bo" and not g.title.open
+
+
+def test_choose_switch_and_come_back_to_a_character(game, data):
+    """Make a second character from the game, play it, then go back to the first one as it was left."""
+    import os
+
+    g = game
+    first = GameSession(data, 1, name="Ana")
+    first.gold = 77
+    SaveStore(g.store.directory, slot="ana").save_session(first)
+    os.utime(g.store.directory / "ana.json", (1, 1))
+    SaveStore(g.store.directory, slot="bo").save_session(GameSession(data, 1, name="Bo"))
+    g.title.press("characters")
+    assert g.select.open and [c.name for c in g.select.characters()] == ["Bo", "Ana"]
+    g.select.press("pick:ana")
+    g.select.press("pick:ana")  # a second click plays
+    assert g.session.name == "Ana" and g.session.gold == 77 and not g.select.open and not g.title.open
+    g.session.gold = 500
+    g.menu.open = True
+    g.menu.press("characters")  # Change character: saves Ana first
+    assert g.select.open and g.paused
+    g.select.press("new")
+    g.select.naming = "Cid"
+    g.select.press("create")
+    assert g.session.name == "Cid" and g.session.gold == 0 and g.store.slot == "cid"
+    g.menu.press("characters")
+    g.select.press("pick:ana")
+    g.select.press("play")
+    assert g.session.name == "Ana" and g.session.gold == 500, "back to Ana as she was left"
+
+
+def test_deleting_a_character_asks_twice_and_keeps_a_copy(game, data):
+    g = game
+    SaveStore(g.store.directory, slot="bo").save_session(GameSession(data, 1, name="Bo"))
+    g.select.open_list()
+    assert g.select.selected == "bo", "the most recent one is picked when the list opens"
+    g.select.press("delete")
+    assert (g.store.directory / "bo.json").exists(), "the first click only asks"
+    g.select.press("delete")
+    assert not (g.store.directory / "bo.json").exists() and (g.store.directory / "bo.deleted.json").exists()
+    assert "bo" not in [c.slot for c in g.select.characters()]
 
 
 def test_options_change_volume_size_and_keys_and_save_them(game):

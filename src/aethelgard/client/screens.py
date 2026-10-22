@@ -275,23 +275,45 @@ class CreditsScreen(Panel):
 # ---------------------------------------------------------------- title
 
 
-class TitleScreen(Panel):
-    """Pick a saved character (most recent first) or make a new one; options, credits, quit."""
+class CharacterSelectScreen(Panel):
+    """Every saved character (most recent first): pick one and play, make a new one, or delete one (M7-05).
 
-    title = "Aethelgard"
-    width = 420
-    MAX_SHOWN = 6
+    Opened from the title and from the game menu ("Change character": the one being played is saved first).
+    A click picks, a second click (or Play, or Enter) plays; Delete asks for a second click."""
+
+    title = "Characters"
+    width = 520
+    MAX_SHOWN = 10
 
     def __init__(self, game: Game):
         super().__init__(game)
+        self.selected: str | None = None
         self.naming: str | None = None  # the new character's name while it is typed
+        self.confirm_delete: str | None = None
+        self._cache: list | None = None
+
+    def open_list(self, naming: bool = False) -> None:
+        self.open, self._cache, self.confirm_delete = True, None, None
+        self.naming = "" if naming else None
+        chars = self.characters()
+        if self.selected not in {c.slot for c in chars}:
+            self.selected = chars[0].slot if chars else None
+
+    def characters(self):
+        if self._cache is None:
+            self._cache = SaveStore.summaries(self.g.data, self.g.store.directory)[: self.MAX_SHOWN]
+        return self._cache
 
     def items(self) -> list[tuple[str, str, bool]]:
         if self.naming is not None:
             return [("create", "Start", True), ("cancel", "Back", True)]
-        chars = SaveStore.characters(self.g.store.directory)[: self.MAX_SHOWN]
-        out = [(f"play:{slot}", f"{'Continue' if i == 0 else 'Play'}: {name}", True) for i, (slot, name, _) in enumerate(chars)]
-        return out + [("new", "New character", True), ("options", "Options", True), ("credits", "Credits", True), ("quit", "Quit", True)]
+        out = []
+        for c in self.characters():
+            out.append((f"pick:{c.slot}", f"{c.name}  ·  level {c.level} {c.title}  ·  {c.gold} gold", True))
+        chosen = next((c for c in self.characters() if c.slot == self.selected), None)
+        delete = f"Delete {chosen.name}? Click again" if chosen and self.confirm_delete == chosen.slot else "Delete"
+        return out + [("play", f"Play {chosen.name}" if chosen else "Play", chosen is not None), ("new", "New character", True),
+                      ("delete", delete, chosen is not None), ("back", "Back", True)]
 
     def height(self) -> int:
         return super().height() + (40 if self.naming is not None else 0)
@@ -319,12 +341,18 @@ class TitleScreen(Panel):
     def back(self) -> None:
         if self.naming is not None:
             self.naming = None
+        else:
+            self.open = False
 
     def press(self, bid: str) -> None:
         g = self.g
-        if bid.startswith("play:"):
-            g.start_character(bid.split(":", 1)[1])
-            self.open = False
+        if bid.startswith("pick:"):
+            slot = bid.split(":", 1)[1]
+            if slot == self.selected:  # a second click plays
+                return self.press("play")
+            self.selected, self.confirm_delete = slot, None
+        elif bid == "play" and self.selected:
+            self._play(self.selected)
         elif bid == "new":
             self.naming = ""
         elif bid == "create":
@@ -333,11 +361,73 @@ class TitleScreen(Panel):
             slot, n = slot_name(name), 2
             while slot in taken:  # never over another character's save
                 slot, n = f"{slot_name(name)}_{n}", n + 1
-            g.start_character(slot, new_name=name)
-            self.naming = None
-            self.open = False
+            self._play(slot, new_name=name)
         elif bid == "cancel":
             self.naming = None
+        elif bid == "delete" and self.selected:
+            if self.confirm_delete != self.selected:
+                self.confirm_delete = self.selected
+                return
+            if self.selected == g.store.slot and not g.title.open:
+                g.hud.add(g.tr("characters.cannotDeletePlaying"), C.MUTED)
+                return
+            SaveStore(g.store.directory, self.selected).delete()
+            self.selected, self.confirm_delete, self._cache = None, None, None
+            self.open_list()
+        elif bid == "back":
+            self.back()
+
+    def _play(self, slot: str, new_name: str | None = None) -> None:
+        g = self.g
+        if not g.title.open and (slot != g.store.slot or new_name is not None):
+            g.save_game()  # leaving a character in the middle of a game: keep it as it is now
+        g.start_character(slot, new_name=new_name)
+        self.naming, self.open, g.title.open, g.menu.open = None, False, False, False
+
+    def draw_extra(self, screen: pygame.Surface) -> None:
+        f, r = self.g.fonts, self.rect
+        chosen = self._buttons.get(f"pick:{self.selected}")
+        if chosen is not None and self.naming is None:
+            pygame.draw.rect(screen, C.GOLD, chosen, 2, border_radius=4)
+        if not self.characters() and self.naming is None:
+            img = f["small"].render("No characters yet: make one.", True, C.MUTED)
+            screen.blit(img, img.get_rect(midtop=(r.centerx, r.y + 40)))
+        if self.naming is not None:
+            box = pygame.Rect(r.x + 30, r.y + 62, r.w - 60, 32)
+            pygame.draw.rect(screen, (20, 20, 26), box, border_radius=4)
+            pygame.draw.rect(screen, C.GOLD, box, 1, border_radius=4)
+            caret = "|" if (pygame.time.get_ticks() // 500) % 2 else ""
+            text = f["body"].render((self.naming or "") + caret, True, C.TEXT)
+            screen.blit(text, (box.x + 8, box.y + 6))
+            hint = f["tiny"].render("Name your character, then Enter (empty: Hero)", True, C.MUTED)
+            screen.blit(hint, hint.get_rect(midbottom=(r.centerx, box.y - 4)))
+
+
+class TitleScreen(Panel):
+    """Continue with the last character, choose another, make a new one; options, credits, quit."""
+
+    title = "Aethelgard"
+    width = 420
+
+    def items(self) -> list[tuple[str, str, bool]]:
+        chars = SaveStore.characters(self.g.store.directory)
+        first = [("continue", f"Continue: {chars[0][1]}", True)] if chars else []
+        return first + [("characters", "Characters", bool(chars)), ("new", "New character", True), ("options", "Options", True),
+                        ("credits", "Credits", True), ("quit", "Quit", True)]
+
+    def back(self) -> None:
+        pass  # the title has nothing behind it
+
+    def press(self, bid: str) -> None:
+        g = self.g
+        if bid == "continue":
+            chars = SaveStore.characters(g.store.directory)
+            g.start_character(chars[0][0])
+            self.open = False
+        elif bid == "characters":
+            g.select.open_list()
+        elif bid == "new":
+            g.select.open_list(naming=True)
         elif bid == "options":
             g.options.open = True
         elif bid == "credits":
@@ -349,12 +439,3 @@ class TitleScreen(Panel):
         f, r = self.g.fonts, self.rect
         img = f["tiny"].render("an isometric action RPG", True, C.MUTED)
         screen.blit(img, img.get_rect(midtop=(r.centerx, r.y + 40)))
-        if self.naming is not None:
-            box = pygame.Rect(r.x + 30, r.y + 62, r.w - 60, 32)
-            pygame.draw.rect(screen, (20, 20, 26), box, border_radius=4)
-            pygame.draw.rect(screen, C.GOLD, box, 1, border_radius=4)
-            caret = "|" if (pygame.time.get_ticks() // 500) % 2 else ""
-            text = f["body"].render((self.naming or "") + caret, True, C.TEXT)
-            screen.blit(text, (box.x + 8, box.y + 6))
-            hint = f["tiny"].render("Name your character, then Enter (empty: Hero)", True, C.MUTED)
-            screen.blit(hint, hint.get_rect(midbottom=(r.centerx, box.y - 4)))
