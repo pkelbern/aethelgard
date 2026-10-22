@@ -1,5 +1,5 @@
 {
- "_comment": "Trees per proficiency; each tree gets 1 point per level of its proficiency. layer = proficiency level that opens the node. requires = nodes that must be taken first (an active needs the actives before it unlocked; a passive needs a point in the passives before it). PASSIVES take points: one level per point, up to maxPoints. ACTIVES cost 1 point to unlock and then level up ONLY BY USE: each hit of the skill gives it skillXpRate x the proficiency XP of that hit, on the proficiency XP curve (curves.json), with no other cap. levelGates hold an active below 'level' until 'node' has 'points' (its XP keeps building; the levels arrive when the gate opens). useXp = for actives that hit nothing (Bulwark, War Cry): XP per use as a share of the XP of the nearest monster within useXpRadiusTiles. effects = value gained PER LEVEL; after 'diminishingAfter' levels the gain is halved. steps = the gain of each level written out instead (front-loaded: Deep Freeze +3% +3% +3% +2% +2% +2% +1%…; the last repeats). base = fixed value the node has from its first level (Wide Slash arc, Shield Bash stun). synergies: bonus THIS node gets per level of 'from'. cooldown = seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); keys in ui/keys.json. spell = the node is a spell (cast: bolt | ball | chain | nova | wall | field | storm | meteor | self — core/spells.py; element: fire | cold | lightning | holy; look = how the client draws it). Spell after-effects come from stats: chillPct/chillSeconds slow, stunSeconds freezes or stuns, chains/bounceRangeTiles jump, intervalSeconds = a storm's strikes. self spells: healPctOfMax heals, durationSeconds makes a buff whose buff* stats (and lifeRegenPerSecond) count while it lasts. A worn wand that carries a spell (items.json bases 'spell') adds its spellLevel to it and lets you cast it even before it is unlocked. damageMin/damageMax = elemental damage of one hit, raised by Intelligence (balance.json attributes) and <element>DamagePct. Warding (defense school): barrierPctOfMax = a shield of that share of your max life that takes hits before your life for durationSeconds (its absorbed damage teaches Warding, like armor teaches Armor); buffResist, buffThornsPct (melee attackers take that share of their hit back) and buffDamageTakenPct (less damage taken) count while the buff lasts; a self skill with knockbackTiles and radiusTiles pushes away everyone around.",
+ "_comment": "Trees per proficiency; each tree gets 1 point per level of its proficiency. layer = proficiency level that opens the node. requires = nodes that must be taken first (an active needs the actives before it unlocked; a passive needs a point in the passives before it). PASSIVES take points: one level per point, up to maxPoints. ACTIVES cost 1 point to unlock and then level up ONLY BY USE: each hit of the skill gives it skillXpRate x the proficiency XP of that hit, on the proficiency XP curve (curves.json), with no other cap. levelGates hold an active below 'level' until 'node' has 'points' (its XP keeps building; the levels arrive when the gate opens). useXp = for actives that hit nothing (Bulwark, War Cry): XP per use as a share of the XP of the nearest monster within useXpRadiusTiles. effects = value gained PER LEVEL; after 'diminishingAfter' levels the gain is halved. steps = the gain of each level written out instead (front-loaded: Deep Freeze +3% +3% +3% +2% +2% +2% +1%…; the last repeats). base = fixed value the node has from its first level (Wide Slash arc, Shield Bash stun). synergies: bonus THIS node gets per level of 'from'. cooldown = seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); keys in ui/keys.json. spell = the node is a spell (cast: bolt | ball | chain | nova | wall | field | storm | hail | meteor | self — core/spells.py; element: fire | cold | lightning | holy; look = how the client draws it). Spell after-effects come from stats: chillPct/chillSeconds slow, stunSeconds freezes or stuns, chains/bounceRangeTiles jump, intervalSeconds = a storm's strikes. self spells: healPctOfMax heals, durationSeconds makes a buff whose buff* stats (and lifeRegenPerSecond) count while it lasts. A worn wand that carries a spell (items.json bases 'spell') adds its spellLevel to it and lets you cast it even before it is unlocked. damageMin/damageMax = elemental damage of one hit, raised by Intelligence (balance.json attributes) and <element>DamagePct. Warding (defense school): barrierPctOfMax = a shield of that share of your max life that takes hits before your life for durationSeconds (its absorbed damage teaches Warding, like armor teaches Armor); buffResist, buffThornsPct (melee attackers take that share of their hit back) and buffDamageTakenPct (less damage taken) count while the buff lasts; a self skill with knockbackTiles and radiusTiles pushes away everyone around.",
  "diminishingAfter": 8,
  "skillXpRate": 0.75,
  "firstPointLevel": 2,
@@ -1673,18 +1673,22 @@
    "energyCost": 14,
    "cooldown": 3.0,
    "spell": {
-    "cast": "field",
+    "cast": "hail",
     "element": "cold",
     "look": "blizzard"
    },
-   "description": "Ice rains on a circle {radiusTiles} across where you point (up to {rangeTiles} away) for {durationSeconds}: {damagePerSecond} cold damage per second to every enemy in it, slowing them by {chillPct}.",
+   "description": "Ice falls on a circle {radiusTiles} across where you point (up to {rangeTiles} away) for {durationSeconds}: every {intervalSeconds} a shard bursts on a random spot inside it for {damageMin}–{damageMax} cold damage to every enemy within {shardRadiusTiles}, slowing them by {chillPct}. Casting it again moves it.",
    "effects": {
-    "damagePerSecond": 3.5
+    "damageMin": 1.6,
+    "damageMax": 2.6
    },
    "base": {
-    "damagePerSecond": 7,
-    "radiusTiles": 2.5,
+    "damageMin": 5,
+    "damageMax": 9,
+    "radiusTiles": 3.0,
     "durationSeconds": 4,
+    "intervalSeconds": 0.25,
+    "shardRadiusTiles": 0.9,
     "chillPct": 0.4,
     "chillSeconds": 1.5,
     "rangeTiles": 12

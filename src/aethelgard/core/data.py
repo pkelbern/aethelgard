@@ -577,7 +577,7 @@ class ProficienciesData:
         return next((d.id for d in self.proficiencies if tags & set(d.weapon_tags)), self.unarmed)
 
 
-SPELL_CASTS = ("bolt", "ball", "chain", "nova", "wall", "field", "storm", "meteor", "self")  # how a spell is delivered (core/spells.py)
+SPELL_CASTS = ("bolt", "ball", "chain", "nova", "wall", "field", "storm", "hail", "meteor", "self")  # how a spell is delivered (core/spells.py)
 ELEMENTS = ("fire", "cold", "lightning", "holy", "arcane")
 
 

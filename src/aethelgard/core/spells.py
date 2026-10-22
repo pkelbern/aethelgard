@@ -12,6 +12,8 @@ Deliveries (``spell.cast``):
 - ``wall``: a line across the aim, at the aimed point; enemies standing in it take damage every tick.
 - ``field``: a circle on the aimed point that hurts every tick (Blizzard).
 - ``storm``: a circle on the aimed point that strikes one enemy in it every ``intervalSeconds`` (Thunderstorm).
+- ``hail``: a circle on the aimed point where, every ``intervalSeconds``, a shard falls on a random spot inside it and
+  bursts (``shardRadiusTiles``) on whoever stands there (Blizzard). Casting it again moves it: one at a time.
 - ``meteor``: falls on the aimed point after a delay, bursts, then leaves the ground burning.
 - ``self``: on the caster (Heal, blessings): see ``World.apply_self_skill``.
 
@@ -101,6 +103,7 @@ class GroundFire:
     strike: AttackerStats | None = None  # storm: one enemy in it takes this hit every ``interval`` seconds
     interval: float = 0.0
     strike_all: bool = False  # rain: every enemy in it takes the hit, not just one
+    shard_radius: float = 0.0  # hail: a shard bursts on a random spot inside every interval
 
     def touches(self, m: MonsterActor) -> bool:
         return segment_distance(m.x, m.y, self.ax, self.ay, self.bx, self.by) <= self.radius + m.radius
@@ -174,6 +177,12 @@ class SpellCaster:
         elif cast == "field":
             self._add(GroundFire(0, p.player_id, node_id, node.tree, element, look, ax, ay, ax, ay,
                                  e(node_id, "radiusTiles"), per_second_damage(s, node_id), e(node_id, "durationSeconds")))
+        elif cast == "hail":
+            for old in [f for f in self.fires.values() if f.owner_id == p.player_id and f.skill == node_id]:
+                del self.fires[old.id]  # one Blizzard at a time: casting again moves it
+            self._add(GroundFire(0, p.player_id, node_id, node.tree, element, look, ax, ay, ax, ay,
+                                 e(node_id, "radiusTiles"), 0.0, e(node_id, "durationSeconds"), strike=spell_attack(s, node_id),
+                                 interval=e(node_id, "intervalSeconds") or 0.25, shard_radius=e(node_id, "shardRadiusTiles") or 0.8))
         elif cast == "storm":
             self._add(GroundFire(0, p.player_id, node_id, node.tree, element, look, ax, ay, ax, ay,
                                  e(node_id, "radiusTiles"), 0.0, e(node_id, "durationSeconds"),
@@ -293,7 +302,11 @@ class SpellCaster:
                 if f.tick <= 0:
                     f.tick += f.interval
                     inside = [m for m in self.w.monsters.values() if m.alive and f.touches(m)]
-                    if inside and f.strike_all:
+                    if f.shard_radius > 0:  # hail: a shard on a random spot of the circle
+                        rng = p.session.combat_rng
+                        a, r = rng.uniform(0.0, math.tau), f.radius * math.sqrt(rng.random())
+                        self.burst(p, f.ax + math.cos(a) * r, f.ay + math.sin(a) * r, f.shard_radius, f.strike, f.element, f.skill, f.look)
+                    elif inside and f.strike_all:
                         for m in inside:
                             self.hit(p, m, f.strike, f.element, f.skill)
                     elif inside:

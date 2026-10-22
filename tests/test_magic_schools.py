@@ -57,14 +57,23 @@ def test_deep_freeze_freezes_cold_hits(data):
     assert m.state == "stunned", "frozen solid (the same state as a stun)"
 
 
-def test_blizzard_hurts_and_slows_whoever_stands_in_it(data):
+def test_blizzard_drops_shards_on_random_spots_of_its_circle(data):
+    from aethelgard.core.events import SpellBurst
+
     s, w, p, m = mage(data, "blizzard", at=(9.0, 5.0))
     m.base_speed = 0.0
-    assert cast(w, "blizzard", None, 9.0, 5.0, seconds=2.0) is None
-    hp = m.monster.hp
-    assert hp < 1000 and m.chill_left > 0
-    run(w, 1.0)
-    assert m.monster.hp < hp, "it keeps hurting while it lasts"
+    shards = []
+    s.bus.subscribe(SpellBurst, shards.append)
+    assert cast(w, "blizzard", None, 9.0, 5.0, seconds=3.5) is None
+    radius = s.skills.effect("blizzard", "radiusTiles")
+    assert len(shards) >= 8 and all((e.x - 9.0) ** 2 + (e.y - 5.0) ** 2 <= radius**2 + 1e-6 for e in shards)
+    assert len({(round(e.x, 2), round(e.y, 2)) for e in shards}) > 5, "spread over the circle, not on one point"
+    assert m.monster.hp < 1000, "some shards land on it"
+    fires = [f for f in w.spells.fires.values() if f.skill == "blizzard"]
+    p.cooldowns.tick(99)
+    p.energy = 999.0
+    cast(w, "blizzard", None, 7.0, 5.0, seconds=0.6)
+    assert len([f for f in w.spells.fires.values() if f.skill == "blizzard"]) <= 1 and fires, "casting again moves it: one at a time"
 
 
 def test_glacial_spike_freezes_what_it_bursts_on(data):

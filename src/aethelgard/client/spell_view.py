@@ -89,7 +89,7 @@ class SpellView:
             if not sees((f.ax + f.bx) / 2, (f.ay + f.by) / 2):
                 continue
             dark, main, _ = ELEMENT_COLORS.get(f.element, ELEMENT_COLORS["fire"])
-            if f.strike_all:  # Rain of Arrows: arrows falling all over the circle
+            if f.strike_all or f.shard_radius > 0:  # Rain of Arrows, Blizzard: arrows or ice falling all over the circle
                 self._ellipse(screen, f.ax, f.ay, f.radius, dark, 0, 50)
                 n = max(6, int(f.radius * 6))
                 for i in range(n):

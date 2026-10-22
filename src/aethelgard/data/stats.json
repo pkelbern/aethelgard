@@ -98,6 +98,7 @@
     { "id": "lightningResistPierce",       "label": "enemy lightning resistance ignored",            "format": "pct" },
     { "id": "lightningCritChance",         "label": "chance of double lightning damage",             "format": "pct" },
     { "id": "intervalSeconds",             "label": "between strikes",                               "format": "seconds", "signed": false },
+    { "id": "shardRadiusTiles",            "label": "shard burst radius",                            "format": "tiles", "signed": false },
     { "id": "cryomancySkills",             "label": "to Cryomancy skills",                           "format": "flat" },
     { "id": "electromancySkills",          "label": "to Electromancy skills",                        "format": "flat" },
     { "id": "restorationSkills",           "label": "to Restoration skills",                         "format": "flat" },
