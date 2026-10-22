@@ -126,6 +126,7 @@ class AttributeParams:
     crit_per_dex: float = 0.002
     defense_per_dex: float = 2.0
     spell_damage_per_int: float = 0.01  # +1% spell damage
+    weapon_mastery_per_level: float = 0.0  # +x% weapon damage per level of the weapon's proficiency above 1
 
 
 @dataclass
@@ -565,6 +566,14 @@ class ProficienciesData:
     default_title: str = ""
     dual_wield: str = "dual_wield"  # every plain swing with two weapons feeds this one
     unarmed: str = "blades"  # plain swings with no weapon tag of any proficiency (fists, a wand in the main hand)
+
+    def for_weapon(self, tags, dual_wielding: bool = False) -> str:
+        """The proficiency a weapon belongs to: Dual Wield with two weapons, else the one whose weaponTags match the
+        weapon's tags (Blades for a sword, Archery for a bow…), else the unarmed one."""
+        if dual_wielding:
+            return self.dual_wield
+        tags = set(tags)
+        return next((d.id for d in self.proficiencies if tags & set(d.weapon_tags)), self.unarmed)
 
 
 SPELL_CASTS = ("bolt", "ball", "chain", "nova", "wall", "field", "storm", "meteor", "self")  # how a spell is delivered (core/spells.py)

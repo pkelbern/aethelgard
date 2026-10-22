@@ -28,7 +28,7 @@
     "zweihander": 100, "maul": 102, "claymore": 99,
     "buckler": 120, "round_shield": 121, "kite_shield": 122, "tower_shield": 123,
     "leather_armor": 137, "studded_leather": 145, "chain_mail": 153, "scale_mail": 185, "plate_mail": 161,
-    "helm": 160, "gloves": 154, "boots": 156, "belt": 208, "ring": 198, "amulet": 228,
+    "helm": 160, "gloves": 154, "boots": 156, "belt": 208, "ring": 198, "amulet": 212,
     "ember_wand": 105, "cinder_wand": 105, "blaze_wand": 105, "star_wand": 107, "frost_wand": 107, "rime_wand": 107,
     "spark_rod": 106, "storm_rod": 106, "prayer_rod": 104, "ward_rod": 104, "aegis_rod": 104, "sun_rod": 104
   },

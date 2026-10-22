@@ -188,6 +188,9 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: 
         dmg_min, dmg_max = dmg_min * mult, dmg_max * mult
     item = gear.stat_total
     bonus = a.str * ap.damage_per_str + item("damagePct")  # items: "+x% damage"
+    if w is not None and w.base.dmg_max > 0:  # weapon mastery: the weapon's proficiency level (a wand is not one)
+        prof = sheet.data.proficiencies.for_weapon(w.base.tags, gear.dual_wielding)
+        bonus += max(0, skills.level_of(prof) - 1) * ap.weapon_mastery_per_level
     acc = ap.base_accuracy + a.dex * ap.accuracy_per_dex + item("accuracy")
     crit = min(0.5, a.dex * ap.crit_per_dex)
     for tag in w.base.tags if w else []:  # weapon passives: swordDamagePct (Sharp Blade), bowCritChance (Hunter's Mark), maceDamagePct…

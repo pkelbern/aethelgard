@@ -532,6 +532,7 @@ class EffectArt:
         self.loot = lib.cfg.get("loot", {})
         self.shots = lib.cfg.get("projectiles", {})
         self.clock = 0.0
+        self.icons = None  # client.icons.Icons (set by the game): small drops are drawn with their icon
         self._seen: dict[int, float] = {}  # ground id → when it appeared (the drop animation plays once)
 
     def tick(self, dt: float) -> None:
@@ -552,6 +553,11 @@ class EffectArt:
         return self.loot.get("scroll")
 
     def draw_drop(self, screen: pygame.Surface, pos: tuple[int, int], ground_id: int, drop) -> pygame.Rect | None:
+        base = getattr(getattr(drop, "item", None), "base", None)
+        if base is not None and base.id in self.loot.get("iconItems", ()) and self.icons is not None:
+            icon = self.icons.item(base.id, self.loot.get("iconPixels", 20), cutout=True)  # Flare's loot gem/ring are a few pixels
+            if icon is not None:
+                return screen.blit(icon, icon.get_rect(center=(pos[0], pos[1] - 4)))
         sheet_id = self.loot_sheet(drop)
         sheet = self.lib.sheet(sheet_id) if sheet_id else None
         if sheet is None:

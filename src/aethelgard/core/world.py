@@ -1366,11 +1366,8 @@ class World:
     def swing_proficiency(self, p: PlayerActor) -> str:
         """Who gets the XP of a plain swing: Dual Wield with two weapons, else the proficiency of the main-hand
         weapon's tags (Blades for a sword, Maces for a mace…), else the unarmed one (proficiencies.json)."""
-        pd, gear = self.data.proficiencies, p.session.gear
-        if gear.dual_wielding:
-            return pd.dual_wield
-        tags = set(gear.main_hand.base.tags) if gear.main_hand is not None else set()
-        return next((d.id for d in pd.proficiencies if tags & set(d.weapon_tags)), pd.unarmed)
+        gear = p.session.gear
+        return self.data.proficiencies.for_weapon(gear.main_hand.base.tags if gear.main_hand is not None else (), gear.dual_wielding)
 
     def _begin_attack(self, p: PlayerActor, target_id: int | None, skill: str | None, commit: bool = True) -> None:
         ias = self.attack_speed(p)

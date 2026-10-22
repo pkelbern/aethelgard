@@ -142,6 +142,7 @@ class Game:
         self.audio = Audio(self, sound_cfg, self.sprites.lib.art_dir, self.settings)
         self.shake = 0.0  # seconds of screen shake left (a critical hit, M1-05)
         self.effects = EffectArt(self.sprites.lib)
+        self.effects.icons = self.icons
         self.spell_view = SpellView(self)
         self.menu = GameMenu(self)
         self.options = OptionsScreen(self)

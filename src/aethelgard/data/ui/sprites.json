@@ -119,8 +119,10 @@
     }
   },
   "loot": {
-    "_comment": "Drops on the ground: the Flare loot animation of each item (it falls and rests on its last frame). items: by item base id; gold by amount (the biggest pile not above it); potions by kind; scroll. scale: the loot art is drawn at 1/3 of Flare's size, like the tiles (the sheets are stored at import.scale).",
+    "_comment": "Drops on the ground: the Flare loot animation of each item (it falls and rests on its last frame). items: by item base id; iconItems are drawn with their icon (icons.json) at iconPixels, since Flare's ring and gem are only a few pixels; gold by amount (the biggest pile not above it); potions by kind; scroll. scale: the loot art is drawn at 1/3 of Flare's size, like the tiles (the sheets are stored at import.scale).",
     "scale": 0.5556,
+    "iconItems": ["amulet", "ring"],
+    "iconPixels": 22,
     "items": {
       "short_bow": "flare/loot/shortbow", "hunters_bow": "flare/loot/shortbow", "long_bow": "flare/loot/longbow", "composite_bow": "flare/loot/greatbow",
       "long_dagger": "flare/loot/dagger", "short_sword": "flare/loot/shortsword", "gladius": "flare/loot/shortsword", "sabre": "flare/loot/longsword",

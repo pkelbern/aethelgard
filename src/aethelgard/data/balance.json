@@ -23,14 +23,15 @@
     }
   },
   "attributes": {
-    "_comment": "What each attribute point does (GDD 4.2). Strength: physical damage. Dexterity: accuracy, critical chance, defense. Intelligence: spell damage (and Energy, in character). Vitality: life (in character).",
+    "_comment": "What each attribute point does (GDD 4.2). Strength: physical damage. Dexterity: accuracy, critical chance, defense. Intelligence: spell damage (and Energy, in character). Vitality: life (in character). weaponMasteryPerLevel: a weapon hits harder as its proficiency grows (+4% per level above 1 of Blades for a sword, Archery for a bow, Maces, Two-Handed, Dual Wield with two weapons), the way spells grow with their skill level.",
     "pointsPerProficiencyLevel": 3,
     "baseAccuracy": 20,
     "damagePerStr": 0.01,
     "accuracyPerDex": 5,
     "critPerDex": 0.002,
     "defensePerDex": 2,
-    "spellDamagePerInt": 0.01
+    "spellDamagePerInt": 0.01,
+    "weaponMasteryPerLevel": 0.04
   },
   "character": {
     "secondaryProficiencyWeight": 0.25,
