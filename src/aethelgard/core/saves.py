@@ -7,6 +7,7 @@ and is used automatically if the main file cannot be read (backlog M6-07).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
@@ -98,6 +99,22 @@ class SaveStore:
         if errors:
             raise ValueError("No readable save: " + "; ".join(errors))
         return None
+
+    @classmethod
+    def characters(cls, directory: Path | str | None = None) -> list[tuple[str, str, float]]:
+        """Every saved character in the folder, most recently played first: (slot, name, modified time)."""
+        folder = Path(directory) if directory is not None else default_save_dir()
+        out = []
+        for p in folder.glob("*.json") if folder.is_dir() else []:
+            slot = p.stem
+            if slot == STASH_SLOT or slot.endswith(".bak"):
+                continue
+            try:
+                name = json.loads(p.read_text(encoding="utf-8")).get("name", slot)
+            except (OSError, ValueError):
+                continue
+            out.append((slot, name, p.stat().st_mtime))
+        return sorted(out, key=lambda c: -c[2])
 
     # ---- the shared stash: same safe writing and backup, its own file
 

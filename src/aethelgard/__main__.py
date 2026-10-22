@@ -22,7 +22,8 @@ def main() -> None:
 
     # --frames runs (tests/CI) never download: they draw the stand-ins
     download = not args.offline and args.frames is None
-    game = Game(seed=args.seed, new_game=args.new, save_dir=args.save_dir, download_art=download, art_dir=args.art_dir)
+    game = Game(seed=args.seed, new_game=args.new, save_dir=args.save_dir, download_art=download, art_dir=args.art_dir,
+                title=not (args.new or args.frames is not None or args.area))
     if args.area:
         game.load_area(args.area)
     game.run(frames=args.frames, screenshot=args.screenshot)

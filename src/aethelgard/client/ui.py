@@ -56,6 +56,10 @@ class GameUI:
         """Mouse over any window: the world ignores hover and clicks there."""
         return self.manager.get_hovering_any_element()
 
+    def resize(self, size: tuple[int, int]) -> None:
+        """The window changed size (options): the interface fills the new one."""
+        self.manager.set_window_resolution(size)
+
     def close_all(self) -> None:
         for w in (self.picker, self.console):
             if self._open(w):

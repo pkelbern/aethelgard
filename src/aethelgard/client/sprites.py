@@ -20,6 +20,7 @@ import pygame
 
 from ..core.saves import default_art_dir
 from ..tools.fetch_art import ArtError, fetch_art, http_fetch, load_config, missing_sheets, sheets_in_use, sprites_dir
+from ..tools.fetch_sounds import fetch_sounds, missing_sounds
 from .animation import DIRECTION_NAMES, Pose, choose_pose, direction8, frame_at, pose_frame
 from .iso import HALF_H, HALF_W, Camera
 
@@ -438,9 +439,10 @@ class ArtDownload:
     The main loop calls ``poll()`` every frame: it returns a message once, when the download ends,
     and then the library is told to load the new sheets."""
 
-    def __init__(self, lib: SpriteLibrary, fetch=None):
+    def __init__(self, lib: SpriteLibrary, fetch=None, sounds: dict | None = None):
         self.lib = lib
         self._fetch = fetch
+        self.sounds = sounds  # data/ui/sounds.json: the sounds come in the same download (M7-04)
         self.state = "idle"  # idle | running | done | failed
         self.stage, self.done, self.total = "", 0, 0
         self.error = ""
@@ -450,17 +452,28 @@ class ArtDownload:
 
     def start(self) -> bool:
         """Starts only if something is missing. True if a download began."""
-        if self.state == "running" or not self.lib.missing():
+        if self.state == "running" or not self.missing():
             return False
         self.state, self._reported = "running", False
         self._thread = threading.Thread(target=self._run, name="art-download", daemon=True)
         self._thread.start()
         return True
 
+    def missing(self) -> list[str]:
+        """Missing sprite sheets and sound files."""
+        sounds = missing_sounds(self.sounds, self.lib.art_dir) if self.sounds else []
+        return [*self.lib.missing(), *(f"sound {n}" for n in sounds)]
+
     def _run(self) -> None:
         self.problems = []
         try:
-            fetch_art(self.lib.cfg, self.lib.art_dir, self._fetch or http_fetch(), progress=self._progress)
+            fetch = self._fetch or http_fetch()
+            if self.lib.missing():
+                fetch_art(self.lib.cfg, self.lib.art_dir, fetch, progress=self._progress)
+            if self.sounds:
+                failed = fetch_sounds(self.sounds, self.lib.cfg, self.lib.art_dir, fetch, progress=self._progress)
+                if failed:
+                    raise ArtError([f"sound {n} not downloaded" for n in failed], [])
             self.state = "done"
         except ArtError as ex:  # some sources worked: those sheets are in place
             self.problems = ex.problems
@@ -480,6 +493,8 @@ class ArtDownload:
         if self.state in ("done", "failed"):
             return 1.0
         part = self.done / self.total if self.total else 0.0
+        if self.stage == "sounds":
+            return part
         return 0.7 * part if self.stage != "convert" else 0.7 + 0.3 * part
 
     def wait(self, timeout: float | None = None) -> None:
@@ -490,7 +505,7 @@ class ArtDownload:
     def status_text(self) -> str:
         if self.state != "running":
             return ""
-        what = "Downloading art" if self.stage != "convert" else "Preparing sprites"
+        what = {"convert": "Preparing sprites", "sounds": "Downloading sounds"}.get(self.stage, "Downloading art")
         pct = f" {100 * self.done // self.total}%" if self.total else ""
         return f"{what}{pct}… (missing sprites show as magenta squares)"
 

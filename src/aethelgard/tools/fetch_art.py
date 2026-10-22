@@ -525,7 +525,11 @@ def main() -> None:
         raise SystemExit(1) from None
     finally:
         pygame.quit()
-    print(f"{len(built)} sheet(s) built." if built else "Nothing missing.")
+    print(f"{len(built)} sheet(s) built." if built else "No sheet missing.")
+    from .fetch_sounds import fetch_sounds, load_sound_config  # the sounds come from the same source (M7-04)
+
+    failed = fetch_sounds(load_sound_config(), cfg, art_dir, fetch)
+    print(f"Sounds: {len(failed)} could not be downloaded ({', '.join(failed)})." if failed else "Sounds ready.")
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ CONSUMABLE_KEYS = {"lifePotion": "life_potion", "energyPotion": "energy_potion"}
 
 class KeyMap:
     def __init__(self, raw: dict, bar_slots: int):
+        self.raw = {k: v for k, v in raw.items() if not k.startswith("_")}
         names = raw["skillBar"]
         if len(names) != bar_slots:
             raise ValueError(f"keys.json: skillBar has {len(names)} keys, the bar has {bar_slots} slots (skills.json barSlots)")
@@ -38,10 +39,44 @@ class KeyMap:
         self._slot_of = {k: i for i, k in enumerate(self.slot_keys)}
         self._action_of = {k: a for a, ks in self.action_keys.items() for k in ks}
 
-    @classmethod
-    def load(cls, bar_slots: int) -> KeyMap:
+    @staticmethod
+    def defaults() -> dict:
         path = resources.files("aethelgard") / "data" / "ui" / "keys.json"
-        return cls(json.loads(path.read_text(encoding="utf-8")), bar_slots)
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    @classmethod
+    def load(cls, bar_slots: int, overrides: dict | None = None) -> KeyMap:
+        """data/ui/keys.json, with the player's changes (settings.json) on top; broken changes are ignored."""
+        raw = cls.defaults()
+        if overrides:
+            try:
+                return cls({**raw, **overrides}, bar_slots)
+            except (ValueError, KeyError):
+                pass
+        return cls(raw, bar_slots)
+
+    def rebind(self, action: str, key: int, slot: int | None = None) -> dict:
+        """The player's key changes after giving ``action`` (or bar ``slot`` when action is "skillBar") the key
+        ``key``: whatever used that key before takes the old one (a swap), so no key is ever used twice.
+        Returns the overrides to store (only what differs from keys.json)."""
+        name = pygame.key.name(key)
+        raw = json.loads(json.dumps(self.raw))
+        old = raw["skillBar"][slot] if action == "skillBar" else (raw[action][0] if isinstance(raw[action], list) else raw[action])
+        for a, v in raw.items():  # whoever had the key gets the old one
+            if a == "skillBar":
+                raw[a] = [old if n == name else n for n in v]
+            elif isinstance(v, list) and a not in SHARED_MODIFIERS:
+                raw[a] = [old if n == name else n for n in v]
+            elif v == name:
+                raw[a] = old
+        if action == "skillBar":
+            raw["skillBar"][slot] = name
+        elif isinstance(raw[action], list):
+            raw[action] = [name]
+        else:
+            raw[action] = name
+        base = self.defaults()
+        return {k: v for k, v in raw.items() if base.get(k) != v}
 
     def slot_for(self, key: int) -> int | None:
         return self._slot_of.get(key)

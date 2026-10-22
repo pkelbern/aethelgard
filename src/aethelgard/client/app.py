@@ -46,7 +46,9 @@ from ..core.world import (
 )
 from ..core.world_gen import ExitKind
 from ..core.xp_log import XpLog
+from ..tools.fetch_sounds import load_sound_config
 from . import palette as C
+from .audio import Audio
 from .character_view import CharacterWindow
 from .game_menu import GameMenu
 from .hud import Hud
@@ -54,6 +56,8 @@ from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
+from .screens import CreditsScreen, OptionsScreen, TitleScreen
+from .settings import Settings
 from .skill_tree_view import SkillTreeWindow
 from .spell_view import SpellView
 from .sprites import ActorSprites, ArtDownload, EffectArt, SpriteLibrary
@@ -64,6 +68,7 @@ from .vision import Vision
 
 FPS = 60
 DT = 1 / FPS
+SHAKE_SECONDS, SHAKE_PIXELS = 0.18, 5  # a critical hit jolts the screen (M1-05)
 PX_PER_TILE = 33  # body radius on screen = collision radius (tiles, from the core) × this
 HOLD_REPEAT_SECONDS = 0.12  # holding the mouse button repeats the click this often (move/attack)
 CONSOLE_HELP = (
@@ -82,13 +87,20 @@ class Floater:
 
 
 class Game:
-    """``new_game`` ignores an existing save; ``save_dir`` overrides the per-user save folder."""
+    """``new_game`` ignores an existing save; ``save_dir`` overrides the per-user save folder; ``title`` opens on the
+    title screen (pick or make a character) instead of going straight into the last save; ``size`` overrides the
+    window size of the options."""
 
-    def __init__(self, seed: int | None = None, size: tuple[int, int] = (1280, 720), new_game: bool = False, save_dir: Path | None = None,
-                 download_art: bool = True, art_dir: Path | None = None):
+    def __init__(self, seed: int | None = None, size: tuple[int, int] | None = None, new_game: bool = False, save_dir: Path | None = None,
+                 download_art: bool = True, art_dir: Path | None = None, title: bool = False):
         pygame.init()
         pygame.display.set_caption("Aethelgard")
-        self.screen = pygame.display.set_mode(size)
+        self.store = SaveStore(save_dir)
+        self.settings = Settings.load(self.store.directory)
+        if size is None:
+            size = tuple(self.settings.resolution)
+        self.screen = pygame.display.set_mode(size, pygame.FULLSCREEN if self.settings.fullscreen and size == tuple(self.settings.resolution) else 0)
+        size = self.screen.get_size()
         self.clock = pygame.time.Clock()
         self.fonts = {
             "title": pygame.font.Font(None, 34),
@@ -98,8 +110,7 @@ class Game:
         }
         self.data = GameData.load()
         self.seed = seed if seed is not None else time.time_ns() & 0xFFFFFFFF
-        self.store = SaveStore(save_dir)
-        self.keys = KeyMap.load(self.data.skills.bar_slots)
+        self.keys = KeyMap.load(self.data.skills.bar_slots, self.settings.keys)
         self.cam = Camera(*size)
         self.hud = Hud(self.fonts, self.keys)
         self.hovered: MonsterActor | None = None
@@ -117,10 +128,16 @@ class Game:
         self.death_text: str | None = None  # set while the character lies dead, waiting for a click
         self.vision = Vision()
         self.sprites = ActorSprites(SpriteLibrary(art_dir=art_dir))
-        self.art = ArtDownload(self.sprites.lib)
+        sound_cfg = load_sound_config()
+        self.art = ArtDownload(self.sprites.lib, sounds=sound_cfg)
+        self.audio = Audio(self, sound_cfg, self.sprites.lib.art_dir, self.settings)
+        self.shake = 0.0  # seconds of screen shake left (a critical hit, M1-05)
         self.effects = EffectArt(self.sprites.lib)
         self.spell_view = SpellView(self)
         self.menu = GameMenu(self)
+        self.options = OptionsScreen(self)
+        self.credits = CreditsScreen(self)
+        self.title = TitleScreen(self)
         self.show_fps = False
         self.ground_view.art = self.effects
         self.big_map = False
@@ -129,6 +146,9 @@ class Game:
         self.area_names = {a.id: a.name for a in self.data.all_areas}
         self.running = True
 
+        if title:  # the most recently played character is the default slot behind the title screen
+            chars = SaveStore.characters(self.store.directory)
+            self.store.slot = chars[0][0] if chars else self.store.slot
         loaded = None if new_game else self._read_save()
         self._bind(loaded or GameSession(self.data, self.seed))
         self.ui = GameUI(self, size)
@@ -137,6 +157,45 @@ class Game:
             self.hud.add(f"Welcome back, {loaded.name}. Save loaded.", C.GOLD)
         self.hud.add(f"World seed: {self.seed}", C.MUTED)
         self._check_art(download_art)
+        if title:
+            self.title.open = True
+            self.audio.music("title")
+
+    # ------------------------------------------------------------ title screen and options
+
+    def start_character(self, slot: str, new_name: str | None = None) -> None:
+        """From the title screen: plays the save in ``slot``, or makes a new character called ``new_name`` there
+        (an existing save with that file name is kept as the .bak copy when the new one is first saved)."""
+        if self.store.slot != slot or new_name is not None:
+            self.store.slot = slot
+            loaded = None if new_name is not None else self._read_save()
+            session = loaded or GameSession(self.data, self.seed, name=new_name or slot)
+            self._bind(session)
+            self.load_area(self.data.town_id)
+            self.hud.add(f"Welcome, {session.name}." if loaded is None else f"Welcome back, {session.name}.", C.GOLD)
+            if new_name is not None:
+                self.store.save_session(session)
+        self.audio.theme = None
+        self._play_area_music()
+
+    def apply_settings(self, display: bool = False) -> None:
+        """After a change in the options: keys, volumes and (``display``) the window; saved at once."""
+        st = self.settings
+        st.save(self.store.directory)
+        self.keys = KeyMap.load(self.data.skills.bar_slots, st.keys)
+        self.hud.keys = self.keys
+        self.audio.apply_volume()
+        if display:
+            size = tuple(st.resolution)
+            self.screen = pygame.display.set_mode(size, pygame.FULLSCREEN if st.fullscreen else 0)
+            self.cam = Camera(*self.screen.get_size())
+            self.cam.follow(self.player.x, self.player.y, DT, snap=True)
+            self.ui.resize(self.screen.get_size())
+
+    def _play_area_music(self) -> None:
+        area = self.data.area(self.world.area_id)
+        boss_floor = area.boss is not None and self.world.floor == max(0, area.floors - 1)
+        self.audio.music("boss" if boss_floor else area.kind)
 
     # ------------------------------------------------------------ art check on start
 
@@ -144,16 +203,17 @@ class Game:
         """Every time the game opens: are all sprite sheets in the art folder? Missing ones are downloaded
         behind a loading screen (Esc plays at once and lets the download go on in the background)."""
         lib = self.sprites.lib
-        missing = lib.missing()
+        missing = self.art.missing()  # sheets and sounds
+        sheets = len(lib.missing())
         no_look = lib.without_look(t.id for t in self.data.monsters.types)
-        print(f"[art] {lib.art_dir / 'sprites'}: {lib.total() - len(missing)}/{lib.total()} sheets ready", flush=True)
+        print(f"[art] {lib.art_dir / 'sprites'}: {lib.total() - sheets}/{lib.total()} sheets ready, {len(missing) - sheets} sound(s) missing", flush=True)
         if no_look:
             print(f"[art] no art defined for: {', '.join(no_look)} (magenta stand-ins)", flush=True)
             self.hud.add(f"No art yet for: {', '.join(no_look)} (magenta squares).", C.MUTED)
         if not missing:
             return
         if not download:
-            self.hud.add(f"{len(missing)} sprite sheet(s) missing (magenta squares). Run: python -m aethelgard.tools.fetch_art", C.MUTED)
+            self.hud.add(f"{len(missing)} art/sound file(s) missing (magenta squares, silence). Run: python -m aethelgard.tools.fetch_art", C.MUTED)
             return
         print(f"[art] downloading {len(missing)} missing sheet(s)…", flush=True)
         self.art.start()
@@ -231,6 +291,8 @@ class Game:
         bus.subscribe(WaypointReached, self._on_waypoint)
         bus.subscribe(SkillLeveledUp, lambda e: self.hud.add(f"{self.data.node(e.skill_id).name} reached level {e.level}.", C.GOLD))
         self.spell_view.listen(bus)
+        self.audio.listen(bus)
+        bus.subscribe(FloatingText, lambda e: e.kind == "crit" and self._shake(SHAKE_SECONDS))
         bus.subscribe(StashChanged, lambda e: self.stash_store.save_stash(self.world.stash))
         if getattr(self, "xp_log", None) is not None:
             self.xp_log.close()
@@ -371,6 +433,11 @@ class Game:
         self.floaters.clear()
         self.sprites.clear()
         self.cam.follow(self.player.x, self.player.y, DT, snap=True)
+        if not self.title.open:
+            self._play_area_music()
+
+    def _shake(self, seconds: float) -> None:
+        self.shake = max(self.shake, seconds)
 
     # ------------------------------------------------------------ input
 
@@ -495,6 +562,8 @@ class Game:
             if ev.type == pygame.KEYDOWN and ev.key == pygame.K_F1:
                 self.ui.toggle_console()
                 continue
+            if self.options.handle(ev) or self.credits.handle(ev) or self.title.handle(ev):
+                continue  # full-screen menus take everything
             if self.menu.handle(ev):
                 continue  # paused: the menu takes everything
             if self.ui.process(ev) or self.ui.typing:
@@ -509,7 +578,7 @@ class Game:
                 self._on_key(ev.key)
             elif ev.type == pygame.KEYUP:
                 self._on_key_up(ev.key)
-        if self.dead or self.menu.open:
+        if self.dead or self.paused:
             self.hold = None
             return
         self._repeat_held_click()
@@ -724,8 +793,19 @@ class Game:
 
     # ------------------------------------------------------------ drawing
 
+    @property
+    def paused(self) -> bool:
+        return self.menu.open or self.title.open or self.options.open or self.credits.open
+
     def draw(self) -> None:
         screen, cam = self.screen, self.cam
+        if self.title.open:  # the title screen: no world behind it
+            screen.fill(C.BG)
+            self.title.draw(screen, dim=False)
+            self.options.draw(screen)
+            self.credits.draw(screen)
+            pygame.display.flip()
+            return
         screen.fill(C.BG)
         self.map.draw(screen, cam, self.vision.explored)
         props = self.map.props(cam, self.vision.explored)
@@ -782,6 +862,10 @@ class Game:
             img = self.fonts["small"].render(f.text, True, f.color)
             img.set_alpha(int(255 * max(0, min(1, f.life / 0.9))))
             screen.blit(img, (sx - img.get_width() // 2, sy - 56 - (0.9 - f.life) * 45))
+        if self.shake > 0:  # the world jolts; the HUD drawn next stays still
+            k = int(SHAKE_PIXELS * self.shake / SHAKE_SECONDS) + 1
+            t = pygame.time.get_ticks()
+            screen.scroll(k if (t // 30) % 2 else -k, k if (t // 45) % 2 else -k)
 
         corpses = [s for s in (self.world.corpse_spot(c) for c in self.session.corpses) if s is not None]
         self.vision.draw_automap(screen, self.world.layout, self.player.x, self.player.y, big=self.big_map,
@@ -804,6 +888,8 @@ class Game:
             if tip:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
         self.menu.draw(screen)
+        self.options.draw(screen)
+        self.credits.draw(screen)
         if self.show_fps:
             n = len(self.world.monsters)
             img = self.fonts["small"].render(f"{self.clock.get_fps():.0f} fps · {n} monsters", True, C.GOLD)
@@ -1048,7 +1134,7 @@ class Game:
 
     def tick(self) -> None:
         self.handle_events()
-        if self.menu.open:  # paused (single player): only the picture is kept up to date
+        if self.paused:  # paused (single player): only the picture is kept up to date
             self.draw()
             return
         self.world.step(DT)  # the world keeps running while windows are open
@@ -1069,6 +1155,9 @@ class Game:
         if note:
             self.hud.add(note, C.GOLD if self.art.state == "done" else C.LIFE)
             self._build_map()
+            self.audio.reload()
+        self.audio.watch_hero(self.player)
+        self.shake = max(0.0, self.shake - DT)
         self.ui.update(DT)
         self.spell_view.update(DT)
         for f in self.floaters:
