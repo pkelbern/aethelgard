@@ -621,6 +621,7 @@ class SkillNodeDef:
     short_name: str = ""
     description: str = ""
     effects: dict[str, float] = field(default_factory=dict)  # per point
+    steps: dict[str, list[float]] = field(default_factory=dict)  # per point, front-loaded: gain of level 1, 2, 3… (the last repeats)
     base: dict[str, float] = field(default_factory=dict)  # fixed from the first level
     spell: SpellDef | None = None
     requires: list[str] = field(default_factory=list)
@@ -630,7 +631,7 @@ class SkillNodeDef:
     @property
     def stat_ids(self) -> list[str]:
         """Stats of this node in display order: fixed ones first, then the ones that grow per point."""
-        return list(dict.fromkeys([*self.base, *self.effects]))
+        return list(dict.fromkeys([*self.base, *self.effects, *self.steps]))
 
 
 @dataclass

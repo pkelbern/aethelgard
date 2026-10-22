@@ -182,3 +182,13 @@ def test_version_5_saves_keep_their_levels_and_get_points_back(data):
     t = back.skills
     assert t.unlocked == {"fire_bolt"} and t.points_in("fire_bolt") == 4, "3 points + learned: level 4, by XP now"
     assert t.points_in("kindling") == 2 and t.available("pyromancy") == 8 - 3, "only the unlock costs a point"
+
+
+def test_front_loaded_passives_give_most_in_the_first_levels(data):
+    from aethelgard.core.session import GameSession
+
+    s = GameSession(data, 1)
+    gains = [s.skills.effect_at("deep_freeze", "coldFreezeChance", k) for k in range(13)]
+    steps = [round(b - a, 4) for a, b in zip(gains, gains[1:], strict=False)]
+    assert steps[:10] == [0.03, 0.03, 0.03, 0.02, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01] and steps[10:] == [0.01, 0.01]
+    assert "coldFreezeChance" in data.node("deep_freeze").stat_ids

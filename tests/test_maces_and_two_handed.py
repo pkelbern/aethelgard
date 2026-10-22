@@ -73,7 +73,7 @@ def test_weapon_passives_read_the_weapons_tags(data):
     wield(s, "maul")
     low = player_attack(s.character, s.skills, s.gear).crit_chance
     s.grant_skill("overpower", 5)
-    assert player_attack(s.character, s.skills, s.gear).crit_chance == pytest.approx(low + 0.10)
+    assert player_attack(s.character, s.skills, s.gear).crit_chance == pytest.approx(low + 0.13), "front-loaded: 3+3+3+2+2%"
 
 
 # ---------------------------------------------------------------- maces

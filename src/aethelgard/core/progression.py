@@ -578,11 +578,17 @@ class SkillTrees:
     def effect_at(self, node_id: str, stat: str, points: int) -> float:
         """Value of a stat if the node had ``points`` levels (tooltips show the next level with this).
 
-        Fixed ``base`` + per-level ``effects`` with diminishing returns. Synergies always count, with the
-        level the source node has now.
+        Fixed ``base`` + per-level ``effects`` with diminishing returns, or ``steps`` (the gain of each level, written
+        out: strong first levels, then smaller ones; the last one repeats). Synergies always count, with the level
+        the source node has now.
         """
         n = self._nodes[node_id]
-        value = n.base.get(stat, 0.0) + n.effects.get(stat, 0.0) * self.effective_points(points) if points > 0 else 0.0
+        value = 0.0
+        if points > 0:
+            value = n.base.get(stat, 0.0) + n.effects.get(stat, 0.0) * self.effective_points(points)
+            steps = n.steps.get(stat)
+            if steps:
+                value += sum(steps[:points]) + steps[-1] * max(0, points - len(steps))
         for s in self.synergies_into(node_id):
             if s.stat == stat:
                 value += s.per_point * self.points_in(s.from_)
