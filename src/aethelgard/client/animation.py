@@ -16,7 +16,7 @@ art: index 0..7 = map SW, W, NW, N, NE, E, SE, S (``direction8`` turns a grid ve
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 DIRECTIONS = 8
 # compass names used by the art, in index order (map axes: +x = E, +y = S; on screen E is down-right)
@@ -114,6 +114,19 @@ class FlareAnim:
     seconds: float
     loop: str
     rects: dict[tuple[int, int], tuple[int, int, int, int, int, int]]  # (frame, direction) → x, y, w, h, ox, oy
+    images: dict[tuple[int, int], str] = field(default_factory=dict)  # (frame, direction) → image key ("" = the first image)
+
+
+def flare_images(text: str) -> dict[str, str]:
+    """Images of an animation file by key: ``image=path`` is key "", ``image=path,name`` is key "name" (bigger
+    monsters keep one image per animation and name it on every frame line)."""
+    out: dict[str, str] = {}
+    for raw in text.splitlines():
+        key, _, val = raw.strip().partition("=")
+        if key.strip() == "image" and val.strip():
+            path, _, name = val.strip().partition(",")
+            out.setdefault(name.strip(), path.strip())
+    return out
 
 
 def parse_flare_animation(text: str) -> tuple[str, dict[str, FlareAnim]]:
@@ -165,6 +178,8 @@ def parse_flare_animation(text: str) -> tuple[str, dict[str, FlareAnim]]:
             direction = DIRECTION_NAMES.index(parts[1]) if parts[1] in DIRECTION_NAMES else int(parts[1])
             x, y, w, h, ox, oy = (int(p) for p in parts[2:8])
             current.rects[(index, direction)] = (x, y, w, h, ox, oy)
+            if len(parts) > 8 and parts[8]:  # files with one image per animation name the image of each frame
+                current.images[(index, direction)] = parts[8]
     for name, a in anims.items():  # uncompressed animations: every cell of the grid
         pos, (w, h), (ox, oy) = grids[name]
         if not a.rects and w > 0 and h > 0:

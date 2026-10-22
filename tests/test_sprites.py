@@ -101,6 +101,28 @@ frame=0,7,0,0,8,8,4,8
     assert anims["swing"].seconds == 1.0 and (0, 7) in anims["swing"].rects
 
 
+def test_one_image_per_animation_names_the_image_of_each_frame():
+    """Bigger Flare monsters (minotaur, wyverns) keep one image per animation: each frame names its image."""
+    from aethelgard.client.animation import flare_images
+    from aethelgard.tools.fetch_art import images_of
+
+    text = """image=images/m/m_stance.png,stance
+image=images/m/m_die.png,die
+
+[stance]
+frames=1
+frame=0,0,1,2,3,4,5,6,stance
+
+[hit]
+frames=1
+frame=0,0,7,8,9,10,11,12,die
+"""
+    assert flare_images(text) == {"stance": "images/m/m_stance.png", "die": "images/m/m_die.png"}
+    assert images_of(text) == ["images/m/m_stance.png", "images/m/m_die.png"]
+    _, anims = parse_flare_animation(text)
+    assert anims["stance"].images[(0, 0)] == "stance" and anims["hit"].images[(0, 0)] == "die", "hit is drawn from the die image"
+
+
 def test_parse_flare_grid_format():
     """The older Flare format (community packs): one grid, a column per frame, a row per direction."""
     text = """image=images/enemies/wolf.png

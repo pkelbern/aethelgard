@@ -33,7 +33,7 @@ from importlib import resources
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
-from ..client.animation import DIRECTIONS, is_flare_tileset, pack_shelves, parse_flare_animation, parse_flare_tileset
+from ..client.animation import DIRECTIONS, flare_images, is_flare_tileset, pack_shelves, parse_flare_animation, parse_flare_tileset
 from ..core.saves import default_art_dir
 
 Fetch = Callable[[str], bytes]  # URL → file contents
@@ -73,8 +73,8 @@ def sheets_in_use(cfg: dict) -> list[str]:
 
 
 def images_of(text: str) -> list[str]:
-    """Images named by a Flare animation (one) or tileset (one per section) file."""
-    return parse_flare_tileset(text)[0] if is_flare_tileset(text) else [parse_flare_animation(text)[0]]
+    """Images named by a Flare animation (one, or one per animation) or tileset (one per section) file."""
+    return parse_flare_tileset(text)[0] if is_flare_tileset(text) else list(flare_images(text).values()) or [parse_flare_animation(text)[0]]
 
 
 def sheet_ready(art_dir: Path, sheet: str, version: int = 0) -> bool:
@@ -371,16 +371,24 @@ def convert_sheet(job: Job, cfg: dict, out: Path) -> tuple[int, int]:
         return convert_tileset(job, cfg, out, text)
     imp = cfg["import"]
     keep = set(imp["anims"])
-    _, anims = parse_flare_animation(job.animation.read_text(encoding="utf-8", errors="replace"))
-    src = pygame.image.load(str(job.image))
-    bounds = src.get_rect()
+    _, anims = parse_flare_animation(text)
+    # one image, or (bigger monsters) one per animation, named on every frame line: key → loaded image
+    names = list(flare_images(text)) or [""]
+    files = job.images if len(job.images) == len(names) else [job.image]
+    sources = {name: pygame.image.load(str(f)) for name, f in zip(names, files, strict=False)}
+    first = next(iter(sources.values()))
 
-    frames: dict[tuple, pygame.Surface] = {}  # source rect → scaled frame (Flare repeats frames across animations)
+    def frame_key(anim, fd) -> tuple:
+        return (anim.images.get(fd, names[0]), *anim.rects[fd])
+
+    frames: dict[tuple, pygame.Surface] = {}  # (image, source rect) → scaled frame (Flare repeats frames across animations)
     offsets: dict[tuple, tuple[int, int]] = {}
     for anim in (a for name, a in anims.items() if name in keep):
-        for x, y, w, h, ox, oy in anim.rects.values():
-            key = (x, y, w, h, ox, oy)
-            if w <= 0 or h <= 0 or key in frames or not bounds.contains((x, y, w, h)):
+        for fd in anim.rects:
+            key = frame_key(anim, fd)
+            src = sources.get(key[0], first)
+            _, x, y, w, h, ox, oy = key
+            if w <= 0 or h <= 0 or key in frames or not src.get_rect().contains((x, y, w, h)):
                 continue
             sw, sh = max(1, round(w * job.scale)), max(1, round(h * job.scale))
             frame = pygame.transform.smoothscale(src.subsurface((x, y, w, h)), (sw, sh))
@@ -406,7 +414,7 @@ def convert_sheet(job: Job, cfg: dict, out: Path) -> tuple[int, int]:
     for name, a in anims.items():
         if name not in keep:
             continue
-        rects = [[placed.get(a.rects.get((f, d)), empty) for d in range(DIRECTIONS)] for f in range(a.frames)]
+        rects = [[placed.get(frame_key(a, (f, d)), empty) if (f, d) in a.rects else empty for d in range(DIRECTIONS)] for f in range(a.frames)]
         out_anims[name] = {"frames": a.frames, "seconds": round(a.seconds, 3), "loop": a.loop, "rects": rects}
 
     target = out / f"{job.sheet}.json"
