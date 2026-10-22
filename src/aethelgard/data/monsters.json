@@ -8,7 +8,11 @@
   "families": [
     { "id": "beasts",       "name": "Beasts" },
     { "id": "undead","name": "Undead" },
-    { "id": "raiders", "name": "Raiders" }
+    { "id": "raiders", "name": "Raiders" },
+    { "id": "goblins", "name": "Ash Goblins" },
+    { "id": "insects", "name": "Sand Insects" },
+    { "id": "drakes", "name": "Drakes" },
+    { "id": "horned", "name": "Horned" }
   ],
   "types": [
     { "id": "wolf",           "name": "Wolf",              "family": "beasts",        "hp": 110, "dmgMin": 40, "dmgMax": 90,  "expPct": 80,  "moveSpeed": 1.4, "attackRate": 1.2, "range": 1, "ai": "flanker", "radius": 0.6 },
@@ -20,7 +24,16 @@
     { "id": "necromancer",     "name": "Necromancer",        "family": "undead", "hp": 90,  "dmgMin": 30, "dmgMax": 70,  "expPct": 120, "moveSpeed": 0.9, "attackRate": 0.6, "range": 6, "ai": "caster_revive", "projectile": { "speed": 6.5, "radius": 0.18, "magic": true, "look": "bolt", "element": "cold" }, "leader": { "packChance": 0.25, "maxPerArea": 3, "followers": ["skeleton", "zombie", "skeleton_archer"], "aura": { "radiusTiles": 6, "stats": { "physicalReduction": 0.1 } } }, "resist": { "fire": 0.2, "cold": 0.2, "holy": -0.3 } },
     { "id": "bandit",        "name": "Bandit",           "family": "raiders",  "hp": 130, "dmgMin": 50, "dmgMax": 100, "expPct": 90,  "moveSpeed": 1.0, "attackRate": 1.0, "range": 1, "ai": "melee" },
     { "id": "bandit_spearman",  "name": "Bandit Spearman",  "family": "raiders",  "hp": 120, "dmgMin": 60, "dmgMax": 110, "expPct": 95,  "moveSpeed": 1.0, "attackRate": 0.9, "range": 2, "ai": "melee" },
-    { "id": "shaman",           "name": "Shaman",              "family": "raiders",  "hp": 90,  "dmgMin": 25, "dmgMax": 60,  "expPct": 110, "moveSpeed": 0.9, "attackRate": 0.6, "range": 6, "ai": "support_heal", "projectile": { "speed": 7, "radius": 0.18, "magic": true, "look": "bolt", "element": "lightning" }, "leader": { "packChance": 0.25, "maxPerArea": 3, "followers": ["bandit", "bandit_spearman"], "aura": { "radiusTiles": 6, "stats": { "damagePct": 0.15, "attackSpeedPct": 0.1 } } }, "resist": { "fire": 0.2, "lightning": 0.2 } }
+    { "id": "shaman",           "name": "Shaman",              "family": "raiders",  "hp": 90,  "dmgMin": 25, "dmgMax": 60,  "expPct": 110, "moveSpeed": 0.9, "attackRate": 0.6, "range": 6, "ai": "support_heal", "projectile": { "speed": 7, "radius": 0.18, "magic": true, "look": "bolt", "element": "lightning" }, "leader": { "packChance": 0.25, "maxPerArea": 3, "followers": ["bandit", "bandit_spearman"], "aura": { "radiusTiles": 6, "stats": { "damagePct": 0.15, "attackSpeedPct": 0.1 } } }, "resist": { "fire": 0.2, "lightning": 0.2 } },
+    { "id": "ash_goblin",        "name": "Ash Goblin",        "family": "goblins", "hp": 95,  "dmgMin": 45, "dmgMax": 85,  "expPct": 85,  "moveSpeed": 1.1, "attackRate": 1.1, "range": 1, "ai": "melee", "radius": 0.36 },
+    { "id": "goblin_skirmisher", "name": "Goblin Skirmisher", "family": "goblins", "hp": 75,  "dmgMin": 40, "dmgMax": 75,  "expPct": 90,  "moveSpeed": 1.45, "attackRate": 1.2, "range": 1, "ai": "flanker", "radius": 0.36 },
+    { "id": "goblin_warchief",   "name": "Goblin Warchief",   "family": "goblins", "hp": 170, "dmgMin": 60, "dmgMax": 115, "expPct": 115, "moveSpeed": 1.0, "attackRate": 0.9, "range": 1, "ai": "melee", "radius": 0.42, "leader": { "packChance": 0.3, "maxPerArea": 3, "followers": ["ash_goblin", "goblin_skirmisher"], "aura": { "radiusTiles": 6, "stats": { "damagePct": 0.2, "moveSpeedPct": 0.1 } } }, "resist": { "fire": 0.2 } },
+    { "id": "sand_crawler",      "name": "Sand Crawler",      "family": "insects", "hp": 65,  "dmgMin": 30, "dmgMax": 65,  "expPct": 70,  "moveSpeed": 1.35, "attackRate": 1.3, "range": 1, "ai": "flanker", "radius": 0.4 },
+    { "id": "antlion",           "name": "Antlion",           "family": "insects", "hp": 190, "dmgMin": 70, "dmgMax": 130, "expPct": 110, "moveSpeed": 1.0, "attackRate": 0.8, "range": 1, "ai": "charger", "radius": 0.6, "resist": { "cold": -0.2 } },
+    { "id": "fire_ant",          "name": "Fire Ant",          "family": "insects", "hp": 90,  "dmgMin": 30, "dmgMax": 70,  "expPct": 100, "moveSpeed": 1.0, "attackRate": 0.7, "range": 6, "ai": "ranged", "radius": 0.45, "projectile": { "speed": 7.5, "radius": 0.18, "magic": true, "look": "bolt", "element": "fire" }, "resist": { "fire": 0.5, "cold": -0.25 } },
+    { "id": "dune_drake",        "name": "Dune Drake",        "family": "drakes",  "hp": 140, "dmgMin": 45, "dmgMax": 95,  "expPct": 120, "moveSpeed": 1.2, "attackRate": 0.7, "range": 7, "ai": "ranged", "radius": 0.6, "projectile": { "speed": 8, "radius": 0.2, "magic": true, "look": "bolt", "element": "lightning" }, "resist": { "lightning": 0.3 } },
+    { "id": "ash_wyvern",        "name": "Ash Wyvern",        "family": "drakes",  "hp": 210, "dmgMin": 70, "dmgMax": 125, "expPct": 130, "moveSpeed": 1.0, "attackRate": 0.6, "range": 6, "ai": "ranged", "radius": 0.7, "projectile": { "speed": 7, "radius": 0.25, "magic": true, "look": "bolt", "element": "fire" }, "resist": { "fire": 0.4, "cold": -0.2 } },
+    { "id": "minotaur",          "name": "Minotaur",          "family": "horned",  "hp": 300, "dmgMin": 90, "dmgMax": 160, "expPct": 150, "moveSpeed": 1.0, "attackRate": 0.7, "range": 1, "ai": "charger", "radius": 0.7, "resist": { "fire": 0.2, "lightning": 0.2 } }
   ],
   "bosses": [
     { "id": "act1_boss", "name": "The Crypt Warden", "baseType": "skeleton", "level": 12, "hp": 2400, "dmgMin": 30, "dmgMax": 70, "expPct": 90,
@@ -29,6 +42,13 @@
         { "id": "cleave", "name": "Cleave", "windupSeconds": 1.0, "radiusTiles": 3.2, "arcDegrees": 150, "damageMult": 1.8, "cooldown": 6, "phase": 1 },
         { "id": "bone_slam", "name": "Bone Slam", "windupSeconds": 1.4, "radiusTiles": 3.6, "arcDegrees": 360, "damageMult": 2.2, "cooldown": 10, "phase": 1 },
         { "id": "raise_guard", "name": "Raise the Guard", "windupSeconds": 1.0, "cooldown": 25, "phase": 2, "summon": "skeleton", "count": 4 }
+      ] },
+    { "id": "act2_boss", "name": "The Horned Sovereign", "baseType": "minotaur", "level": 22, "hp": 2800, "dmgMin": 35, "dmgMax": 80, "expPct": 90,
+      "phaseTwoAtPct": 0.5, "phaseTwoStats": { "attackSpeedPct": 0.35, "moveSpeedPct": 0.25 },
+      "abilities": [
+        { "id": "horn_sweep", "name": "Horn Sweep", "windupSeconds": 0.9, "radiusTiles": 3.4, "arcDegrees": 160, "damageMult": 1.9, "cooldown": 6, "phase": 1 },
+        { "id": "earthshatter", "name": "Earthshatter", "windupSeconds": 1.3, "radiusTiles": 4.0, "arcDegrees": 360, "damageMult": 2.3, "cooldown": 10, "phase": 1 },
+        { "id": "call_the_swarm", "name": "Call the Swarm", "windupSeconds": 1.0, "cooldown": 22, "phase": 2, "summon": "antlion", "count": 3 }
       ] }
   ]
 }

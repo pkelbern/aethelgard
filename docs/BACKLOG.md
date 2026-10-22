@@ -185,6 +185,11 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [x] **M5-08** Cidade feita à mão no Tiled _(conteúdo, ~2 d)_  
   Feito: data/maps/village.tmx com entrada, saída, waypoint, vendedora e baú (marcadores); clicar no NPC anda até ele e abre a janela.
 
+- [ ] **M5-10** Ato 2 — O Ermo Cinzento _(conteúdo, ~5 d)_ — **escrito, validar**  
+  Aberto pela morte do Guardião da Cripta (areas.json `unlockedBy`: Kharos entra nos waypoints; aviso no registro). Kharos (cidade no Tiled, oásis, mercador, baú, artífice, 3 moradores), The Ash Road 13, Ember Mines 14–15 (2 andares), Sea of Dunes 16 (WP), Antlion Hollows 17–18 (2 andares), The Dry Oasis 19 (WP), Valley of the Kings 20 (WP), Tomb of the Sun Kings 20–21 (3 andares, WP) e o chefe The Horned Sovereign (nível 22: varrida de chifres, rachar o chão, chama formigas-leão na fase 2). Famílias novas com arte do Flare: Ash Goblins (Ash Goblin, Goblin Skirmisher, Goblin Warchief líder com aura), Sand Insects (Sand Crawler, Antlion, Fire Ant que cospe fogo), Drakes (Dune Drake raio, Ash Wyvern fogo), Horned (Minotaur). Visual: grassland/caverna/cripta tingidos (tiles.themes tint). Cada ato tem a sua cidade: portal e morte levam à cidade do ato; um jogo carregado começa na cidade mais avançada. Waypoints em colunas por ato. Simulação dos dois atos seguidos (`python -m aethelgard.tools.simulate`): proficiência principal 20 no chefe do Ato 2 (Ato 1 igual, 13/9/7). Validar no jogo: dificuldade dos goblins em bando e das formigas-leão.
+- [ ] **M5-11** Lore e moradores das cidades _(narrativa, ~2 d)_ — **escrito, validar**  
+  docs/Lore_Aethelgard.docx (Pedras-Guarda, Éter, a Ruptura, Malric, os dois atos, chefes, facções). data/npcs.json: 5 moradores em Thornwick (Elder Bram, Captain Hale, Sister Wren, Old Tobin, Dara the Caravaneer) e 3 em Kharos (Vizier Nadira, Scout Kael, Sefa) mais o artífice Orrin; clicar anda até a pessoa e abre a conversa (assuntos que mudam depois do chefe do ato). A vila agora se chama Thornwick. Contradiz o GDD 2.1 ("MVP sem narrativa"): atualizar.
+
 ## M6 – Loot
 
 **Pronto quando:** Drops seguem as tabelas; inventário, baú e vendedor funcionam

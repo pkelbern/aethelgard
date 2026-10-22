@@ -1,0 +1,97 @@
+{
+  "_comment": "Town people (lore, docs/Lore_Aethelgard.docx). A map marker (Tiled object 'npc' with role 'talk' and property npc = the id here) puts them in a town; look = how they are drawn (ui/sprites.json looks). greeting = the first thing they say; topics = what you can ask, each with a title and the answer. after = the topic only shows once that boss is beaten; before = only until then. Game text is in English.",
+  "npcs": {
+    "elder_bram": {
+      "name": "Elder Bram",
+      "look": "elder",
+      "greeting": "Another wanderer with a pack full of blades and wands. Sit, if you will. Thornwick still has bread, and I still have stories.",
+      "topics": [
+        { "title": "This place", "text": "Thornwick was the last northern post of the Wardens. They kept the Wardstones, seven pillars that held the Aether under the earth: the breath that moves magic, and death. Now only the stones and an old man remember them." },
+        { "title": "The Sundering", "text": "Twenty winters ago the sky in the south turned the color of ash. A stone broke. Since then the dead do not stay in their graves, the beasts of the Darkwood go mad, and the plains drink blood every spring." },
+        { "title": "What am I?", "text": "Whatever you practise. The old Wardens said a fighter is the sum of the blows he has struck. Carry every weapon if you like; your hands will choose for you." },
+        { "title": "The Crypt", "text": "Past the Rocky Hills lies the crypt where the Wardens buried their dead beside the second stone. Something there still keeps watch, and it no longer knows friend from foe.", "before": "act1_boss" },
+        { "title": "Aldric", "text": "So the Warden-Captain is at rest. Aldric Vane swore to guard that stone 'beyond death'. The Aether took him at his word. You did him a mercy.", "after": "act1_boss" }
+      ]
+    },
+    "captain_hale": {
+      "name": "Captain Hale",
+      "look": "militia_captain",
+      "greeting": "Keep your weapon sheathed inside the palisade. Out there, keep it bloody.",
+      "topics": [
+        { "title": "The Blood Plains", "text": "Raiders took the plains after the militia fell. They march in packs, and their shamans make them braver than they have any right to be. Kill the shaman first." },
+        { "title": "Darkwood", "text": "Wolves and boars, bigger than they should be, and angry. Boars charge in a straight line: step aside and strike their flank." },
+        { "title": "Champions", "text": "Some of the things out there are stronger, burning or freezing, or ringed by others that follow them. If one has a name, it has something worth taking." }
+      ]
+    },
+    "sister_wren": {
+      "name": "Sister Wren",
+      "look": "healer",
+      "greeting": "You are bleeding on my floor. Hold still, or go and bleed somewhere else.",
+      "topics": [
+        { "title": "Potions", "text": "Red for wounds, blue for a tired mind. Your belt holds only so many; a heavier belt holds more. Drink before you need to, not after." },
+        { "title": "The dead", "text": "The dead rise near the stones because the Aether leaks out of them like water from a cracked jar. Fire burns them clean; holy light works better still." },
+        { "title": "Your corpse", "text": "If you fall out there, your gear stays with your body. Walk back to it and it is yours again. Leave it too long between journeys and it waits for you here, by the waypoint." }
+      ]
+    },
+    "old_tobin": {
+      "name": "Old Tobin",
+      "look": "storyteller",
+      "greeting": "Buy an old man a cup and he will tell you about the south. Don't buy him one and he'll tell you anyway.",
+      "topics": [
+        { "title": "The Sun Kings", "text": "Down south, past the hills, the Sun Kings ruled from Kharos, a city of white walls around an oasis. They made the first Wardstone, and they chained a horned god beneath their tombs to guard it." },
+        { "title": "Malric", "text": "There was a Warden called Malric who studied the stones too long. When the sky went grey he vanished. Some say he died. I say a man who wanted that much power does not die so easily." },
+        { "title": "The road south", "text": "Nobody takes the road south while the crypt stirs. Settle that, and Dara's caravan will roll again." }
+      ]
+    },
+    "dara_caravan": {
+      "name": "Dara the Caravaneer",
+      "look": "caravaneer",
+      "greeting": "My wagons go south when the road is safe. Right now it isn't.",
+      "topics": [
+        { "title": "Going south", "text": "Clear the crypt and the hills will quiet down. Then come back and I'll take you to Kharos.", "before": "act1_boss" },
+        { "title": "Going south", "text": "The road is open. Kharos is waiting at the edge of the Ashen Reach: you'll find it on the waypoint, and I'll be there before you are.", "after": "act1_boss" }
+      ]
+    },
+    "vizier_nadira": {
+      "name": "Vizier Nadira",
+      "look": "vizier",
+      "greeting": "Thornwick sends us a wanderer. The Sun Kings sent us gold. Times change.",
+      "topics": [
+        { "title": "Kharos", "text": "The last city of the Reach. The oasis still gives water, the walls still hold, and the traders still come, though fewer every year." },
+        { "title": "The Ashen Reach", "text": "When the first stone broke, its Aether burned the land. Grass became ash, sand covered the old roads, and things crawled out of the earth that were never meant to see the sun." },
+        { "title": "The Horned Sovereign", "text": "The Sun Kings bound a beast-god beneath their tomb to guard the first stone. Malric set it free and drank the stone dry. The beast still sits on the sunken throne, waiting for anyone foolish enough to visit.", "before": "act2_boss" },
+        { "title": "What now", "text": "The Sovereign is dead and the first stone is empty. Malric went east with what he took. Kharos owes you; the rest of the world will owe you more, if you follow him.", "after": "act2_boss" }
+      ]
+    },
+    "orrin_artificer": {
+      "name": "Master Orrin",
+      "look": "artificer",
+      "greeting": "Bring me what you do not need and I will give you what you do. That is the whole art.",
+      "topics": [
+        { "title": "Crafting", "text": "Break down items you do not want into materials: scrap from plain items, essence from magic ones, shards from rares, and Aether from uniques and set pieces. With materials I can reforge, upgrade and craft." },
+        { "title": "Reforging", "text": "A magic or rare item can be reforged: same base, new lines. Pay me in essence or shards and try your luck again." },
+        { "title": "Upgrading", "text": "A plain or magic weapon or armor can be rebuilt on a stronger base of its kind, if you are strong enough to carry the new one." }
+      ]
+    },
+    "scout_kael": {
+      "name": "Scout Kael",
+      "look": "scout",
+      "greeting": "Keep your water skin full and your eyes on the sand. It moves.",
+      "topics": [
+        { "title": "The Ember Mines", "text": "Goblins dig there for Aether crystals. They are small, but they come in crowds, and their chiefs make them fearless." },
+        { "title": "The Antlion Hollows", "text": "Under the dunes. The big ones charge, the small ones swarm. Never fight them in a corridor if you can fight them in the open." },
+        { "title": "Drakes", "text": "Dune drakes breathe fire from a distance. Close in fast, or carry a shield and keep it up." }
+      ]
+    },
+    "sefa_warden": {
+      "name": "Sefa, the Last Warden",
+      "look": "warden_mage",
+      "greeting": "You carry a wand of each school. Good. The Wardens never asked which you would use. Only that you used them well.",
+      "topics": [
+        { "title": "The Wardens", "text": "We were seven orders, one for each stone. I am what is left of the southern one. The Aether chooses no side; we did." },
+        { "title": "The schools", "text": "Fire burns, cold slows, lightning leaps, light heals and smites, and warding turns blows aside. Each grows only as you use it. That is the oldest rule of all." },
+        { "title": "Malric", "text": "He was my teacher. He believed the stones were a prison for a power that should belong to men. He was half right: it was a prison. He forgot why it was built." }
+      ]
+    }
+  }
+}

@@ -75,3 +75,16 @@ def test_a_chest_opens_into_loot_once(data):
     w.enter_area("village")
     w.enter_area("plains")
     assert g.id not in w.ground, "opened chests stay open for the rest of the game"
+
+
+def test_act_two_continues_the_pace(data):
+    """The same character through both acts: Act 1 stays as the spreadsheet says, and the main proficiency
+    reaches the Act 2 boss a little under its level (Act 1: 13 for a level 12 boss)."""
+    from aethelgard.core.simulation import run_act, run_campaign
+
+    steps = run_campaign(data)
+    act1 = run_act(data, "act1")
+    assert [(s.main_level, s.shield_level, s.armor_level) for s in steps[: len(act1)]] == [(s.main_level, s.shield_level, s.armor_level) for s in act1]
+    boss = steps[-1]
+    assert boss.label == "The Horned Sovereign" and boss.monster_level == 22
+    assert 19 <= boss.main_level <= 22

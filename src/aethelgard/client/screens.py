@@ -15,7 +15,7 @@ from . import palette as C
 from .keys import ACTIONS
 from .settings import RESOLUTIONS
 from .strings import languages
-from .tooltip import draw_button, draw_panel
+from .tooltip import draw_button, draw_panel, wrap
 
 if TYPE_CHECKING:
     from .app import Game
@@ -439,3 +439,59 @@ class TitleScreen(Panel):
         f, r = self.g.fonts, self.rect
         img = f["tiny"].render("an isometric action RPG", True, C.MUTED)
         screen.blit(img, img.get_rect(midtop=(r.centerx, r.y + 40)))
+
+
+# ---------------------------------------------------------------- town people
+
+
+class DialogueScreen(Panel):
+    """Talking to a town NPC (npcs.json): what they say, and the topics you can ask about. Topics tied to a boss
+    appear before or after it is beaten. Pauses the game like the other panels (towns hold no monsters)."""
+
+    width = 640
+    LINE_H = 20
+
+    def __init__(self, game: Game):
+        super().__init__(game)
+        self.npc_id: str | None = None
+        self.text = ""
+
+    @property
+    def npc(self):
+        return self.g.data.npcs.npcs.get(self.npc_id or "")
+
+    @property
+    def title(self) -> str:  # noqa: D401 - the Panel heading
+        return self.npc.name if self.npc else ""
+
+    def talk(self, npc_id: str) -> None:
+        self.npc_id, self.open, self.focus = npc_id, True, None
+        self.text = self.npc.greeting
+
+    def topics(self):
+        return self.npc.topics_for(self.g.session.bosses_killed) if self.npc else []
+
+    def items(self) -> list[tuple[str, str, bool]]:
+        return [(f"topic:{i}", t.title, True) for i, t in enumerate(self.topics())] + [("bye", "Goodbye", True)]
+
+    def lines(self) -> list[str]:
+        return wrap(self.text, self.g.fonts["small"], self.width - 60)
+
+    def height(self) -> int:
+        return super().height() + len(self.lines()) * self.LINE_H + 10
+
+    def layout(self) -> None:
+        super().layout()
+        shift = len(self.lines()) * self.LINE_H + 10
+        self._buttons = {k: r.move(0, shift) for k, r in self._buttons.items()}
+
+    def press(self, bid: str) -> None:
+        if bid.startswith("topic:"):
+            self.text = self.topics()[int(bid.split(":")[1])].text
+        elif bid == "bye":
+            self.open = False
+
+    def draw_extra(self, screen: pygame.Surface) -> None:
+        r, font = self.rect, self.g.fonts["small"]
+        for i, line in enumerate(self.lines()):
+            screen.blit(font.render(line, True, C.TEXT), (r.x + 30, r.y + 52 + i * self.LINE_H))

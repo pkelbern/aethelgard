@@ -1,5 +1,6 @@
 {
  "_comment": "Every message the client shows, by key (M7-06). Values are str.format templates: {name} is filled in by the game. Another language = another file next to this one (pt.json…) with the same keys; missing keys fall back to English.",
+ "act.opened": "The road is open: {town} joins your waypoints.",
  "art.inBackground": "The art keeps downloading in the background; sprites appear when it ends.",
  "art.missingFiles": "{count} art/sound file(s) missing (magenta squares, silence). Run: python -m aethelgard.tools.fetch_art",
  "art.noLook": "No art yet for: {names} (magenta squares).",

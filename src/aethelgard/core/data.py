@@ -498,6 +498,7 @@ class ActDef:
     id: str = ""
     name: str = ""
     areas: list[AreaDef] = field(default_factory=list)
+    unlocked_by: str | None = None  # a boss id: killing it opens this act (its town joins the waypoints)
 
 
 @dataclass
@@ -881,6 +882,33 @@ def _find(items, item_id: str, what: str):
 
 
 @dataclass
+class TopicDef:
+    title: str = ""
+    text: str = ""
+    after: str | None = None  # shown only once this boss is beaten
+    before: str | None = None  # shown only until then
+
+
+@dataclass
+class NpcDef:
+    """A town person (npcs.json): what they say. Where they stand comes from the town's map."""
+
+    name: str = ""
+    look: str = ""
+    greeting: str = ""
+    topics: list[TopicDef] = field(default_factory=list)
+
+    def topics_for(self, bosses_killed) -> list[TopicDef]:
+        """What can be asked now: topics tied to a boss show before or after it is beaten."""
+        return [t for t in self.topics if (t.after is None or t.after in bosses_killed) and (t.before is None or t.before not in bosses_killed)]
+
+
+@dataclass
+class NpcsData:
+    npcs: dict[str, NpcDef] = field(default_factory=dict)
+
+
+@dataclass
 class GameData:
     curves: CurvesData
     balance: BalanceData
@@ -892,6 +920,7 @@ class GameData:
     skills: SkillsData
     items: ItemsData
     stats: StatsData
+    npcs: NpcsData = field(default_factory=NpcsData)
     monster_levels: list[MonsterLevelRow] = field(default_factory=list)
     xp_total_by_level: list[int] = field(default_factory=list)
 
@@ -906,6 +935,7 @@ class GameData:
         "skills": ("skills.json", SkillsData),
         "items": ("items.json", ItemsData),
         "stats": ("stats.json", StatsData),
+        "npcs": ("npcs.json", NpcsData),
     }
 
     # ---- loading
@@ -988,6 +1018,16 @@ class GameData:
 
     def area(self, area_id: str) -> AreaDef:
         return _find(self.all_areas, area_id, "area")
+
+    def act_of(self, area_id: str) -> ActDef:
+        return next(act for act in self.areas.acts if any(a.id == area_id for a in act.areas))
+
+    def town_of(self, area_id: str) -> str:
+        """The town of the act an area belongs to: where a portal or a death in that act takes you."""
+        return next(a.id for a in self.act_of(area_id).areas if a.kind == "town")
+
+    def is_town(self, area_id: str) -> bool:
+        return any(a.id == area_id and a.kind == "town" for a in self.all_areas)
 
     def proficiency(self, prof_id: str) -> ProficiencyDef:
         return _find(self.proficiencies.proficiencies, prof_id, "proficiency")
@@ -1128,6 +1168,12 @@ def validate(d: GameData) -> list[str]:
             errors.append(f"areas: '{a.id}' has missing boss '{a.boss}'")
     if d.balance.party.loot not in ("shared", "individual") or d.balance.party.no_drop_players_step < 1:
         errors.append("balance: party.loot must be shared or individual, and noDropPlayersStep at least 1")
+    boss_ids_all = {b.id for b in d.monsters.bosses}
+    for npc_id, npc in d.npcs.npcs.items():
+        for t in npc.topics:
+            errors += [f"npcs: '{npc_id}' topic '{t.title}' names missing boss '{b}'" for b in (t.after, t.before) if b and b not in boss_ids_all]
+    errors += [f"areas: act '{act.id}' is unlocked by missing boss '{act.unlocked_by}'"
+               for act in d.areas.acts if act.unlocked_by and act.unlocked_by not in boss_ids_all]
     pf = d.areas.prefabs
     if pf.chest_loot_as not in d.items.drop_count:
         errors.append(f"areas: prefabs chestLootAs '{pf.chest_loot_as}' has no dropCount in items.json")

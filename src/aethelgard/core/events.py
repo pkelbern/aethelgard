@@ -156,6 +156,14 @@ class SkillUsed:
 
 
 @dataclass(frozen=True)
+class ActOpened:
+    """An act boss fell: the next act's town is now on the player's waypoint list."""
+
+    player_id: int
+    town_id: str
+
+
+@dataclass(frozen=True)
 class WaypointReached:
     """The player stepped on a waypoint (``new`` = first time: it is now on their list)."""
 

@@ -94,6 +94,14 @@ class TileSheet:
     def has(self, tile_id: int) -> bool:
         return tile_id in self.rects
 
+    def tinted(self, tint) -> TileSheet:
+        """A copy with every color multiplied by ``tint`` (0–255 per channel, 255 = unchanged)."""
+        image = self.image.copy()
+        image.fill((*tint[:3], 255), special_flags=pygame.BLEND_RGBA_MULT)
+        sheet = TileSheet({"tiles": {}}, image)
+        sheet.rects = dict(self.rects)
+        return sheet
+
     def tile(self, tile_id: int, scale: float = 1.0, alpha: int = 255):
         key = (tile_id, round(scale, 3), alpha)
         hit = self._cache.get(key)
@@ -160,8 +168,15 @@ class SpriteLibrary:
             image = image.convert_alpha()
         return SpriteSheet(meta, image)
 
-    def tilesheet(self, sheet_id: str) -> TileSheet | None:
-        """A tileset sheet (map art), or None while it is not downloaded."""
+    def tilesheet(self, sheet_id: str, tint: list[int] | tuple[int, ...] | None = None) -> TileSheet | None:
+        """A tileset sheet (map art), or None while it is not downloaded. ``tint`` multiplies its colors (a theme
+        that reuses a tileset with another mood: the grassland as ash and sand)."""
+        if tint:
+            key = f"tiles:{sheet_id}:{tuple(tint)}"
+            if key not in self._sheets:
+                base = self.tilesheet(sheet_id)
+                self._sheets[key] = base.tinted(tint) if base is not None else None
+            return self._sheets[key]
         key = "tiles:" + sheet_id
         if key not in self._sheets:
             try:

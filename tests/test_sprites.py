@@ -142,7 +142,8 @@ def test_shelf_packing_never_overlaps():
 
 def test_looks_and_gear_match_the_game_data(cfg, data):
     types = {t.id for t in data.monsters.types}
-    npc_looks = {o["look"] for o in cfg["tiles"]["objects"].values() if "look" in o}
+    npc_looks = {o["look"] for o in cfg["tiles"]["objects"].values() if "look" in o} | {n.look for n in data.npcs.npcs.values()}
+    assert {n.look for n in data.npcs.npcs.values()} <= set(cfg["looks"]), "every town person has a look"
     assert set(cfg["looks"]) - {"player"} - npc_looks <= types, "a look is the player, a map NPC or a monster type id"
     assert set(cfg["gear"]) <= {b.id for b in data.items.bases}, "gear entries are item base ids"
     assert set(cfg["slotLayers"]) <= set(data.items.equipment), "slotLayers keys are equipment slots (items.json)"

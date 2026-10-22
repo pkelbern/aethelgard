@@ -30,10 +30,19 @@ class SimulationStep:
 
 
 def run_act(d: GameData, act_id: str = "act1", o: SimulationOptions = SimulationOptions()) -> list[SimulationStep]:
+    """One act, starting from nothing (the Act 1 check against the spreadsheet)."""
+    return _run(d, [next(a for a in d.areas.acts if a.id == act_id)], o)
+
+
+def run_campaign(d: GameData, o: SimulationOptions = SimulationOptions()) -> list[SimulationStep]:
+    """Every act in order with the same character: each act starts where the last one ended."""
+    return _run(d, d.areas.acts, o)
+
+
+def _run(d: GameData, acts, o: SimulationOptions) -> list[SimulationStep]:
     curve = XpCurve(d.xp_total_by_level)
     f = LevelFactor(d.balance.level_factor.table)
     s = d.balance.spawn
-    act = next(a for a in d.areas.acts if a.id == act_id)
     champ, uniq, minion = d.rank("champion"), d.rank("unique"), d.rank("minion")
     avg_special = (s.special_packs_min + s.special_packs_max) / 2
     avg_champs = (s.champion_pack_size_min + s.champion_pack_size_max) / 2
@@ -57,7 +66,7 @@ def run_act(d: GameData, act_id: str = "act1", o: SimulationOptions = Simulation
         levels = (curve.level_for_xp(main), curve.level_for_xp(shield), curve.level_for_xp(armor))
         steps.append(SimulationStep(label, level, kill, *levels))
 
-    for area in act.areas:
+    for area in (a for act in acts for a in act.areas):
         if area.kind == "town":
             continue
         floors = max(1, area.floors) if area.kind == "dungeon" else 1

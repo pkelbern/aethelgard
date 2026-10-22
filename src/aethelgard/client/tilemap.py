@@ -75,11 +75,14 @@ class Npc:
     y: float
     look: str
     role: str
+    npc_id: str = ""  # npcs.json: what they say
 
 
 class MapArt:
-    def __init__(self, lib: SpriteLibrary, layout: AreaLayout, theme: dict, sheet: TileSheet, objects: dict, area_kind: str):
+    def __init__(self, lib: SpriteLibrary, layout: AreaLayout, theme: dict, sheet: TileSheet, objects: dict, area_kind: str,
+                 npc_defs: dict | None = None):
         self.lib, self.layout, self.theme, self.sheet = lib, layout, theme, sheet
+        self.npc_defs = npc_defs or {}  # npcs.json people, by id (their look)
         self.objects_cfg, self.area_kind = objects, area_kind
         self.seed = layout.seed & 0xFFFFFFFF
         self.floor_weights = _weights(theme.get("floor"), sheet)
@@ -97,7 +100,7 @@ class MapArt:
     # ---- building
 
     @classmethod
-    def build(cls, lib: SpriteLibrary, layout: AreaLayout, area_id: str, area_kind: str) -> MapArt | None:
+    def build(cls, lib: SpriteLibrary, layout: AreaLayout, area_id: str, area_kind: str, npc_defs: dict | None = None) -> MapArt | None:
         cfg = lib.cfg.get("tiles")
         if not cfg:
             return None
@@ -105,11 +108,11 @@ class MapArt:
         theme = cfg.get("themes", {}).get(name or "")
         if theme is None:
             return None
-        sheet = lib.tilesheet(theme["sheet"])
+        sheet = lib.tilesheet(theme["sheet"], theme.get("tint"))
         if sheet is None:
             return None
         objects = {**cfg.get("objects", {}), **theme.get("objects", {})}
-        return cls(lib, layout, theme, sheet, objects, area_kind)
+        return cls(lib, layout, theme, sheet, objects, area_kind, npc_defs)
 
     # ---- floors
 
@@ -203,8 +206,10 @@ class MapArt:
         for label, (cell, props) in L.markers.items():
             role = props.get("role", "")
             o = self.objects_cfg.get(role, {})  # object named after the NPC's role (stash, vendor)
-            if "look" in o:
-                npcs.append(Npc(label, float(cell[0]), float(cell[1]), o["look"], role))
+            npc = self.npc_defs.get(props.get("npc", ""))
+            look = npc.look if npc is not None else o.get("look")
+            if look:
+                npcs.append(Npc(label, float(cell[0]), float(cell[1]), look, role, props.get("npc", "")))
             elif (prop := self._object(role, *cell)) is not None:
                 objs.append(prop)
         return objs, npcs

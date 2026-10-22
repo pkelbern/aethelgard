@@ -12,6 +12,7 @@ import pygame
 from ..core.data import GameData
 from ..core.describe import Line, describe_skill
 from ..core.events import (
+    ActOpened,
     ExitReached,
     FloatingText,
     LootPicked,
@@ -58,7 +59,7 @@ from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
-from .screens import CharacterSelectScreen, CreditsScreen, OptionsScreen, TitleScreen
+from .screens import CharacterSelectScreen, CreditsScreen, DialogueScreen, OptionsScreen, TitleScreen
 from .settings import Settings
 from .skill_drag import RIGHT, SkillDrag
 from .skill_tree_view import SkillTreeWindow
@@ -129,8 +130,9 @@ class Game:
         self.drag = SkillDrag(self)
         self.pad = Gamepad(self)
         self.waypoint_menu: list[tuple[pygame.Rect, str]] | None = None  # open while standing on a waypoint
+        self.waypoint_acts: list[tuple[str, tuple[int, int]]] = []  # act names over the waypoint columns
         self.stash_store = SaveStore.for_stash(save_dir)
-        self.talk_to: str | None = None  # NPC role being walked to (vendor | stash)
+        self.talk_to: str | None = None  # map name of the NPC being walked to (merchant, stash, crafter, townsfolk)
         self.hold: dict | None = None  # left button held in the world: {"target": monster id or None, "timer": s}
         self.death_text: str | None = None  # set while the character lies dead, waiting for a click
         self.vision = Vision()
@@ -149,6 +151,8 @@ class Game:
         self.credits = CreditsScreen(self)
         self.title = TitleScreen(self)
         self.select = CharacterSelectScreen(self)
+        self.dialogue = DialogueScreen(self)
+        self.craft_view = None  # the crafter's bench (Act 2)
         self.show_fps = False
         self.ground_view.art = self.effects
         self.big_map = False
@@ -163,7 +167,7 @@ class Game:
         loaded = None if new_game else self._read_save()
         self._bind(loaded or GameSession(self.data, self.seed))
         self.ui = GameUI(self, size)
-        self.load_area(self.data.town_id)
+        self.load_area(self.session.home_town)
         if loaded:
             self.hud.add(self.tr("save.welcomeBack", name=loaded.name), C.GOLD)
         self.hud.add(self.tr("game.worldSeed", seed=self.seed), C.MUTED)
@@ -182,7 +186,7 @@ class Game:
             loaded = None if new_name is not None else self._read_save()
             session = loaded or GameSession(self.data, self.seed, name=new_name or slot)
             self._bind(session)
-            self.load_area(self.data.town_id)
+            self.load_area(session.home_town)
             self.hud.add(self.tr("game.welcome" if loaded is None else "game.welcomeBack", name=session.name), C.GOLD)
             if new_name is not None:
                 self.store.save_session(session)
@@ -303,6 +307,8 @@ class Game:
         bus.subscribe(PlayerDied, self._on_death)
         bus.subscribe(MonsterKilled, self._on_monster_killed)
         bus.subscribe(WaypointReached, self._on_waypoint)
+        bus.subscribe(ActOpened, lambda e: e.player_id == session.player_id and self.hud.add(
+            self.tr("act.opened", town=self.area_names.get(e.town_id, e.town_id)), C.GOLD))
         bus.subscribe(SkillLeveledUp, lambda e: self.hud.add(self.tr("skill.leveledUp", name=self.data.node(e.skill_id).name, level=e.level), C.GOLD))
         self.spell_view.listen(bus)
         self.audio.listen(bus)
@@ -335,11 +341,16 @@ class Game:
         self.open_waypoints()
 
     def open_waypoints(self) -> None:
-        """List of every waypoint area in act order; the ones not found yet are greyed out."""
+        """Every waypoint area, one column per act the character has reached; the ones not found yet are greyed out."""
         W, H = self.screen.get_size()
-        areas = [a for a in self.data.all_areas if a.waypoint]
-        top = H // 2 - 20 * len(areas) - 30
-        self.waypoint_menu = [(pygame.Rect(W // 2 - 150, top + 44 + i * 40, 300, 34), a.id) for i, a in enumerate(areas)]
+        acts = [act for act in self.data.areas.acts if any(a.kind == "town" and a.id in self.session.waypoints for a in act.areas)]
+        cols = [[a for a in act.areas if a.waypoint] for act in acts]
+        rows = max((len(c) for c in cols), default=0)
+        top = H // 2 - 20 * rows - 20
+        left = W // 2 - 160 * len(cols)
+        self.waypoint_menu = [(pygame.Rect(left + 320 * i + 10, top + 64 + j * 40, 300, 34), a.id)
+                              for i, col in enumerate(cols) for j, a in enumerate(col)]
+        self.waypoint_acts = [(act.name, (left + 320 * i + 160, top + 40)) for i, act in enumerate(acts)]
 
     def _on_monster_killed(self, e: MonsterKilled) -> None:
         """The world removes the monster right after this event, so its body stays here, on the client."""
@@ -365,7 +376,7 @@ class Game:
         if loaded is None:
             return "no save to load"
         self._bind(loaded)
-        self.load_area(self.data.town_id)
+        self.load_area(loaded.home_town)
         self.hud.add(self.tr("save.loaded", name=loaded.name), C.GOLD)
         return "loaded"
 
@@ -425,7 +436,7 @@ class Game:
     def respawn(self) -> None:
         self.world.apply(Respawn(self.session.player_id))
         self.death_text = None
-        self.load_area(self.data.town_id)
+        self.load_area(self.data.town_of(self.world.area_id))
 
     def load_area(self, area_id: str, floor: int = 0, came_from: str | None = None, arrive_at: ExitKind | None = None) -> None:
         self.world.enter_area(area_id, floor, came_from, arrive_at)
@@ -434,7 +445,7 @@ class Game:
     def _build_map(self) -> None:
         """Map renderer for the current area: tiles when the art is there, placeholder shapes otherwise."""
         area = self.data.area(self.world.area_id)
-        art = MapArt.build(self.sprites.lib, self.world.layout, area.id, area.kind)
+        art = MapArt.build(self.sprites.lib, self.world.layout, area.id, area.kind, self.data.npcs.npcs)
         self.map = MapRenderer(self.world.layout, area.kind, art)
 
     def _area_changed(self) -> None:
@@ -605,7 +616,7 @@ class Game:
                 continue
             if self.pad.handle(ev):
                 continue  # the gamepad (menus too)
-            if self.options.handle(ev) or self.credits.handle(ev) or self.select.handle(ev) or self.title.handle(ev):
+            if self.options.handle(ev) or self.credits.handle(ev) or self.select.handle(ev) or self.title.handle(ev) or self.dialogue.handle(ev):
                 continue  # full-screen menus take everything
             if self.menu.handle(ev):
                 continue  # paused: the menu takes everything
@@ -644,17 +655,27 @@ class Game:
         return boxes[0].unionall(boxes).inflate(40, 80).collidepoint(pos)
 
     def npc_under_mouse(self) -> str | None:
-        """Role of the NPC under the cursor (its body on screen)."""
+        """Map name of the NPC under the cursor (its body on screen)."""
         mx, my = pygame.mouse.get_pos()
-        for _, (cell, props) in self.world.layout.markers.items():
+        for name, (cell, props) in self.world.layout.markers.items():
             sx, sy = self.cam.to_screen(*cell)
-            if pygame.Rect(sx - 14, sy - 50, 28, 54).collidepoint(mx, my):
-                return props.get("role")
+            if props.get("role") and pygame.Rect(sx - 14, sy - 50, 28, 54).collidepoint(mx, my):
+                return name
         return None
 
-    def _open_service(self, role: str) -> None:
-        """Talking to the merchant or the stash opens its window with the backpack beside it."""
-        self.open_only(self.shop_view if role == "vendor" else self.stash_view)
+    def _open_service(self, name: str) -> None:
+        """Reaching an NPC: the merchant and the stash open their window with the backpack beside it, the crafter
+        its bench, everyone else talks (npcs.json)."""
+        cell, props = self.world.layout.markers[name]
+        role = props.get("role")
+        if role == "vendor":
+            self.open_only(self.shop_view)
+        elif role == "stash":
+            self.open_only(self.stash_view)
+        elif role == "crafter" and self.craft_view is not None:
+            self.open_only(self.craft_view)
+        elif props.get("npc") in self.data.npcs.npcs:
+            self.dialogue.talk(props["npc"])
 
     def open_only(self, view) -> None:
         """One screen at a time: opening the inventory closes the trees and the other way round
@@ -692,9 +713,9 @@ class Game:
             return
         if button != 1:
             return
-        role = self.npc_under_mouse()
-        if role in ("vendor", "stash"):  # walk there; the window opens on arrival (tick)
-            self.talk_to = role
+        npc = self.npc_under_mouse()
+        if npc is not None:  # walk there; the window opens on arrival (tick)
+            self.talk_to = npc
             self.world.apply(MoveTo(self.session.player_id, *self.mouse_grid()))
             self.hold = None
             return
@@ -848,7 +869,7 @@ class Game:
 
     @property
     def paused(self) -> bool:
-        return self.menu.open or self.title.open or self.options.open or self.credits.open or self.select.open
+        return self.menu.open or self.title.open or self.options.open or self.credits.open or self.select.open or self.dialogue.open
 
     def draw(self) -> None:
         screen, cam = self.screen, self.cam
@@ -945,6 +966,7 @@ class Game:
             if tip:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
             self.drag.draw(screen)
+        self.dialogue.draw(screen)
         self.menu.draw(screen)
         self.select.draw(screen)
         self.options.draw(screen)
@@ -979,9 +1001,12 @@ class Game:
             return
         screen, f = self.screen, self.fonts
         boxes = [b for b, _ in self.waypoint_menu]
-        panel = boxes[0].unionall(boxes).inflate(40, 80)
+        panel = boxes[0].unionall(boxes).inflate(40, 120)
         draw_panel(screen, panel, edge=C.WAYPOINT)
         screen.blit(f["body"].render("Waypoints", True, C.WAYPOINT), (panel.x + 20, panel.y + 10))
+        for name, (cx, cy) in self.waypoint_acts:
+            img = f["small"].render(name, True, C.GOLD)
+            screen.blit(img, img.get_rect(center=(cx, cy)))
         mouse = pygame.mouse.get_pos()
         for r, area_id in self.waypoint_menu:
             known = area_id in self.session.waypoints
@@ -1040,7 +1065,7 @@ class Game:
         pygame.draw.ellipse(screen, (90, 150, 255), (sx - 14, sy - 50, 28, 52), 3)
         pygame.draw.ellipse(screen, (170, 210, 255), (sx - 6, sy - 38, 12, 30))
         portal = self.world.portals[self.session.player_id]
-        label = "Town Portal" if self.world.area_id != self.data.town_id else f"Portal to {self.area_names.get(portal.area_id, portal.area_id)}"
+        label = "Town Portal" if not self.data.is_town(self.world.area_id) else f"Portal to {self.area_names.get(portal.area_id, portal.area_id)}"
         img = self.fonts["tiny"].render(label, True, (150, 190, 255))
         screen.blit(img, (sx - img.get_width() // 2, sy - 66))
 
@@ -1198,7 +1223,7 @@ class Game:
             return
         self.world.step(DT)  # the world keeps running while windows are open
         self._update_hover()
-        if self.talk_to and self.world.npc_near(self.player, self.talk_to):
+        if self.talk_to and self.world.marker_near(self.player, self.talk_to):
             self.world.apply(MoveTo(self.session.player_id, self.player.x, self.player.y))  # stop beside the NPC
             self._open_service(self.talk_to)
             self.talk_to = None

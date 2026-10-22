@@ -67,7 +67,15 @@
     "raidersHit": ["goblin_hit"],
     "raidersDie": ["goblin_die"],
     "beastsHit": ["beast_hit"],
-    "beastsDie": ["beast_die"]
+    "beastsDie": ["beast_die"],
+    "goblinsHit": ["goblin_hit"],
+    "goblinsDie": ["goblin_die"],
+    "insectsHit": ["beast_hit"],
+    "insectsDie": ["beast_die"],
+    "drakesHit": ["beast_hit"],
+    "drakesDie": ["beast_die"],
+    "hornedHit": ["beast_hit"],
+    "hornedDie": ["beast_die"]
   },
   "music": {
     "title": "theme_title",

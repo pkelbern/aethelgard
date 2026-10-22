@@ -95,7 +95,26 @@ class GameSession:
         self.consumables: Counter[str] = Counter()
         self.waypoints: set[str] = {data.town_id}  # areas whose waypoint this character has touched
         self.corpses: list[Corpse] = []  # bodies left with gear on them, until walked over
+        self.bosses_killed: set[str] = set()  # act bosses beaten: they open the next act (areas.json unlockedBy)
         self.gold = 0
+
+    def defeat_boss(self, boss_id: str) -> list[str]:
+        """Records an act boss as beaten; the towns of the acts it unlocks join the waypoints (the caravan to the
+        next act, D2 style). Returns those towns."""
+        self.bosses_killed.add(boss_id)
+        opened = []
+        for act in self.data.areas.acts:
+            town = next((a.id for a in act.areas if a.kind == "town"), None)
+            if act.unlocked_by == boss_id and town is not None and town not in self.waypoints:
+                self.waypoints.add(town)
+                opened.append(town)
+        return opened
+
+    @property
+    def home_town(self) -> str:
+        """The town of the furthest act this character has opened: where a loaded game starts."""
+        towns = [next(a.id for a in act.areas if a.kind == "town") for act in self.data.areas.acts if any(a.kind == "town" for a in act.areas)]
+        return next((t for t in reversed(towns) if t in self.waypoints), self.data.town_id)
 
     def stat(self, name: str) -> float:
         """A bonus summed over the passives with a level and everything worn (affixes, uniques, set bonuses):
@@ -278,6 +297,7 @@ class GameSession:
                 "inventory": self.inventory.to_list(),
                 "consumables": dict(self.consumables),
                 "waypoints": sorted(self.waypoints),
+                "bossesKilled": sorted(self.bosses_killed),
                 "corpses": [{slot: item_to_dict(i) for slot, i in c.gear.items()} for c in self.corpses],
             },
             ensure_ascii=False,
@@ -312,8 +332,10 @@ class GameSession:
         s.consumables.update(raw.get("consumables", {}))
         known = {a.id for a in data.all_areas if a.waypoint}
         s.waypoints |= {w for w in raw.get("waypoints", []) if w in known}
+        for boss_id in raw.get("bossesKilled", []):
+            s.defeat_boss(boss_id)
         for gear in raw.get("corpses", []):  # a new world: the bodies wait in town, beside the waypoint
-            s.corpses.append(Corpse({slot: item_from_dict(data, i) for slot, i in gear.items()}, data.town_id))
+            s.corpses.append(Corpse({slot: item_from_dict(data, i) for slot, i in gear.items()}, s.home_town))
         return s
 
 

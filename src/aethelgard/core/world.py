@@ -30,6 +30,7 @@ from .combat import (
 )
 from .data import MonsterTypeDef
 from .events import (
+    ActOpened,
     ConsumableUsed,
     DamageAbsorbed,
     DamageDealt,
@@ -608,7 +609,7 @@ class World:
         self.brains.clear()
         self.fallen = []
         self._grid = None  # rebuilt at the next step; until then collision looks at every body
-        if area_id == self.data.town_id:  # the merchant has new wares every time you come back
+        if self.data.is_town(area_id):  # the merchant has new wares every time you come back
             self._town_visits += 1
             level = max(p.session.character.level for p in self.players.values())
             self.vendor.restock(level, Rng.for_label(host.master_seed, f"vendor:{self._town_visits}"))
@@ -700,7 +701,7 @@ class World:
             return None
         if isinstance(cmd, AttackTarget | AttackInPlace | PickUp) or (isinstance(cmd, UseSkill) and cmd.skill_id not in CHANNEL_SKILLS):
             p.channel = None  # another action ends a spin (walking does not)
-        if isinstance(cmd, AttackInPlace | AttackTarget | UseSkill) and self.area_id == self.data.town_id:
+        if isinstance(cmd, AttackInPlace | AttackTarget | UseSkill) and self.data.is_town(self.area_id):
             return "You cannot fight in town"
         if isinstance(cmd, AttackInPlace):
             self._cancel_portal(p)
@@ -1097,9 +1098,9 @@ class World:
             spot = self.portal_spot(p.player_id)
             if spot is not None and math.hypot(spot[0] - p.x, spot[1] - p.y) <= PORTAL_TOUCH:
                 p.exit_cooldown = EXIT_COOLDOWN
-                back = self.area_id == self.data.town_id
+                back = self.data.is_town(self.area_id)
                 kind = ExitKind.PORTAL_BACK if back else ExitKind.PORTAL_TO_TOWN
-                self.bus.publish(ExitReached(p.player_id, kind.value, portal.area_id if back else self.data.town_id))
+                self.bus.publish(ExitReached(p.player_id, kind.value, portal.area_id if back else self.data.town_of(portal.area_id)))
                 return
 
         # exits: a zone around the cell, entered on foot
@@ -1143,14 +1144,15 @@ class World:
         return None
 
     def npc_near(self, p: PlayerActor, role: str) -> str | None:
-        """Name of an NPC with ``role`` within reach of the player (merchant, stash), or None."""
+        """Name of an NPC with ``role`` within reach of the player (merchant, stash, crafter), or None."""
         if self.layout is None:
             return None
-        reach = self.data.items.trade.npc_range_tiles
-        for name, (cell, props) in self.layout.markers.items():
-            if props.get("role") == role and math.hypot(cell[0] - p.x, cell[1] - p.y) <= reach:
-                return name
-        return None
+        return next((name for name, (_, props) in self.layout.markers.items() if props.get("role") == role and self.marker_near(p, name)), None)
+
+    def marker_near(self, p: PlayerActor, name: str) -> bool:
+        """Is the player within talking reach of this map NPC?"""
+        marker = self.layout.markers.get(name) if self.layout is not None else None
+        return marker is not None and math.hypot(marker[0][0] - p.x, marker[0][1] - p.y) <= self.data.items.trade.npc_range_tiles
 
     def _town(self, p: PlayerActor, cmd) -> str | None:
         s, d = p.session, self.data
@@ -1244,7 +1246,7 @@ class World:
 
     def _open_portal(self, p: PlayerActor) -> str | None:
         """Starts opening a portal: the player stands still for townPortal.castSeconds, then it appears."""
-        if self.area_id == self.data.town_id:
+        if self.data.is_town(self.area_id):
             return "You are already in town"
         if not p.cooldowns.ready("town_portal"):
             return f"Town Portal: {p.cooldowns.remaining('town_portal'):.1f}s"
@@ -1281,11 +1283,11 @@ class World:
         portal = self.portals.get(player_id)
         if portal is None:
             return
-        back = self.area_id == self.data.town_id
+        back = self.data.is_town(self.area_id)
         if back:
             self.enter_area(portal.area_id, portal.floor)
         else:
-            self.enter_area(self.data.town_id)
+            self.enter_area(self.data.town_of(portal.area_id))
         spot = self.beside_portal(player_id)
         p = self.players[player_id]
         if spot is not None:
@@ -1300,7 +1302,7 @@ class World:
             return None
         if self.area_id == portal.area_id and self.floor == portal.floor:
             return (portal.x, portal.y)
-        if self.area_id == self.data.town_id:
+        if self.area_id == self.data.town_of(portal.area_id):
             base = self.layout.waypoint or self.layout.entry
             c = self._inward((base[0] + 2, base[1] + 1))
             return (float(c[0]), float(c[1]))
@@ -1558,6 +1560,10 @@ class World:
         self.brains.on_death(t)
         self.bus.publish(MonsterKilled(m.xp_info, m.rank.id, killer.player_id))
         s = killer.session
+        if m.boss is not None:  # every player in the area has beaten it (acts it unlocks open for all)
+            for other in self.sessions.values():
+                for town in other.defeat_boss(m.boss.id):
+                    self.bus.publish(ActOpened(other.player_id, town))
         if not m.no_reward:
             for drop in s.loot.roll_drops(m.rank.id, m.level, s.stat("magicFind"), s.loot_rng):
                 self.drop_at(drop, t.x, t.y, s.world_rng)
