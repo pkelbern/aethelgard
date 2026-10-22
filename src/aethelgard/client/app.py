@@ -59,7 +59,7 @@ from .icons import Icons
 from .iso import Camera, MapRenderer
 from .item_windows import CraftWindow, InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
-from .loot_view import GroundView
+from .loot_view import FILTER_NAMES, FILTERS, GroundView, passes_filter
 from .screens import CharacterSelectScreen, CreditsScreen, DialogueScreen, OptionsScreen, TitleScreen
 from .settings import Settings
 from .skill_drag import RIGHT, SkillDrag
@@ -193,6 +193,12 @@ class Game:
                 self.store.save_session(session)
         self.audio.theme = None
         self._play_area_music()
+
+    def cycle_item_filter(self) -> None:
+        st = self.settings
+        st.item_filter = FILTERS[(FILTERS.index(st.item_filter) + 1) % len(FILTERS)] if st.item_filter in FILTERS else FILTERS[0]
+        st.save(self.store.directory)
+        self.hud.add(self.tr("loot.filter", mode=FILTER_NAMES[st.item_filter]), C.MUTED)
 
     def apply_settings(self, display: bool = False) -> None:
         """After a change in the options: keys, volumes and (``display``) the window; saved at once."""
@@ -504,8 +510,13 @@ class Game:
         return self.hud.slot_at(pygame.mouse.get_pos(), len(self.session.skill_bar), self.screen.get_size())
 
     def visible_drops(self):
-        e = self.vision.explored
-        return [g for g in self.world.ground.values() if e is not None and e[round(g.y), round(g.x)]]
+        """Drops on explored ground that pass the loot filter (the hidden ones cannot be clicked either)."""
+        e, mode = self.vision.explored, self.settings.item_filter
+        return [g for g in self.world.ground.values() if e is not None and e[round(g.y), round(g.x)] and passes_filter(g, mode)]
+
+    @property
+    def show_item_names(self) -> bool:
+        return self.settings.always_show_items != self.keys.held("showItems")  # with names always on, Alt hides them
 
     def _update_hover(self) -> None:
         """What a click would act on. With Alt held, a drop label wins over a monster (labels sit on top)."""
@@ -517,7 +528,7 @@ class Game:
             return
         drop = self.ground_view.at(pygame.mouse.get_pos(), self.cam, self.visible_drops())
         monster = self.monster_under_mouse()
-        if drop is not None and (monster is None or self.keys.held("showItems")):
+        if drop is not None and (monster is None or self.show_item_names):
             self.hovered, self.hovered_drop = None, drop
         else:
             self.hovered, self.hovered_drop = monster, None if monster else drop
@@ -804,6 +815,12 @@ class Game:
             self.big_map = not self.big_map
         elif action == "fps":
             self.show_fps = not self.show_fps
+        elif action == "itemFilter":
+            self.cycle_item_filter()
+        elif action == "alwaysShowItems":
+            self.settings.always_show_items = not self.settings.always_show_items
+            self.settings.save(self.store.directory)
+            self.hud.add(self.tr("loot.namesAlways" if self.settings.always_show_items else "loot.namesAlt"), C.MUTED)
         elif action == "cancel":
             if self.ui.any_open or any(w.open for w in self.windows) or self.waypoint_menu is not None:
                 self.ui.close_all()
@@ -936,7 +953,7 @@ class Game:
         self.spell_view.draw_spin(screen, self.player)
         self.spell_view.draw_barrier(screen, self.player)
         self._draw_portal_cast()
-        self.ground_view.draw_labels(screen, cam, drops, self.keys.held("showItems"), self.hovered_drop, pygame.mouse.get_pos())
+        self.ground_view.draw_labels(screen, cam, drops, self.show_item_names, self.hovered_drop, pygame.mouse.get_pos())
 
         for f in self.floaters:
             sx, sy = cam.to_screen(f.gx, f.gy)

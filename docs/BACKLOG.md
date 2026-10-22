@@ -219,6 +219,9 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M6-06** Craft a partir do Ato 2 _(código, ~3 d)_ — **escrito, validar**  
   Master Orrin, em Kharos (só lá: o craft começa no Ato 2). Desmontar qualquer item da mochila em materiais (Scrap, Arcane Essence, Prism Shards, Aether Crystal; por raridade, +1 de cada a cada 6 níveis do item). Receitas em data/crafting.json: Reforge (novas linhas para mágico ou raro), Imbue (comum → mágico), Upgrade base (o mesmo item, linhas mantidas, na próxima base mais forte da mesma classe), Empower (mágico → raro mantendo as linhas) e 4 crafts no estilo clássico (Blood, Caster, Hit Power, Safety: viram raro do nível do personagem com 2 linhas garantidas por cima das aleatórias, só em certas classes de item). Comandos Salvage/Craft no World (precisa estar ao lado do artífice), materiais salvos com o personagem, janela da bancada com custo e motivo quando não dá. Contradiz o GDD 2.2 ("crafting fora do MVP"): atualizar. Validar: preço das receitas frente ao ritmo de drops do Ato 2.
 
+- [ ] **M6-07** Filtro de itens no chão _(UI, ~0,5 d)_ — **escrito, validar**  
+  Opções (ou tecla V): mostrar todos os itens, só mágicos ou melhores, ou só sets e únicos; ouro, poções, pergaminhos e baús sempre aparecem. Item escondido não aparece nem pode ser clicado. "Item names" (ou tecla Z): nomes sempre visíveis (Alt esconde) ou só com Alt. Salvo em settings.json.
+
 ## M7 – Vertical slice
 
 **Pronto quando:** 5 pessoas de fora terminam o Ato 1; feedback coletado

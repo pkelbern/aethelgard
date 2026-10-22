@@ -13,6 +13,7 @@ import pygame
 from ..core.saves import SaveStore, slot_name
 from . import palette as C
 from .keys import ACTIONS
+from .loot_view import FILTER_NAMES
 from .settings import RESOLUTIONS
 from .strings import languages
 from .tooltip import draw_button, draw_panel, wrap
@@ -26,6 +27,7 @@ ACTION_NAMES = {
     "guard": "Guard", "skillTrees": "Skill trees", "inventory": "Inventory", "character": "Character", "map": "Map",
     "console": "Console", "save": "Save", "showItems": "Show items", "compare": "Compare", "lifePotion": "Life potion",
     "energyPotion": "Energy potion", "townPortal": "Town portal", "standStill": "Attack in place", "fps": "FPS counter",
+    "itemFilter": "Item filter", "alwaysShowItems": "Always show items",
 }
 REBINDABLE = [a for a in ACTIONS if a in ACTION_NAMES]
 
@@ -134,7 +136,7 @@ class OptionsScreen(Panel):
         self.waiting: tuple[str, int | None] | None = None  # (action, bar slot) waiting for a key
 
     def height(self) -> int:
-        return 80 + len(self.items()) * (BTN_H + GAP) + -(-(len(REBINDABLE) + 6) // KEY_COLS) * 30 + BTN_H + GAP + 40
+        return 96 + len(self.items()) * (BTN_H + GAP) + -(-(len(REBINDABLE) + 6) // KEY_COLS) * 30 + BTN_H + GAP + 30
 
     def items(self) -> list[tuple[str, str, bool]]:
         st = self.g.settings
@@ -145,12 +147,14 @@ class OptionsScreen(Panel):
             ("size", f"Window: {w} × {h}   (click for the next size)", True),
             ("fullscreen", f"Full screen: {'on' if st.fullscreen else 'off'}", True),
             ("language", f"Language: {st.language}", len(languages()) > 1),
+            ("item_filter", f"Items on the ground: {FILTER_NAMES.get(st.item_filter, st.item_filter)}", True),
+            ("always_show", f"Item names: {'always shown (Alt hides)' if st.always_show_items else 'shown while Alt is held'}", True),
         ]
 
     def layout(self) -> None:
         super().layout()
         r = self.rect
-        y0 = r.y + 60 + len(self.items()) * (BTN_H + GAP)
+        y0 = r.y + 76 + len(self.items()) * (BTN_H + GAP)
         col_w = (r.w - 60) // KEY_COLS
         rows = [("skillBar", i) for i in range(len(self.g.keys.slot_keys))] + [(a, None) for a in REBINDABLE]
         for i, (action, slot) in enumerate(rows):
@@ -198,6 +202,11 @@ class OptionsScreen(Panel):
         elif bid == "fullscreen":
             st.fullscreen = not st.fullscreen
             self.g.apply_settings(display=True)
+        elif bid == "item_filter":
+            self.g.cycle_item_filter()
+        elif bid == "always_show":
+            st.always_show_items = not st.always_show_items
+            self.g.apply_settings()
         elif bid == "language":
             langs = languages()
             st.language = langs[(langs.index(st.language) + 1) % len(langs)] if st.language in langs else langs[0]
@@ -224,7 +233,7 @@ class OptionsScreen(Panel):
         draw_button(screen, f["small"], self._buttons["back"], "Back")
         r = self.rect
         img = f["tiny"].render("Click a key to change it; a key already in use swaps places.", True, C.MUTED)
-        screen.blit(img, img.get_rect(midtop=(r.centerx, r.y + 44 + len(self.items()) * (BTN_H + GAP))))
+        screen.blit(img, img.get_rect(midtop=(r.centerx, r.y + 58 + len(self.items()) * (BTN_H + GAP))))
 
 
 # ---------------------------------------------------------------- credits

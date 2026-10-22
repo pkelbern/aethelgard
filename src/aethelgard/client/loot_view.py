@@ -5,11 +5,20 @@ from __future__ import annotations
 
 import pygame
 
-from ..core.items import ChestDrop, GoldDrop, GroundItem, ItemDrop, PotionDrop, drop_name
+from ..core.items import ChestDrop, GoldDrop, GroundItem, ItemDrop, PotionDrop, Rarity, drop_name
 from . import palette as C
 from .iso import Camera
 
 PICK_RADIUS_PX = 14  # how close the mouse must be to a drop's shape (labels are hit-tested by their box)
+# loot filter (options, or its key): which items stay visible on the ground. Gold, potions, scrolls and chests always do.
+FILTERS = ("all", "magic", "sets_uniques")
+FILTER_NAMES = {"all": "All items", "magic": "Magic or better", "sets_uniques": "Sets and uniques only"}
+FILTER_MIN = {"all": Rarity.NORMAL, "magic": Rarity.MAGIC, "sets_uniques": Rarity.SET}
+
+
+def passes_filter(g: GroundItem, mode: str) -> bool:
+    """Is this drop shown (and clickable) with the loot filter ``mode``?"""
+    return not isinstance(g.drop, ItemDrop) or g.drop.item.rarity >= FILTER_MIN.get(mode, Rarity.NORMAL)
 
 
 def drop_color(g: GroundItem) -> tuple[int, int, int]:

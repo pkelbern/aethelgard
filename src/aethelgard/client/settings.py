@@ -21,6 +21,8 @@ class Settings:
     fullscreen: bool = False
     keys: dict[str, str | list[str]] = field(default_factory=dict)  # action (or skillBar) → key name(s)
     language: str = "en"  # data/ui/strings/<language>.json (M7-06)
+    item_filter: str = "all"  # loot filter: all | magic | sets_uniques (client/loot_view.py)
+    always_show_items: bool = False  # item names on the ground without holding Alt
 
     @staticmethod
     def path(directory: Path | None = None) -> Path:

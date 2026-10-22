@@ -31,7 +31,7 @@ def test_bad_key_maps_are_refused():
     raw = {"skillBar": ["q", "w"], "guard": "space", "skillTrees": "t", "inventory": "i", "character": "k", "map": "tab",
            "console": "f1", "save": "f5", "cancel": "escape",
            "showItems": ["left alt", "right alt"], "compare": ["left shift", "right shift"],
-           "lifePotion": "z", "energyPotion": "x", "townPortal": "c", "standStill": "v", "fps": "f3"}
+           "lifePotion": "z", "energyPotion": "x", "townPortal": "c", "standStill": "v", "fps": "f3", "itemFilter": "b", "alwaysShowItems": "n"}
     with pytest.raises(ValueError, match="slots"):
         KeyMap(raw, 6)
     with pytest.raises(ValueError, match="twice"):
@@ -43,3 +43,17 @@ def test_inventory_screen_draws_every_equipment_slot(data):
     from aethelgard.client.item_windows import GEAR_LAYOUT
 
     assert set(GEAR_LAYOUT) == set(data.items.equipment), "a slot in items.json without a place on the screen (or the reverse)"
+
+
+def test_the_loot_filter_hides_plain_items_but_never_gold(data):
+    from aethelgard.client.loot_view import FILTERS, passes_filter
+    from aethelgard.core.items import GoldDrop, GroundItem, Item, ItemDrop, LootGenerator, Rarity
+    from aethelgard.core.rng import Rng
+
+    loot = LootGenerator(data)
+    plain = GroundItem(1, ItemDrop(Item.plain(data.base("helm"))), 0, 0)
+    magic = GroundItem(2, ItemDrop(loot.make(data.base("helm"), Rarity.MAGIC, 5, Rng(1))), 0, 0)
+    unique = GroundItem(3, ItemDrop(loot.make_fixed(data.items.uniques[0], 5, Rng(1))), 0, 0)
+    gold = GroundItem(4, GoldDrop(10), 0, 0)
+    shown = {mode: [g.id for g in (plain, magic, unique, gold) if passes_filter(g, mode)] for mode in FILTERS}
+    assert shown == {"all": [1, 2, 3, 4], "magic": [2, 3, 4], "sets_uniques": [3, 4]}
