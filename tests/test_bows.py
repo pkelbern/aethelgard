@@ -20,10 +20,16 @@ def archer(data, at=(10.0, 5.0), **kw):
     return s, w, p, m
 
 
-def test_new_characters_carry_a_bow_a_second_sword_and_a_wand(data):
+@pytest.mark.real_points
+def test_new_characters_carry_a_bow_and_a_wand_of_each_school_and_have_no_points(data):
     s = GameSession(data, 1)
-    assert [i.base.id for i in s.inventory.items] == ["short_bow", "short_sword", "ember_wand"]
+    assert [i.base.id for i in s.inventory.items] == ["short_bow", "ember_wand", "frost_wand", "spark_rod", "prayer_rod", "ward_rod"]
     assert s.gear.main_hand.base.id == "short_sword" and s.gear.has_shield
+    schools = {data.node(i.base.spell).tree for i in s.inventory.items if i.base.spell}
+    assert schools == {"pyromancy", "cryomancy", "electromancy", "restoration", "warding"}
+    assert all(s.skills.available(p.id) == 0 for p in data.proficiencies.proficiencies), "no points at level 1"
+    s.proficiencies.set_xp("blades", data.xp_total_by_level[1])
+    assert s.skills.available("blades") == 1, "the first point comes at level 2"
 
 
 def test_a_bow_takes_both_hands(data):
@@ -230,3 +236,36 @@ def test_wide_beasts_have_a_bigger_hitbox(data):
     assert w.in_reach(p, m)
     m.monster.type = data.monster_type("bandit")
     assert not w.in_reach(p, m)
+
+
+@pytest.mark.real_points
+def test_older_characters_keep_the_point_level_one_gave_them(data):
+    import json
+
+    s = GameSession(data, 1)
+    s.proficiencies.set_xp("blades", 0)
+    raw = json.loads(s.save())
+    raw["version"], raw["unlockedSkills"] = 8, ["precise_strike"]
+    raw.pop("extraTreePoints")
+    old = GameSession.load(data, json.dumps(raw))
+    assert "precise_strike" in old.skills.unlocked and old.skills.extra_points == 1
+    assert GameSession.load(data, old.save()).skills.extra_points == 1
+
+
+@pytest.mark.real_points
+def test_every_starting_wand_teaches_its_school_with_no_point_spent(data):
+    """No dead end: whatever passive you take later, the wand still casts and the school still grows."""
+    for wand in ("ember_wand", "frost_wand", "spark_rod", "prayer_rod", "ward_rod"):
+        s, w, p, m = arena(data, monster_dmg=(0.01, 0.01), at=(7.0, 5.0))
+        m.attack_cooldown = 99
+        idx = next(i for i, it in enumerate(s.inventory.items) if it.base.id == wand)
+        s.equip_from_backpack(idx, None)
+        spell = data.base(wand).spell
+        tree = data.node(spell).tree
+        p.energy = 999.0
+        p.life = p.max_life * 0.5
+        for _ in range(6):
+            w.apply(UseSkill(0, spell, m.id, m.x, m.y))
+            run(w, 1.2)
+            p.cooldowns.tick(99)
+        assert s.proficiencies[tree].xp > 0, f"{wand} did not teach {tree}"

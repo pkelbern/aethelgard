@@ -44,7 +44,7 @@ aethelgard = ["data/*.json", "data/maps/*.tmx", "data/maps/prefabs/*.tmx", "data
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: long tests (run with -m slow)"]
+markers = ["slow: long tests (run with -m slow)", "real_points: the first tree point at skills.json firstPointLevel (see conftest)"]
 addopts = "-m 'not slow'"
 
 [tool.ruff]

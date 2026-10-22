@@ -52,6 +52,7 @@ def test_clicking_a_node_unlocks_it_and_the_tab_switches_trees(game):
     pyro = next(box for box, tree in v._tabs if tree == "pyromancy")
     click(g, pyro.center)
     assert v.tab == "pyromancy"
+    g.session.proficiencies.set_xp("pyromancy", g.data.xp_total_by_level[1])  # level 2: the first point
     bolt = next(box for box, node_id in v._nodes if node_id == "fire_bolt")
     click(g, bolt.center)
     assert "fire_bolt" in g.session.skills.unlocked and g.session.skill_bar.slot_of("fire_bolt") is not None

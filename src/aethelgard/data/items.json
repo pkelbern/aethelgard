@@ -5,7 +5,7 @@
   "rows": 6
  },
  "startingGear": ["short_sword", "buckler", "leather_armor"],
- "startingBackpack": ["short_bow", "short_sword", "ember_wand"],
+ "startingBackpack": ["short_bow", "ember_wand", "frost_wand", "spark_rod", "prayer_rod", "ward_rod"],
  "trade": {
   "_comment": "Vendor prices. Item price = (basePrice + perItemLevel x iLvl + perAffix x lines) x rarityMult[rarity] (normal, magic, rare, set, unique); the vendor pays sellFraction of that. The stock (stockSize items, normal and magic only, iLvl = character level) is rolled again every time you come to town. Consumables cost their own 'price'. npcRangeTiles = how close you must stand to trade or use the stash.",
   "basePrice": 20,

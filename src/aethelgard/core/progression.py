@@ -350,7 +350,8 @@ class Allocate(Enum):
 
 
 class SkillTrees:
-    """One tree per proficiency, 1 point per proficiency level, level 1 included (GDD 6.1).
+    """One tree per proficiency, 1 point per proficiency level from ``firstPointLevel`` on (2: a new character
+    has no points; it plays with the gear it carries until its proficiencies reach level 2) (GDD 6.1).
 
     * **Passives** take points: one level per point, up to ``max_points``.
     * **Actives** cost one point to unlock and then level up **by use only**: every hit of the skill gives it
@@ -375,6 +376,7 @@ class SkillTrees:
         self._tree_bonus = tree_bonus or (lambda tree: 0.0)  # +N to every skill of a tree you have (items: <tree>Skills)
         self._curve = profs.curve
         self.points: dict[str, int] = {}  # tree points in passives
+        self.extra_points = 0  # per tree: characters made before the first point moved to level 2 keep theirs
         self.unlocked: set[str] = set()  # actives bought with a point
         self.xp: dict[str, float] = {}  # actives: XP by use
         bus = profs.bus
@@ -446,8 +448,12 @@ class SkillTrees:
     def spent(self, tree: str) -> int:
         return sum(self.points.get(n.id, 0) + (n.id in self.unlocked) for n in self.nodes_of(tree))
 
+    def earned(self, tree: str) -> int:
+        """Points the tree's proficiency level has given so far."""
+        return max(0, self._profs[tree].level - self._d.first_point_level + 1) + self.extra_points
+
     def available(self, tree: str) -> int:
-        return max(0, self._profs[tree].level - self.spent(tree))
+        return max(0, self.earned(tree) - self.spent(tree))
 
     def level_of(self, tree: str) -> int:
         return self._profs[tree].level

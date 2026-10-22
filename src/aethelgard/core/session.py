@@ -27,7 +27,8 @@ from .world_gen import AreaGenerator, AreaLayout
 # v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables. v3: + action bar. v4: + waypoints.
 # v5: + spells learned and in training. v6: actives unlocked with a point and levelled by use (unlockedSkills, skillXp).
 # v7: backpack items keep their place in the grid ("pos"); older saves are placed in order. v8: + corpses with their gear.
-SAVE_VERSION = 8
+# v9: the first tree point comes at proficiency level 2 (extraTreePoints: older characters keep theirs).
+SAVE_VERSION = 9
 DEFAULT_NAME = "Wanderer"
 
 
@@ -89,7 +90,7 @@ class GameSession:
         self.area_gen = AreaGenerator(data)
         self.gear = Loadout.starting(data)
         self.inventory = Inventory.for_data(data)
-        for base_id in data.items.starting_backpack:  # a bow and a second sword to try other weapons
+        for base_id in data.items.starting_backpack:  # a bow and a wand of each school, to try every way to fight
             self.inventory.add(Item.plain(data.base(base_id)))
         self.consumables: Counter[str] = Counter()
         self.waypoints: set[str] = {data.town_id}  # areas whose waypoint this character has touched
@@ -268,6 +269,7 @@ class GameSession:
                 "gold": self.gold,
                 "proficiencyXp": {p.id: p.xp for p in self.proficiencies},
                 "skillPoints": dict(self.skills.points),
+                "extraTreePoints": self.skills.extra_points,
                 "unlockedSkills": sorted(self.skills.unlocked),
                 "skillXp": dict(self.skills.xp),
                 "skillBar": self.skill_bar.to_list(),
@@ -293,6 +295,8 @@ class GameSession:
         seed = new_world_seed if new_world_seed is not None else raw["seed"]
         s = cls(data, seed, player_id, bus, raw.get("name", DEFAULT_NAME))
         s.gold = raw.get("gold", 0)
+        # v9 moved the first tree point to proficiency level 2: older characters keep the point they had
+        s.skills.extra_points = raw.get("extraTreePoints", 1 if raw.get("version", 1) < 9 else 0)
         for pid, xp in raw.get("proficiencyXp", {}).items():
             if pid in s.proficiencies:
                 s.proficiencies.set_xp(pid, xp)

@@ -636,6 +636,7 @@ class SkillsData:
     diminishing_after: int = 8
     skill_xp_rate: float = 1.0  # active skill XP = this × the proficiency XP its hits give
     use_xp_radius_tiles: float = 8.0  # how near a monster must be for a utility active to teach anything
+    first_point_level: int = 1  # the proficiency level that gives a tree its first point (then one per level)
     bar_slots: int = 6
     nodes: list[SkillNodeDef] = field(default_factory=list)
     synergies: list[SynergyDef] = field(default_factory=list)
