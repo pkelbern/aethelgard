@@ -440,6 +440,13 @@ class Loadout:
         """Slots made for this kind of item (a sword's is the main hand, not the off hand)."""
         return [k for k, acc in self.accepts.items() if acc and acc[0] == item.slot]
 
+    def worn_counterpart(self, item: Item) -> Item | None:
+        """What a backpack item is compared with: a worn item of the same kind in a slot it fits (a wand with the
+        worn wand, whichever hand holds it), else what its own slot holds."""
+        fits = self.slots_for(item)
+        same = next((self.slots[k] for k in fits if k in self.slots and self.slots[k].slot == item.slot), None)
+        return same or next((self.slots[k] for k in self.native_slots(item) if k in self.slots), None)
+
     def auto_slot(self, item: Item) -> str | None:
         """Where a double-click puts it: a free slot of its own kind, else the first one (a swap)."""
         native = self.native_slots(item) or self.slots_for(item)

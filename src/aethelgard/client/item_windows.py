@@ -269,8 +269,7 @@ class ItemWindow:
     # ---- compare (hold Shift over an item in a grid: backpack, stash or merchant)
 
     def worn_for(self, item):
-        s = self.g.session
-        return next((s.gear.get(k) for k in s.gear.native_slots(item) if s.gear.get(k)), None)
+        return self.g.session.gear.worn_counterpart(item)
 
     def comparing(self, h: Hit) -> bool:
         return h[0] == "grid" and self.g.keys.held("compare")

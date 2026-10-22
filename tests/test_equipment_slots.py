@@ -97,3 +97,19 @@ def test_heavy_shield_only_strengthens_the_shield(data):
     assert base == pytest.approx(13 + 3 * 0.08 * 5), "leather 10 + buckler 3, and +40% of the buckler only"
     s.gear.slots.pop("offhand")
     assert player_defense(s.character, s.skills, s.gear).armor == pytest.approx(10)
+
+
+def test_a_wand_is_compared_with_the_worn_wand_in_either_hand(data):
+    from aethelgard.core.items import Item, Loadout
+
+    gear = Loadout.for_data(data)
+    sword, shield, wand = (Item.plain(data.base(b)) for b in ("short_sword", "buckler", "ember_wand"))
+    gear.equip(sword, "mainhand")
+    gear.equip(wand, "offhand")
+    other = Item.plain(data.base("frost_wand"))
+    assert gear.worn_counterpart(other) is wand, "the wand in the off hand"
+    assert gear.worn_counterpart(Item.plain(data.base("gladius"))) is sword
+    gear.equip(shield, "offhand")
+    gear.equip(wand, "mainhand")
+    assert gear.worn_counterpart(other) is wand, "the wand in the main hand"
+    assert gear.worn_counterpart(Item.plain(data.base("round_shield"))) is shield
