@@ -17,10 +17,12 @@
   "npcRangeTiles": 3.0
  },
  "consumables": {
-  "_comment": "Used from the HUD keys (ui/keys.json). restore = life | energy, pctOfMax of the maximum given over 'seconds' (several potions stack). cooldownSeconds = time before the same kind can be used again. The town portal is not an item: it is always available (balance.json townPortal).",
-  "life_potion":   { "name": "Life Potion",   "restore": "life",   "pctOfMax": 0.4, "seconds": 2.0, "cooldownSeconds": 0.5, "price": 30 },
-  "energy_potion": { "name": "Energy Potion", "restore": "energy", "pctOfMax": 0.5, "seconds": 1.5, "cooldownSeconds": 0.5, "price": 30 }
+  "_comment": "Used from the HUD keys (ui/keys.json). restore = life | energy, pctOfMax of the maximum given over 'seconds' (several potions stack). cooldownSeconds = time before the same kind can be used again. belt = how many you carry is limited: beltWithout of each kind with no belt, plus the worn belt's beltSlots (a full belt leaves potions on the ground). price 0 = not sold. dropChance = rank → chance of one more when a monster of that rank dies (the Scroll of Forgetting, which gives back every point of one tree, is only found). The town portal is not an item: it is always available (balance.json townPortal).",
+  "life_potion":   { "name": "Life Potion",   "restore": "life",   "pctOfMax": 0.4, "seconds": 2.0, "cooldownSeconds": 0.5, "price": 30, "belt": true },
+  "energy_potion": { "name": "Energy Potion", "restore": "energy", "pctOfMax": 0.5, "seconds": 1.5, "cooldownSeconds": 0.5, "price": 30, "belt": true },
+  "respec_scroll": { "name": "Scroll of Forgetting", "cooldownSeconds": 0.5, "price": 0, "dropChance": { "unique": 0.08, "boss": 0.5 } }
  },
+ "beltWithout": 4,
  "equipment": {
   "_comment": "Equipment slots, in screen order. accepts = item slot types (bases' 'slot') that fit; the first one is the slot's own type, used when equipping with a double-click. offhand also takes a one-hand weapon: two weapons alternate their swings, but there is no guard and no Shield skills without a shield.",
   "head":     { "name": "Helm",       "accepts": ["head"] },
@@ -682,7 +684,8 @@
    ],
    "req": {
     "str": 0
-   }
+   },
+   "beltSlots": 4
   },
   {
    "id": "ring",

@@ -26,7 +26,8 @@ from .world_gen import AreaGenerator, AreaLayout
 
 # v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables. v3: + action bar. v4: + waypoints.
 # v5: + spells learned and in training. v6: actives unlocked with a point and levelled by use (unlockedSkills, skillXp).
-SAVE_VERSION = 6
+# v7: backpack items keep their place in the grid ("pos"); older saves are placed in order.
+SAVE_VERSION = 7
 DEFAULT_NAME = "Wanderer"
 
 
@@ -136,25 +137,38 @@ class GameSession:
         elif slot == "offhand" and main is not None and main.base.two_handed:
             bumped = "mainhand"
         extra = self.gear.get(bumped) if bumped else None
-        if extra is not None and len(self.inventory.items) - 1 + (self.gear.get(slot) is not None) + 1 > self.inventory.capacity:
-            return Equip.BACKPACK_FULL, f"Backpack full: no room for your {extra.name}"
-        previous = self.gear.equip(item, slot)
-        if previous is None:
-            self.inventory.items.pop(index)
-        else:
-            self.inventory.items[index] = previous  # a swap never needs a free cell
+        # try it on a copy of the backpack first: the old item takes the new one's place (or any free one)
+        trial, previous = self.inventory.copy(), self.gear.get(slot)
+        ok = trial.replace(index, previous) if previous is not None else trial.take(index) is not None
+        if ok and extra is not None:
+            ok = trial.add(extra)
+        if not ok:
+            names = " and ".join(x.name for x in (previous, extra) if x is not None)
+            return Equip.BACKPACK_FULL, f"No room in the backpack for your {names}"
+        self.gear.equip(item, slot)
         if extra is not None:
             del self.gear.slots[bumped]
-            self.inventory.add(extra)
+        self.inventory.items, self.inventory.pos = trial.items, trial.pos
         self._gear_changed()
         return Equip.OK, f"Equipped {item.name}"
+
+    def forget_tree(self, tree: str) -> str | None:
+        """Reads a Scroll of Forgetting: every point of ``tree`` comes back (GDD 6.1). Refusal message, or None."""
+        if self.consumables["respec_scroll"] <= 0:
+            return "You need a Scroll of Forgetting"
+        if self.skills.spent(tree) <= 0:
+            return "No points to give back in that tree"
+        self.consumables["respec_scroll"] -= 1
+        self.skills.respec(tree)
+        self.skill_bar.drop_unusable()
+        return None
 
     def unequip(self, slot: str) -> tuple[Equip, str]:
         item = self.gear.get(slot)
         if item is None:
             return Equip.NO_ITEM, "nothing equipped there"
-        if self.inventory.full:
-            return Equip.BACKPACK_FULL, "Backpack full"
+        if not self.inventory.can_add(item):
+            return Equip.BACKPACK_FULL, f"No room in the backpack for {item.name}"
         del self.gear.slots[slot]
         self.inventory.add(item)
         self._gear_changed()
@@ -166,12 +180,26 @@ class GameSession:
         for node_id in self.gear.granted_spells():
             self.skill_bar.auto_bind(node_id)
 
+    def carry_limit(self, cid: str) -> int | None:
+        """How many of a consumable can be carried: potions by the belt (none worn: items.json beltWithout),
+        scrolls without limit (None)."""
+        c = self.data.items.consumables.get(cid)
+        if c is None or not c.belt:
+            return None
+        return self.data.items.belt_without + sum(i.base.belt_slots for i in self.gear.slots.values())
+
+    def has_room_for(self, cid: str) -> bool:
+        limit = self.carry_limit(cid)
+        return limit is None or self.consumables[cid] < limit
+
     def collect(self, drop) -> bool:
-        """Puts a drop where it belongs. False when it does not fit (backpack full)."""
+        """Puts a drop where it belongs. False when it does not fit (backpack full, belt full)."""
         if isinstance(drop, GoldDrop):
             self.gold += drop.amount
             return True
         if isinstance(drop, PotionDrop | ScrollDrop):
+            if not self.has_room_for(drop.consumable_id):
+                return False
             self.consumables[drop.consumable_id] += 1
             return True
         if isinstance(drop, ItemDrop):

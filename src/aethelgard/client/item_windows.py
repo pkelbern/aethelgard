@@ -11,14 +11,14 @@ For now each item takes one cell; items spanning several cells (``size`` in item
 
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING
 
 import pygame
 
 from ..core.describe import Line, compare_items, describe_item
+from ..core.items import ItemContainer, SharedStash
 from ..core.town import item_price, sell_price
-from ..core.world import Buy, BuyConsumable, EquipItem, Sell, StashGold, StashPut, StashTake, UnequipItem
+from ..core.world import Buy, BuyConsumable, EquipItem, MoveItem, Sell, StashGold, StashPut, StashTake, UnequipItem
 from . import palette as C
 from .tooltip import draw_button, draw_panel, draw_tooltip, wrap
 
@@ -39,33 +39,63 @@ GEAR_LAYOUT = {
     "ring2": (0, 3), "feet": (1, 3),
 }
 Hit = tuple  # ("grid", name, index) · ("gear", slot) · ("button", id)
+EMPTY_STASH = SharedStash()  # drawn while the real one is not loaded
 
 
 class ItemGrid:
-    """Cells laid out from ``origin``; item ``i`` sits in cell ``i`` (one cell per item for now)."""
+    """A core ``ItemContainer`` on screen from ``origin``: every item covers its size in cells."""
 
-    def __init__(self, name: str, cols: int, rows: int, items):
-        self.name, self.cols, self.rows, self._items = name, cols, rows, items
+    def __init__(self, name: str, container):
+        self.name, self._container = name, container
         self.origin = (0, 0)
 
     @property
+    def container(self):
+        return self._container()
+
+    @property
+    def cols(self) -> int:
+        return self.container.cols
+
+    @property
+    def rows(self) -> int:
+        return self.container.rows
+
+    @property
     def items(self) -> list:
-        return self._items()
+        return self.container.items
 
     @property
     def rect(self) -> pygame.Rect:
         return pygame.Rect(self.origin, (self.cols * CELL, self.rows * CELL))
 
-    def cell(self, i: int) -> pygame.Rect:
+    def square(self, cx: int, cy: int) -> pygame.Rect:
         x, y = self.origin
-        return pygame.Rect(x + (i % self.cols) * CELL, y + (i // self.cols) * CELL, CELL, CELL)
+        return pygame.Rect(x + cx * CELL, y + cy * CELL, CELL, CELL)
+
+    def cell(self, i: int) -> pygame.Rect:
+        """The area item ``i`` covers."""
+        c = self.container
+        (x, y), (w, h) = c.pos[i], c.size_of(c.items[i])
+        return pygame.Rect(self.origin[0] + x * CELL, self.origin[1] + y * CELL, w * CELL, h * CELL)
+
+    def cell_at(self, pos) -> tuple[int, int] | None:
+        if not self.rect.collidepoint(pos):
+            return None
+        return ((pos[0] - self.origin[0]) // CELL, (pos[1] - self.origin[1]) // CELL)
 
     def hit(self, pos) -> int | None:
         """Index of the item under ``pos``; -1 on an empty part of the grid; None outside."""
-        if not self.rect.collidepoint(pos):
+        c = self.cell_at(pos)
+        if c is None:
             return None
-        i = (pos[1] - self.origin[1]) // CELL * self.cols + (pos[0] - self.origin[0]) // CELL
-        return i if i < len(self.items) else -1
+        i = self.container.item_at(*c)
+        return -1 if i is None else i
+
+    def drop_spot(self, pos, grab: tuple[int, int]) -> tuple[int, int] | None:
+        """Top-left cell for an item let go at ``pos``, held by its ``grab`` cell."""
+        c = self.cell_at(pos)
+        return None if c is None else (c[0] - grab[0], c[1] - grab[1])
 
 
 class ItemWindow:
@@ -78,6 +108,8 @@ class ItemWindow:
         self.g = game
         self.open = False
         self.drag: Hit | None = None
+        self.grab = (0, 0)  # which cell of the dragged item the mouse holds
+        self.drop_at: tuple[int, int] | None = None  # top-left cell where the dragged item was let go
         self._last_click: tuple[Hit, int] | None = None
         self.grids: dict[str, ItemGrid] = {}
 
@@ -98,6 +130,14 @@ class ItemWindow:
     def on_quick(self, h: Hit) -> None: ...
 
     def on_drop(self, src: Hit, dst: Hit | None) -> None: ...
+
+    def moved_within(self, src: Hit, dst: Hit | None) -> bool:
+        """An item let go on its own grid (backpack or stash) moves there. True when that is what happened."""
+        if src[0] != "grid" or dst is None or dst[0] != "grid" or dst[1] != src[1] or self.drop_at is None:
+            return False
+        if src[1] in ("bag", "stash"):
+            self.send(MoveItem(self.g.session.player_id, src[1], src[2], *self.drop_at))
+        return True
 
     def tooltip_extra(self, h: Hit, item) -> list[Line]:
         return []
@@ -152,7 +192,9 @@ class ItemWindow:
         if ev.type == pygame.MOUSEBUTTONUP and ev.button == 1 and self.drag is not None:
             src, self.drag = self.drag, None
             dst = self.hit(ev.pos)
-            if dst != src:
+            g = self.grids.get(dst[1]) if dst is not None and dst[0] == "grid" else None
+            self.drop_at = g.drop_spot(ev.pos, self.grab) if g is not None else None
+            if dst != src or self.drop_at is not None:
                 self.on_drop(src, dst)
             return True
         if ev.type not in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP) or not self.rect.collidepoint(ev.pos):
@@ -172,6 +214,12 @@ class ItemWindow:
                 self.on_quick(h)
             else:
                 self.drag = h
+                if h[0] == "grid":  # remember where the item was grabbed, so it lands the way it is held
+                    g, (cx, cy) = self.grids[h[1]], self.grids[h[1]].cell_at(ev.pos)
+                    x0, y0 = g.container.pos[h[2]]
+                    self.grab = (cx - x0, cy - y0)
+                else:
+                    self.grab = (0, 0)
         return True
 
     def draw(self, screen: pygame.Surface) -> None:
@@ -184,20 +232,32 @@ class ItemWindow:
         screen.blit(f["body"].render(self.title, True, C.GOLD), (r.x + PAD, r.y + 12))
         img = f["tiny"].render(self.quick_hint, True, C.MUTED)
         screen.blit(img, (r.right - img.get_width() - PAD, r.y + 18))
+        mouse = pygame.mouse.get_pos()
         for g in self.grids.values():
-            for i in range(g.cols * g.rows):
-                pygame.draw.rect(screen, (24, 25, 31), g.cell(i))
-                pygame.draw.rect(screen, (34, 35, 42), g.cell(i), 1)
-            for i, item in enumerate(g.items[: g.cols * g.rows]):
+            for cy in range(g.rows):
+                for cx in range(g.cols):
+                    pygame.draw.rect(screen, (24, 25, 31), g.square(cx, cy))
+                    pygame.draw.rect(screen, (34, 35, 42), g.square(cx, cy), 1)
+            if self.drag is not None and self.drag[0] == "grid":  # where the dragged item would land
+                item = self.item_at(self.drag)
+                spot = g.drop_spot(mouse, self.grab)
+                if item is not None and spot is not None:
+                    ignore = self.drag[2] if self.drag[1] == g.name else None
+                    w, h = g.container.size_of(item)
+                    ok = g.container.fits_at(item, *spot, ignore=ignore)
+                    area = pygame.Rect(g.origin[0] + spot[0] * CELL, g.origin[1] + spot[1] * CELL, w * CELL, h * CELL).clip(g.rect)
+                    pygame.draw.rect(screen, (40, 70, 40) if ok else (80, 36, 36), area)
+            for i, item in enumerate(g.items):
                 if self.drag != ("grid", g.name, i):
                     self.item_box(screen, item, g.cell(i).inflate(-4, -4))
             pygame.draw.rect(screen, C.PANEL_EDGE, g.rect, 1)
         self.draw_extra(screen)
-        mouse = pygame.mouse.get_pos()
-        if self.drag is not None:  # the item follows the mouse
+        if self.drag is not None:  # the item follows the mouse, held where it was grabbed
             item = self.item_at(self.drag)
             if item is not None:
-                self.item_box(screen, item, pygame.Rect(mouse[0] - CELL // 2, mouse[1] - CELL // 2, CELL - 4, CELL - 4))
+                w, h = ItemContainer.size_of(item)
+                box = pygame.Rect(mouse[0] - self.grab[0] * CELL - CELL // 2, mouse[1] - self.grab[1] * CELL - CELL // 2, w * CELL - 4, h * CELL - 4)
+                self.item_box(screen, item, box)
             return
         h = self.hit(mouse)
         item = self.item_at(h)
@@ -252,8 +312,7 @@ class BagMixin:
     """The backpack grid, as the right-hand side of a window."""
 
     def bag_grid(self) -> ItemGrid:
-        inv = self.g.data.items.inventory
-        return ItemGrid("bag", inv.columns, inv.rows, lambda: self.g.session.inventory.items)
+        return ItemGrid("bag", lambda: self.g.session.inventory)
 
 
 # ---------------------------------------------------------------- inventory
@@ -270,7 +329,7 @@ class InventoryWindow(BagMixin, ItemWindow):
     @property
     def title(self) -> str:
         s = self.g.session
-        return f"Inventory  ·  {len(s.inventory)}/{s.inventory.capacity}  ·  Gold {s.gold}"
+        return f"Inventory  ·  {s.inventory.used_cells}/{s.inventory.capacity} cells  ·  Gold {s.gold}"
 
     @property
     def quick_hint(self) -> str:
@@ -312,6 +371,8 @@ class InventoryWindow(BagMixin, ItemWindow):
 
     def on_drop(self, src: Hit, dst: Hit | None) -> None:
         pid = self.g.session.player_id
+        if self.moved_within(src, dst):
+            return
         if src[0] == "grid" and dst is not None and dst[0] == "gear":
             self.send(EquipItem(pid, src[2], dst[1]))  # the core says when it does not fit
         elif src[0] == "gear" and dst is not None and dst[0] == "grid":
@@ -374,13 +435,13 @@ class StashWindow(TwoSided):
     """Shared stash (every character sees the same one). Drag either way, or Shift/Ctrl/double-click."""
 
     def __init__(self, game: Game):
-        cap = 100
-        super().__init__(game, ItemGrid("stash", 10, math.ceil(cap / 10), lambda: game.world.stash.items if game.world.stash else []))
+        super().__init__(game, ItemGrid("stash", lambda: game.world.stash or EMPTY_STASH))
 
     @property
     def title(self) -> str:
         st, s = self.g.world.stash, self.g.session
-        return f"Shared Stash  ·  {len(st.items) if st else 0}/{st.capacity if st else 0}  ·  gold {st.gold if st else 0}   |   Backpack · gold {s.gold}"
+        st = st or EMPTY_STASH
+        return f"Shared Stash  ·  {st.used_cells}/{st.capacity} cells  ·  gold {st.gold}   |   Backpack · gold {s.gold}"
 
     quick_hint = "drag, Shift+click or double-click to move · hold Shift to compare · Esc closes"
 
@@ -401,13 +462,15 @@ class StashWindow(TwoSided):
         self.button(screen, b["deposit"], f"Put all gold in ({s.gold})", s.gold > 0)
         self.button(screen, b["withdraw"], f"Take all gold ({st.gold if st else 0})", bool(st and st.gold))
 
-    def on_quick(self, h: Hit) -> None:
+    def on_quick(self, h: Hit, at: tuple[int, int] | None = None) -> None:
         pid = self.g.session.player_id
-        self.send(StashPut(pid, h[2]) if h[1] == "bag" else StashTake(pid, h[2]))
+        self.send(StashPut(pid, h[2], at) if h[1] == "bag" else StashTake(pid, h[2], at))
 
     def on_drop(self, src: Hit, dst: Hit | None) -> None:
+        if self.moved_within(src, dst):
+            return
         if dst is not None and dst[0] == "grid" and dst[1] != src[1]:
-            self.on_quick(src)
+            self.on_quick(src, self.drop_at)  # where it was let go
 
     def tooltip_extra(self, h: Hit, item) -> list[Line]:
         return self.compare_lines(h, item)
@@ -418,7 +481,7 @@ class ShopWindow(TwoSided):
     Potions and scrolls are always in stock (click to buy one)."""
 
     def __init__(self, game: Game):
-        super().__init__(game, ItemGrid("shop", 10, 6, lambda: game.world.vendor.stock))
+        super().__init__(game, ItemGrid("shop", lambda: game.world.vendor.stock))
 
     @property
     def title(self) -> str:
@@ -429,7 +492,8 @@ class ShopWindow(TwoSided):
     def _consumable_buttons(self) -> dict[str, pygame.Rect]:
         f = self.footer()
         w = (f.w - 20) // 3
-        return {cid: pygame.Rect(f.x + i * (w + 10), f.y, w, f.h) for i, cid in enumerate(self.g.data.items.consumables)}
+        sold = [cid for cid, c in self.g.data.items.consumables.items() if c.price > 0]
+        return {cid: pygame.Rect(f.x + i * (w + 10), f.y, w, f.h) for i, cid in enumerate(sold)}
 
     def extra_hit(self, pos) -> Hit | None:
         return next((("button", k) for k, r in self._consumable_buttons().items() if r.collidepoint(pos)), None)
@@ -448,6 +512,8 @@ class ShopWindow(TwoSided):
         self.send(Buy(pid, h[2]) if h[1] == "shop" else Sell(pid, h[2]))
 
     def on_drop(self, src: Hit, dst: Hit | None) -> None:
+        if self.moved_within(src, dst):
+            return
         if dst is not None and dst[0] == "grid" and dst[1] != src[1]:
             self.on_quick(src)
 

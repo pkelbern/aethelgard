@@ -14,8 +14,9 @@ from typing import TYPE_CHECKING
 import pygame
 
 from ..core.progression import Allocate
+from ..core.world import ForgetTree
 from . import palette as C
-from .tooltip import draw_panel
+from .tooltip import draw_button, draw_panel
 
 if TYPE_CHECKING:
     from .app import Game
@@ -88,6 +89,7 @@ class SkillTreeWindow:
         self.tab = game.data.proficiencies.proficiencies[0].id
         self._tabs: list[tuple[pygame.Rect, str]] = []
         self._nodes: list[tuple[pygame.Rect, str]] = []
+        self._forget: pygame.Rect | None = None  # "Forget this tree" (with a Scroll of Forgetting)
 
     # ---- window protocol (same as the item windows)
 
@@ -142,6 +144,10 @@ class SkillTreeWindow:
                 if box.collidepoint(ev.pos):
                     self.tab = tree
                     return True
+            if self._forget is not None and self._forget.collidepoint(ev.pos):
+                msg = self.g.world.apply(ForgetTree(self.g.session.player_id, self.tab))
+                self.g.hud.add(msg or f"{self.g.data.proficiency(self.tab).name}: every point is back.", C.MUTED if msg else C.GOLD)
+                return True
             node_id = self.node_at(ev.pos)
             if node_id is not None:
                 r = self.g.session.allocate_skill(node_id)
@@ -161,7 +167,13 @@ class SkillTreeWindow:
         prof = s.proficiencies[self.tab]
         free = s.skills.available(self.tab)
         info = f"{prof.name} level {prof.level}  ·  {free} free point{'s' if free != 1 else ''}"
-        screen.blit(f["body"].render(info, True, C.GOLD), (r.x + PAD, r.y + self.tab_rows * TAB_H + 10))
+        info_img = f["body"].render(info, True, C.GOLD)
+        screen.blit(info_img, (r.x + PAD, r.y + self.tab_rows * TAB_H + 10))
+        scrolls = s.consumables["respec_scroll"]
+        self._forget = None
+        if scrolls > 0 and s.skills.spent(self.tab) > 0:  # a Scroll of Forgetting gives this tree's points back
+            self._forget = pygame.Rect(r.x + PAD + info_img.get_width() + 16, r.y + self.tab_rows * TAB_H + 8, 210, 24)
+            draw_button(screen, f["tiny"], self._forget, f"Forget this tree (Scroll ×{scrolls})")
         keys = self.g.keys
         hint = f"click: spend a point  ·  hover an active + {keys.bar_labels}: put it on that key  ·  {keys.action_label('skillTrees')} closes"
         img = f["tiny"].render(hint, True, C.MUTED)

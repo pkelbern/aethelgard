@@ -4,7 +4,7 @@ commands (``Buy``, ``Sell``, ``BuyConsumable``) and checks the player stands by 
 from __future__ import annotations
 
 from .data import GameData
-from .items import Item, LootGenerator, Rarity
+from .items import Item, ItemContainer, LootGenerator, Rarity
 from .rng import Rng
 
 
@@ -21,14 +21,17 @@ def sell_price(d: GameData, item: Item) -> int:
 
 
 class Vendor:
-    """The merchant's items. Normal and magic only (rares, set items and uniques are found, not bought)."""
+    """The merchant's items, on a shelf of the same grid as the stash. Normal and magic only (rares, set items
+    and uniques are found, not bought)."""
+
+    COLS, ROWS = 10, 10
 
     def __init__(self, d: GameData):
         self._d = d
-        self.stock: list[Item] = []
+        self.stock = ItemContainer(self.COLS, self.ROWS)
 
     def restock(self, item_level: int, rng: Rng) -> None:
         loot = LootGenerator(self._d)
-        self.stock = []
-        for _ in range(self._d.items.trade.stock_size):
-            self.stock.append(loot.roll_item(max(1, item_level), 1.0, 0.0, Rarity.NORMAL, rng, maximum=Rarity.MAGIC))
+        self.stock = ItemContainer(self.COLS, self.ROWS)
+        for _ in range(self._d.items.trade.stock_size):  # what does not fit on the shelf is not offered
+            self.stock.add(loot.roll_item(max(1, item_level), 1.0, 0.0, Rarity.NORMAL, rng, maximum=Rarity.MAGIC))

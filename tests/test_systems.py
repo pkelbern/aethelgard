@@ -15,7 +15,7 @@ from aethelgard.core.combat import (
     player_guard,
 )
 from aethelgard.core.data import validate
-from aethelgard.core.items import Item, ItemDrop, LootGenerator, Rarity, RolledAffix, SharedStash
+from aethelgard.core.items import Item, ItemDrop, LootGenerator, Rarity, RolledAffix, ScrollDrop, SharedStash
 from aethelgard.core.monsters import MonsterFactory, PackKind, PackSpawner, unique_name
 from aethelgard.core.rng import Rng
 from aethelgard.core.session import GameSession
@@ -217,7 +217,7 @@ def test_boss_only_on_the_last_floor(data):
 def test_unique_always_drops_magic(data):
     loot, rng = LootGenerator(data), Rng(11)
     for _ in range(300):
-        drops = loot.roll_drops("unique", 8, 0, rng)
+        drops = [d for d in loot.roll_drops("unique", 8, 0, rng) if not isinstance(d, ScrollDrop)]  # + a rare scroll
         assert 2 <= len(drops) <= 4
         assert any(isinstance(d, ItemDrop) and d.item.rarity >= Rarity.MAGIC for d in drops)
 
@@ -261,7 +261,7 @@ def test_shared_stash(data):
     back = other.withdraw(0)
     assert other.gold == 50 and back.name == item.name and back.base.id == item.base.id
     assert back.stat("str") == pytest.approx(item.stat("str"))
-    full = SharedStash(capacity=1)
+    full = SharedStash(*SharedStash.size_of(item))  # exactly one item's room
     assert full.deposit(item) and not full.deposit(item)
 
 

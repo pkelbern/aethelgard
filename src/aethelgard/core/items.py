@@ -104,7 +104,8 @@ class PotionDrop:
 
 @dataclass(frozen=True)
 class ScrollDrop:
-    kind: str  # portal
+    kind: str  # respec (a Scroll of Forgetting)
+    name: str = ""
 
     @property
     def consumable_id(self) -> str:
@@ -126,7 +127,7 @@ def drop_name(drop: Drop) -> str:
     if isinstance(drop, PotionDrop):
         return f"{drop.kind.capitalize()} Potion"
     if isinstance(drop, ScrollDrop):
-        return f"{drop.kind.capitalize()} Scroll"
+        return drop.name or f"{drop.kind.capitalize()} Scroll"
     return drop.item.name
 
 
@@ -162,6 +163,9 @@ class LootGenerator:
                 minimum = Rarity.MAGIC if need_magic else Rarity.NORMAL
                 drops.append(ItemDrop(self.roll_item(item_level, rank.loot_quality_mult, magic_find, minimum, rng)))
                 need_magic = False
+        for cid, c in it.consumables.items():  # rare finds on top (Scroll of Forgetting from uniques and bosses)
+            if c.drop_chance.get(rank_id, 0.0) > 0 and rng.chance(c.drop_chance[rank_id]):
+                drops.append(ScrollDrop(cid.removesuffix("_scroll"), c.name))
         return drops
 
     def roll_rarity(self, quality: float, magic_find: float, minimum: Rarity, rng: Rng) -> Rarity:
@@ -271,11 +275,22 @@ def item_from_dict(d: GameData, raw: dict) -> Item:
 
 
 class ItemContainer:
-    """A list of items with a capacity: the backpack and the shared stash are both one of these."""
+    """A grid of cells holding items that take ``size`` cells each (items.json: [width, height]): the backpack,
+    the shared stash and the merchant's stock are all one of these. ``items[i]`` sits with its top-left cell at
+    ``pos[i]``; commands keep using the item's index."""
 
-    def __init__(self, capacity: int):
-        self.capacity = capacity
+    def __init__(self, cols: int, rows: int):
+        self.cols, self.rows = cols, rows
         self.items: list[Item] = []
+        self.pos: list[tuple[int, int]] = []
+
+    @property
+    def capacity(self) -> int:
+        return self.cols * self.rows
+
+    @property
+    def used_cells(self) -> int:
+        return sum(i.base.size[0] * i.base.size[1] for i in self.items)
 
     def __len__(self) -> int:
         return len(self.items)
@@ -283,33 +298,102 @@ class ItemContainer:
     def __iter__(self):
         return iter(self.items)
 
+    def __getitem__(self, index: int) -> Item:
+        return self.items[index]
+
+    @staticmethod
+    def size_of(item: Item) -> tuple[int, int]:
+        w, h = (item.base.size + [1, 1])[:2] if item.base.size else (1, 1)
+        return max(1, w), max(1, h)
+
+    def cells_of(self, index: int) -> set[tuple[int, int]]:
+        (x, y), (w, h) = self.pos[index], self.size_of(self.items[index])
+        return {(x + dx, y + dy) for dx in range(w) for dy in range(h)}
+
+    def item_at(self, cx: int, cy: int) -> int | None:
+        """Index of the item covering cell (cx, cy), or None."""
+        for i, ((x, y), it) in enumerate(zip(self.pos, self.items, strict=True)):
+            w, h = self.size_of(it)
+            if x <= cx < x + w and y <= cy < y + h:
+                return i
+        return None
+
+    def fits_at(self, item: Item, x: int, y: int, ignore: int | None = None) -> bool:
+        w, h = self.size_of(item)
+        if x < 0 or y < 0 or x + w > self.cols or y + h > self.rows:
+            return False
+        taken = set().union(*(self.cells_of(i) for i in range(len(self.items)) if i != ignore)) if self.items else set()
+        return not any((x + dx, y + dy) in taken for dx in range(w) for dy in range(h))
+
+    def free_spot(self, item: Item, ignore: int | None = None) -> tuple[int, int] | None:
+        """The first place it fits, column by column from the left (as in Diablo 2)."""
+        for x in range(self.cols):
+            for y in range(self.rows):
+                if self.fits_at(item, x, y, ignore):
+                    return (x, y)
+        return None
+
+    def can_add(self, item: Item) -> bool:
+        return self.free_spot(item) is not None
+
     @property
     def full(self) -> bool:
-        return len(self.items) >= self.capacity
+        """Not even one free cell."""
+        return self.used_cells >= self.capacity
 
-    def add(self, item: Item) -> bool:
-        if self.full:
+    def add(self, item: Item, at: tuple[int, int] | None = None) -> bool:
+        spot = at if at is not None and self.fits_at(item, *at) else self.free_spot(item)
+        if spot is None:
             return False
         self.items.append(item)
+        self.pos.append(spot)
         return True
 
     def take(self, index: int) -> Item | None:
-        return self.items.pop(index) if 0 <= index < len(self.items) else None
+        if not 0 <= index < len(self.items):
+            return None
+        self.pos.pop(index)
+        return self.items.pop(index)
+
+    def move(self, index: int, x: int, y: int) -> bool:
+        """Moves an item to another place of the same grid, if it fits there."""
+        if not 0 <= index < len(self.items) or not self.fits_at(self.items[index], x, y, ignore=index):
+            return False
+        self.pos[index] = (x, y)
+        return True
+
+    def replace(self, index: int, item: Item) -> bool:
+        """Puts ``item`` where the one at ``index`` was (an equipment swap): same place if it fits, else anywhere
+        free. False (nothing changed) when it fits nowhere."""
+        old_pos = self.pos[index]
+        spot = old_pos if self.fits_at(item, *old_pos, ignore=index) else self.free_spot(item, ignore=index)
+        if spot is None:
+            return False
+        self.items[index], self.pos[index] = item, spot
+        return True
+
+    def copy(self) -> ItemContainer:
+        c = ItemContainer(self.cols, self.rows)
+        c.items, c.pos = list(self.items), list(self.pos)
+        return c
 
     def to_list(self) -> list[dict]:
-        return [item_to_dict(i) for i in self.items]
+        return [{**item_to_dict(i), "pos": list(p)} for i, p in zip(self.items, self.pos, strict=True)]
 
     def load_list(self, d: GameData, raw: list[dict]) -> None:
-        self.items = [item_from_dict(d, x) for x in raw][: self.capacity]
+        """Back from a save: each item where it was, or anywhere free (older saves had no places)."""
+        self.items, self.pos = [], []
+        for x in raw:
+            at = tuple(x["pos"]) if "pos" in x else None
+            self.add(item_from_dict(d, x), at)
 
 
 class Inventory(ItemContainer):
-    """One character's backpack. The grid placement arrives with the inventory screen (M6-03);
-    until then the grid size (items.json → inventory) only limits how many items fit."""
+    """One character's backpack: items.json → inventory (columns × rows)."""
 
     @classmethod
     def for_data(cls, d: GameData) -> Inventory:
-        return cls(d.items.inventory.capacity)
+        return cls(d.items.inventory.columns, d.items.inventory.rows)
 
 
 class Loadout:
@@ -472,11 +556,11 @@ class Loadout:
 class SharedStash(ItemContainer):
     """Stash shared by every character, in its own versioned file."""
 
-    VERSION = 2
-    DEFAULT_CAPACITY = 100
+    VERSION = 3  # v3: items have places in a 10 × 10 grid
+    COLS = ROWS = 10
 
-    def __init__(self, capacity: int = DEFAULT_CAPACITY, gold: int = 0):
-        super().__init__(capacity)
+    def __init__(self, cols: int = COLS, rows: int = ROWS, gold: int = 0):
+        super().__init__(cols, rows)
         self.gold = gold
 
     def deposit(self, item: Item) -> bool:
@@ -487,7 +571,7 @@ class SharedStash(ItemContainer):
 
     def to_json(self) -> str:
         return json.dumps(
-            {"version": self.VERSION, "capacity": self.capacity, "gold": self.gold, "items": self.to_list()},
+            {"version": self.VERSION, "cols": self.cols, "rows": self.rows, "gold": self.gold, "items": self.to_list()},
             ensure_ascii=False,
             indent=2,
         )
@@ -497,6 +581,6 @@ class SharedStash(ItemContainer):
         raw = json.loads(text)
         if raw.get("version", 1) > cls.VERSION:
             raise ValueError(f"Stash version {raw['version']} is newer than the game.")
-        s = cls(raw.get("capacity", cls.DEFAULT_CAPACITY), raw.get("gold", 0))
-        s.load_list(d, raw.get("items", []))
+        s = cls(raw.get("cols", cls.COLS), raw.get("rows", cls.ROWS), raw.get("gold", 0))
+        s.load_list(d, raw.get("items", []))  # older files (no places): items placed in order, those that no longer fit are lost
         return s

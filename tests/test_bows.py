@@ -43,8 +43,8 @@ def test_no_room_for_the_shield_refuses_the_bow(data):
     s, w, p, m = arena(data)
     s.inventory.items.clear()
     s.inventory.add(Item.plain(data.base("short_bow")))
-    s.inventory.capacity = 1
-    assert "Backpack full" in w.apply(EquipItem(0, 0))
+    s.inventory.cols, s.inventory.rows = 2, 3  # just the bow: the sword fits back, the shield does not
+    assert "No room in the backpack" in w.apply(EquipItem(0, 0))
     assert not s.gear.has_bow
 
 

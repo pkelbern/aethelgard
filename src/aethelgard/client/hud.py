@@ -50,7 +50,7 @@ class Hud:
         s = p.session
         W, H = screen.get_size()
         self._text(screen, self.area_title, (16, 12), self.f["title"], C.TEXT)
-        info = f"{s.name}  ·  {s.character.title}  ·  Level {s.character.level}  ·  Gold {s.gold}  ·  Backpack {len(s.inventory)}/{s.inventory.capacity}"
+        info = f"{s.name}  ·  {s.character.title}  ·  Level {s.character.level}  ·  Gold {s.gold}  ·  Backpack {s.inventory.used_cells}/{s.inventory.capacity}"
         self._text(screen, info, (16, 44), self.f["small"], C.MUTED)
 
         self._bar(screen, (16, 68, 260, 14), p.life / max(1, p.max_life), C.LIFE, f"Life {p.life:.0f}/{p.max_life:.0f}")
@@ -111,7 +111,9 @@ class Hud:
             usable = n is None or n > 0
             pygame.draw.rect(screen, C.PANEL_EDGE if usable else (40, 40, 44), r, 1, border_radius=4)
             color = {"life_potion": C.LIFE, "energy_potion": C.ENERGY}.get(cid, (150, 190, 255)) if usable else C.MUTED
-            self._text(screen, short if n is None else f"{short} ×{n}", (r.x + 6, r.y + 3), self.f["tiny"], color)
+            cap = s.carry_limit(cid) if n is not None else None
+            label = short if n is None else f"{short} ×{n}" + (f"/{cap}" if cap is not None else "")
+            self._text(screen, label, (r.x + 6, r.y + 3), self.f["tiny"], color)
             self._text(screen, self.keys.action_label(action), (r.x + 6, r.y + 17), self.f["tiny"], C.MUTED)
             self._countdown(screen, r, p.cooldowns.fraction(cid), p.cooldowns.remaining(cid), "tiny")
             if cid == "town_portal" and p.portal_cast_left > 0:  # opening: the bar fills up

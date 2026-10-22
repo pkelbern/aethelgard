@@ -292,3 +292,51 @@ def test_movement_with_items_is_faster_on_the_map(data):
     plain = walked()
     wear(s, with_mods(data, "boots", moveSpeedPct=0.5), "feet")
     assert walked() == pytest.approx(plain * 1.5, rel=0.1)
+
+
+# ---------------------------------------------------------------- belt, Scroll of Forgetting, grid
+
+
+def test_the_belt_limits_potions(data):
+    from aethelgard.core.items import PotionDrop
+
+    s, w, p, m = arena(data)
+    cap = data.items.belt_without
+    for _ in range(cap):
+        assert s.collect(PotionDrop("life"))
+    assert not s.collect(PotionDrop("life")), "no belt: full"
+    wear(s, Item.plain(data.base("belt")), "waist")
+    assert s.carry_limit("life_potion") == cap + data.base("belt").belt_slots
+    assert s.collect(PotionDrop("life"))
+
+
+def test_scroll_of_forgetting_gives_a_tree_back(data):
+    from aethelgard.core.world import ForgetTree
+
+    s, w, p, m = arena(data)
+    s.proficiencies.set_xp("blades", data.xp_total_by_level[4])
+    s.allocate_skill("precise_strike")
+    s.allocate_skill("sharp_blade")
+    assert s.skills.available("blades") == 3
+    assert "Scroll" in w.apply(ForgetTree(0, "blades"))
+    s.consumables["respec_scroll"] = 1
+    assert w.apply(ForgetTree(0, "blades")) is None
+    assert s.skills.available("blades") == 5 and s.consumables["respec_scroll"] == 0
+    assert s.skill_bar.slot_of("precise_strike") is None
+    assert data.items.consumables["respec_scroll"].price == 0, "found, never bought"
+
+
+def test_items_take_their_size_in_the_grid(data):
+    from aethelgard.core.items import Inventory
+
+    inv = Inventory(4, 3)
+    armor = Item.plain(data.base("leather_armor"))  # 2 × 3
+    assert inv.add(armor) and inv.pos == [(0, 0)]
+    assert inv.add(Item.plain(data.base("helm"))) and inv.pos[1] == (2, 0)
+    assert not inv.can_add(Item.plain(data.base("leather_armor")))
+    assert inv.item_at(1, 2) == 0 and inv.item_at(3, 1) == 1 and inv.item_at(3, 2) is None
+    assert not inv.move(1, 1, 0), "overlaps the armor"
+    assert inv.move(1, 2, 1)
+    back = Inventory(4, 3)
+    back.load_list(data, inv.to_list())
+    assert back.pos == inv.pos, "places survive a save"

@@ -222,16 +222,37 @@ class Sell:
 
 @dataclass(frozen=True)
 class StashPut:
-    """Backpack item at ``index`` into the shared stash (stand by the stash)."""
+    """Backpack item at ``index`` into the shared stash (stand by the stash), at cell ``at`` or the first free place."""
 
     player_id: int
     index: int
+    at: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True)
 class StashTake:
     player_id: int
     index: int
+    at: tuple[int, int] | None = None  # cell in the backpack
+
+
+@dataclass(frozen=True)
+class ForgetTree:
+    """Read a Scroll of Forgetting: the points of one tree come back to spend again."""
+
+    player_id: int
+    tree: str
+
+
+@dataclass(frozen=True)
+class MoveItem:
+    """Moves an item to another place of the same grid: the backpack, or the stash (stand by it)."""
+
+    player_id: int
+    container: str  # bag | stash
+    index: int
+    x: int
+    y: int
 
 
 @dataclass(frozen=True)
@@ -266,7 +287,7 @@ class Respawn:
 
 Command = (
     MoveTo | AttackTarget | AttackInPlace | UseSkill | ReleaseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
-    | OpenPortal | TravelWaypoint | Buy | BuyConsumable | Sell | StashPut | StashTake | StashGold
+    | OpenPortal | TravelWaypoint | Buy | BuyConsumable | Sell | StashPut | StashTake | StashGold | MoveItem | ForgetTree
 )
 TOWN_COMMANDS = (Buy, BuyConsumable, Sell, StashPut, StashTake, StashGold)
 
@@ -671,6 +692,14 @@ class World:
             return self._travel(p, cmd.area_id)
         if isinstance(cmd, TOWN_COMMANDS):
             return self._town(p, cmd)
+        if isinstance(cmd, MoveItem):
+            return self._move_item(p, cmd)
+        if isinstance(cmd, ForgetTree):
+            msg = p.session.forget_tree(cmd.tree)
+            if msg is None:
+                p.channel = None
+                self._float(p.x, p.y, f"{self.data.proficiency(cmd.tree).name} forgotten", "levelup")
+            return msg
         if isinstance(cmd, EquipItem | UnequipItem):  # gear changes the fight, so it goes through the world
             s = p.session
             r, msg = s.equip_from_backpack(cmd.index, cmd.slot) if isinstance(cmd, EquipItem) else s.unequip(cmd.slot)
@@ -1059,15 +1088,16 @@ class World:
             if isinstance(cmd, StashPut):
                 if not 0 <= cmd.index < len(s.inventory.items):
                     return "no such item"
-                if self.stash.full:
-                    return "The stash is full"
-                self.stash.deposit(s.inventory.take(cmd.index))
+                if not self.stash.can_add(s.inventory.items[cmd.index]):
+                    return "No room in the stash"
+                item = s.inventory.take(cmd.index)
+                self.stash.add(item, cmd.at)
             elif isinstance(cmd, StashTake):
                 if not 0 <= cmd.index < len(self.stash.items):
                     return "no such item"
-                if s.inventory.full:
-                    return "Backpack full"
-                s.inventory.add(self.stash.withdraw(cmd.index))
+                if not s.inventory.can_add(self.stash.items[cmd.index]):
+                    return "No room in the backpack"
+                s.inventory.add(self.stash.withdraw(cmd.index), cmd.at)
             else:
                 amount = min(cmd.amount, s.gold) if cmd.amount > 0 else -min(-cmd.amount, self.stash.gold)
                 s.gold -= amount
@@ -1079,14 +1109,14 @@ class World:
         if isinstance(cmd, Buy):
             if not 0 <= cmd.index < len(self.vendor.stock):
                 return "no such item"
-            item = self.vendor.stock[cmd.index]
+            item = self.vendor.stock.items[cmd.index]
             price = item_price(d, item)
             if s.gold < price:
                 return f"{item.name} costs {price} gold"
-            if s.inventory.full:
-                return "Backpack full"
+            if not s.inventory.can_add(item):
+                return "No room in the backpack"
             s.gold -= price
-            s.inventory.add(self.vendor.stock.pop(cmd.index))
+            s.inventory.add(self.vendor.stock.take(cmd.index))
             return None
         if isinstance(cmd, BuyConsumable):
             c = d.items.consumables.get(cmd.consumable_id)
@@ -1094,6 +1124,8 @@ class World:
                 return "not for sale"
             if s.gold < c.price:
                 return f"{c.name} costs {c.price} gold"
+            if not s.has_room_for(cmd.consumable_id):
+                return f"Your belt is full ({s.carry_limit(cmd.consumable_id)} {c.name}s)"
             s.gold -= c.price
             s.consumables[cmd.consumable_id] += 1
             return None
@@ -1101,7 +1133,20 @@ class World:
             return "no such item"
         item = s.inventory.take(cmd.index)
         s.gold += sell_price(d, item)
-        self.vendor.stock.append(item)  # D2 style: what you sold can be bought back while you stay
+        self.vendor.stock.add(item)  # D2 style: what you sold can be bought back while you stay (if the shelf has room)
+        return None
+
+    def _move_item(self, p: PlayerActor, cmd: MoveItem) -> str | None:
+        if cmd.container == "stash":
+            if self.stash is None or not self.npc_near(p, "stash"):
+                return "Stand by the stash"
+            grid = self.stash
+        else:
+            grid = p.session.inventory
+        if not grid.move(cmd.index, cmd.x, cmd.y):
+            return "It does not fit there"
+        if cmd.container == "stash":
+            self.bus.publish(StashChanged(p.player_id))
         return None
 
     # ------------------------------------------------------------ potions and scrolls

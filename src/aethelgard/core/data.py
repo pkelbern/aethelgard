@@ -667,6 +667,7 @@ class ItemBaseDef:
     range_tiles: float = 0  # bows: how far it shoots
     spell: str | None = None  # wands: the spell (skills.json node) it lets you cast while equipped
     spell_level: int = 0  # wands: levels of that spell it gives while equipped
+    belt_slots: int = 0  # belts: more potions of each kind
     size: list[int] = field(default_factory=lambda: [1, 1])
     req: dict[str, int] = field(default_factory=dict)
     item_class: str = ""  # items.json itemClasses: which affixes may roll on it
@@ -733,7 +734,9 @@ class ConsumableDef:
     pct_of_max: float = 0.0
     seconds: float = 0.0
     cooldown_seconds: float = 0.5
-    price: int = 0
+    price: int = 0  # 0 = the merchant does not sell it
+    belt: bool = False  # potions: how many you carry is limited by the belt (ItemsData.belt_without, bases' beltSlots)
+    drop_chance: dict[str, float] = field(default_factory=dict)  # rank → chance of an extra one when a monster of it dies
 
 
 @dataclass
@@ -743,6 +746,7 @@ class ItemsData:
     starting_backpack: list[str] = field(default_factory=list)
     slot_names: dict[str, str] = field(default_factory=dict)  # item type (base 'slot') → name in tooltips
     consumables: dict[str, ConsumableDef] = field(default_factory=dict)
+    belt_without: int = 4  # potions of each kind you can carry with no belt worn
     equipment: dict[str, EquipSlotDef] = field(default_factory=dict)
     trade: TradeParams = field(default_factory=TradeParams)  # equipment slot → what it accepts, in screen order
     rare_names: RareNameParts = field(default_factory=RareNameParts)

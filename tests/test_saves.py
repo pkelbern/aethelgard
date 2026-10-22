@@ -68,7 +68,7 @@ def test_newer_saves_are_refused(data):
 def test_collect_puts_each_drop_in_its_place(data):
     s = GameSession(data, 1)
     s.inventory.items.clear()  # start from an empty backpack (new characters carry a bow and a sword)
-    s.inventory.capacity = 1
+    s.inventory.cols, s.inventory.rows = 2, 2  # room for one helm
     item = Item.plain(data.base("helm"))
     assert s.collect(GoldDrop(12)) and s.gold == 12
     assert s.collect(PotionDrop("energy")) and s.consumables["energy_potion"] == 1
@@ -93,14 +93,17 @@ def test_kills_drop_loot_on_the_ground_and_picking_it_up_fills_the_backpack(data
             w.step(1 / 60)
     items = [e.drop.item for e in picked if isinstance(e.drop, ItemDrop) and e.stored]
     assert items and all(e.player_id == 0 for e in picked)
-    assert s.inventory.items == items and not w.ground
+    assert s.inventory.items == items
+    left = [g.drop for g in w.ground.values()]
+    assert all(isinstance(d, PotionDrop) for d in left), "only what the belt cannot hold stays on the floor"
+    assert all(s.consumables[d.consumable_id] == s.carry_limit(d.consumable_id) for d in left)
 
 
 def test_full_backpack_leaves_the_drop_on_the_ground(data):
     s = GameSession(data, 9)
     w = World([s])
     w.enter_area("crypt", 2)
-    s.inventory.capacity = 0
+    s.inventory.cols = s.inventory.rows = 0
     p = w.players[0]
     g = w.drop_at(ItemDrop(Item.plain(data.base("kite_shield"))), p.x + 0.5, p.y, s.world_rng)
     picked = []
@@ -183,8 +186,9 @@ def test_unequipping_needs_room_and_drops_the_guard(data):
     assert p.guarding
     assert w.apply(UnequipItem(0, "offhand")) is None
     assert not s.gear.has_shield and not p.guarding and s.inventory.items[-1].base.id == "buckler"
-    s.inventory.capacity = len(s.inventory)
-    assert w.apply(UnequipItem(0, "body")) == "Backpack full"
+    while s.inventory.add(Item.plain(data.base("ring"))):  # fill every free cell
+        pass
+    assert w.apply(UnequipItem(0, "body")).startswith("No room in the backpack")
 
 
 def test_item_tooltip_lists_numbers_affixes_and_requirements(data):
