@@ -281,6 +281,18 @@ class TimingParams:
 
 
 @dataclass
+class PartyParams:
+    """Co-op (M10-03), Diablo 2 rules by default: see core/party.py."""
+
+    hp_per_extra_player: float = 0.5  # monster life × (1 + 0.5 × (players − 1)) = (n + 1) / 2
+    xp_per_extra_player: float = 0.5  # monster XP, the same: (n + 1) / 2
+    party_xp_bonus: float = 0.35  # +35% for each other party member near the kill, then split by level
+    share_range_tiles: float = 25.0  # party members farther than this get no share (D2: about two screens)
+    loot: str = "shared"  # shared (D2: anyone picks it up) | individual (each player sees their own drops)
+    no_drop_players_step: int = 2  # D2: every 2 players make "no drop" one step rarer (chance ** ((n + 1) // 2))
+
+
+@dataclass
 class BalanceData:
     xp: XpParams = field(default_factory=XpParams)
     level_factor: LevelFactorParams = field(default_factory=LevelFactorParams)
@@ -300,6 +312,7 @@ class BalanceData:
     loot: LootParams = field(default_factory=LootParams)
     magic: MagicParams = field(default_factory=MagicParams)
     monster_ai: MonsterAiParams = field(default_factory=MonsterAiParams)
+    party: PartyParams = field(default_factory=PartyParams)
 
 
 # ---------------------------------------------------------------- monsters
@@ -1103,6 +1116,8 @@ def validate(d: GameData) -> list[str]:
         errors += [f"areas: '{a.id}' uses missing family '{f}'" for f in a.families if f not in families]
         if a.boss and a.boss not in boss_ids:
             errors.append(f"areas: '{a.id}' has missing boss '{a.boss}'")
+    if d.balance.party.loot not in ("shared", "individual") or d.balance.party.no_drop_players_step < 1:
+        errors.append("balance: party.loot must be shared or individual, and noDropPlayersStep at least 1")
     pf = d.areas.prefabs
     if pf.chest_loot_as not in d.items.drop_count:
         errors.append(f"areas: prefabs chestLootAs '{pf.chest_loot_as}' has no dropCount in items.json")

@@ -265,8 +265,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Curvas por fórmula em data/curves.json, mesmo ritmo; planilha v0.3 e simulação iguais.
 - [ ] **M9-06** Checklist de lançamento da Steam _(negócio, ~2 d)_  
   Builds por plataforma, depots, preço, desconto de lançamento, revisão da Valve.
-- [ ] **M9-07** Build com PyInstaller para Windows, Linux e macOS _(infra, ~2 d)_  
-  Um executável por sistema, testado sem Python instalado; conferir falso positivo de antivírus.
+- [ ] **M9-07** Build com PyInstaller para Windows, Linux e macOS _(infra, ~2 d)_ — **escrito, validar**  
+  Um executável por sistema, testado sem Python instalado; conferir falso positivo de antivírus. Feito: `python -m aethelgard.tools.build [--smoke] [--zip]` (onedir, dados do jogo e do pygame_gui juntos, controle e tcod incluídos) e o workflow build.yml (Windows, Ubuntu 22.04, macOS; abre o jogo 60 quadros sem tela; zip como artefato; tag `v*` vira release). Testado no Linux: 181 MB (zip 104 MB; o pygame_gui é 41 MB de fontes). Falta: rodar num PC sem Python, conferir antivírus (VirusTotal) e assinar no macOS/Windows.
 
 ## M10 – Multiplayer
 
@@ -276,8 +276,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Todo evento de jogador carrega PlayerId; cada ProficiencySet só ouve o próprio. Testado.
 - [x] **M10-02** Entrada como comandos aplicados pelo núcleo _(código, ~3 d)_  
   World recebe MoveTo, AttackTarget, UseSkill, SetGuard; o cliente só desenha.
-- [ ] **M10-03** Decidir XP em grupo, escala de monstros e loot _(design, ~1 d)_  
-  D2: +35% de XP dividido por nível, vida e XP × (n+1)/2. Loot individual ou compartilhado.
+- [ ] **M10-03** Decidir XP em grupo, escala de monstros e loot _(design, ~1 d)_ — **proposta escrita, decidir**  
+  D2: +35% de XP dividido por nível, vida e XP × (n+1)/2. Loot individual ou compartilhado. Proposta (padrão D2) em balance.json `party` e core/party.py, com testes: vida e XP do monstro × (n+1)/2; XP do abate +35% por outro membro a até 25 tiles, repartido pelo nível do personagem; "sem drop" elevado a (n+1)//2; loot `shared` (D2). Ainda não ligado ao mundo (entra com M10-04); com 1 jogador tudo dá o número do single player. Decidir: loot compartilhado (D2) ou individual (mais amigável entre amigos).
 - [ ] **M10-04** Rede com Steam Networking e host autoritativo _(código, ~10 d)_  
   Host simula; clientes enviam comandos e recebem estado.
 - [ ] **M10-05** Sincronizar monstros, loot e transições de área _(código, ~8 d)_  

@@ -228,5 +228,8 @@ formato de item e terá arquivo próprio, lido por todos os personagens.
 
 ## Distribuição
 
-Para a Steam: PyInstaller gera um executável por sistema (`pip install -e ".[build]"`).
+Para a Steam: PyInstaller gera um executável por sistema (`pip install -e ".[build]"` e
+`python -m aethelgard.tools.build --smoke --zip`): pasta `dist/Aethelgard` (modo onedir, menos falso positivo de
+antivírus) com os dados do jogo; arte e sons continuam sendo baixados no primeiro início. O workflow
+`.github/workflows/build.yml` faz os três sistemas (manual ou em tag `v*`, que vira release no GitHub).
 O código-fonte segue público no GitHub sob GPL-3.0-or-later.

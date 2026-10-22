@@ -1,0 +1,47 @@
+name: Build
+
+# Stand-alone game for Windows, Linux and macOS (M9-07): python -m aethelgard.tools.build.
+# Runs by hand (Actions → Build → Run workflow) and on version tags (v0.1.0 …), which also make a GitHub release.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e ".[build]"
+      - name: Build, run 60 frames without a window, zip
+        run: python -m aethelgard.tools.build --smoke --zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aethelgard-${{ matrix.os }}
+          path: dist/Aethelgard-*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true

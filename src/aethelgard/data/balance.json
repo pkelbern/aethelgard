@@ -164,5 +164,14 @@
     "healPct": 0.25,
     "healBelowPct": 0.6,
     "sleepTiles": 30.0
+  },
+  "party": {
+    "_comment": "Co-op (M10-03), Diablo 2 rules by default (core/party.py). With n players in the game, monster life and XP grow by (n+1)/2. A kill's XP gets +35% for each other party member within shareRangeTiles and is split among them in proportion to their character level. loot: shared (D2: drops are for whoever picks them up) or individual (each player gets their own). The chance of a monster dropping nothing is raised to the power (n+1)//2. One player: every rule gives exactly the single-player numbers.",
+    "hpPerExtraPlayer": 0.5,
+    "xpPerExtraPlayer": 0.5,
+    "partyXpBonus": 0.35,
+    "shareRangeTiles": 25.0,
+    "loot": "shared",
+    "noDropPlayersStep": 2
   }
 }
