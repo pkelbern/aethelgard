@@ -97,7 +97,7 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Comparar tempo por nível com a simulação; ajustar escala da curva se preciso.
 
 - [ ] **M2-07** Ajuste de dano (out/2026) _(balanceamento)_ — **escrito, validar**  
-  Monstros batiam pouco (40–66 golpes para matar o herói antes da armadura): curva monster dmgPct `a` 1,67 → 3,0 (+80%; curves.json). Armas: tiers de cima bem mais fortes (Long Sword 7–17, Bastard 9–23, Long Bow 6–14, Composite 8–19, Mace 6–15, War Hammer 10–23, Maul 12–30, Claymore 16–39) e maestria: +4% de dano por nível da proficiência da arma acima do 1 (balance.json attributes.weaponMasteryPerLevel), como as magias crescem com o nível. A simulação do Ato 1 não muda (13/9/7: ela mede XP). Validar no jogo: mortes por área e tempo para matar.
+  Monstros batiam pouco (40–66 golpes para matar o herói antes da armadura): curva monster dmgPct `a` 1,67 → 3,0 (+80%; curves.json). Armas: tiers de cima bem mais fortes (Long Sword 7–17, Bastard 9–23, Long Bow 6–14, Composite 8–19, Mace 6–15, War Hammer 10–23, Maul 12–30, Claymore 16–39) e maestria: +4% de dano por nível da proficiência da arma acima do 1 (balance.json attributes.weaponMasteryPerLevel), como as magias crescem com o nível. A simulação do Ato 1 não muda (13/9/7: ela mede XP). Segunda rodada (out/2026): dano dos monstros +20% (dmgPct `a` 3,0 → 3,6) e precisão +50% (accuracy `a` 5,9 → 8,85), porque o herói desviava demais (19–32% de acerto dos monstros no começo, 54–72% depois; agora ~25–45% e ~65–80%). Validar no jogo: mortes por área e tempo para matar.
 
 ## M3 – Árvores
 
