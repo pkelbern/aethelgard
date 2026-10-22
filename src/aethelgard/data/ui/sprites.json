@@ -114,7 +114,8 @@
       "leather_armor": "flare/loot/leather_armor", "studded_leather": "flare/loot/leather_armor", "chain_mail": "flare/loot/steel_armor",
       "scale_mail": "flare/loot/steel_armor", "plate_mail": "flare/loot/steel_armor", "helm": "flare/loot/clothes", "gloves": "flare/loot/clothes",
       "boots": "flare/loot/boots", "belt": "flare/loot/belt", "ring": "flare/loot/ring", "amulet": "flare/loot/gem",
-      "ember_wand": "flare/loot/wand", "cinder_wand": "flare/loot/wand", "blaze_wand": "flare/loot/rod", "star_wand": "flare/loot/rod", "frost_wand": "flare/loot/wand", "rime_wand": "flare/loot/wand", "spark_rod": "flare/loot/rod", "storm_rod": "flare/loot/rod", "prayer_rod": "flare/loot/rod", "sun_rod": "flare/loot/rod"
+      "ember_wand": "flare/loot/wand", "cinder_wand": "flare/loot/wand", "blaze_wand": "flare/loot/rod", "star_wand": "flare/loot/rod", "frost_wand": "flare/loot/wand", "rime_wand": "flare/loot/wand", "spark_rod": "flare/loot/rod", "storm_rod": "flare/loot/rod", "prayer_rod": "flare/loot/rod", "sun_rod": "flare/loot/rod",
+      "ward_rod": "flare/loot/rod", "aegis_rod": "flare/loot/rod"
     },
     "gold": { "1": "flare/loot/coins5", "25": "flare/loot/coins25", "100": "flare/loot/coins100" },
     "potions": { "life": "flare/loot/hp_potion", "energy": "flare/loot/mp_potion" },
@@ -219,6 +220,8 @@
     "storm_rod":       { "main": "flare/male/rod" },
     "prayer_rod":      { "main": "flare/male/rod" },
     "sun_rod":         { "main": "flare/male/rod" },
+    "ward_rod":        { "main": "flare/male/rod" },
+    "aegis_rod":       { "main": "flare/male/rod" },
     "buckler":         { "off": "flare/male/buckler" },
     "round_shield":    { "off": "flare/male/iron_buckler" },
     "kite_shield":     { "off": "flare/male/kite_shield" },

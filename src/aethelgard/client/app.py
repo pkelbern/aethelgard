@@ -45,6 +45,7 @@ from ..core.world import (
     is_implemented,
 )
 from ..core.world_gen import ExitKind
+from ..core.xp_log import XpLog
 from . import palette as C
 from .character_view import CharacterWindow
 from .game_menu import GameMenu
@@ -231,6 +232,10 @@ class Game:
         bus.subscribe(SkillLeveledUp, lambda e: self.hud.add(f"{self.data.node(e.skill_id).name} reached level {e.level}.", C.GOLD))
         self.spell_view.listen(bus)
         bus.subscribe(StashChanged, lambda e: self.stash_store.save_stash(self.world.stash))
+        if getattr(self, "xp_log", None) is not None:
+            self.xp_log.close()
+        stamp = time.strftime("%Y%m%d-%H%M%S")  # one CSV per play session, for playtests (M2-05)
+        self.xp_log = XpLog(bus, self.store.directory / "xp_logs" / f"xp_{stamp}.csv", session.proficiencies)
         self.world.stash = self.stash_store.load_stash(self.data)  # the same file for every character
 
     @property
@@ -327,7 +332,8 @@ class Game:
             return
         r = self.session.apply_death()
         extra = "".join(f", {v:.0f} {self.session.proficiencies[k].name} XP" for k, v in r.xp_lost.items())
-        self.death_text = f"Lost {r.gold_lost} gold{extra}."
+        self.death_text = f"Lost {r.gold_lost} gold{extra}." + (" Your gear lies on your corpse: walk over it to take it back."
+                                                              if self.session.corpses else "")
         self.hud.add(f"You died. {self.death_text}", C.LIFE)
         self.hold = None
         self.ui.close_all()
@@ -737,6 +743,7 @@ class Game:
         self.sprites.draw_corpses(screen, cam, self.vision.sees)  # bodies lie under what they dropped
         self.ground_view.draw_shapes(screen, cam, drops)
         self._draw_portal()
+        self._draw_corpses()
         self.spell_view.draw_ground(screen)
         self.spell_view.draw_telegraphs(screen)
         self.spell_view.draw_slowed(screen, self.player)
@@ -766,6 +773,7 @@ class Game:
         self.map.draw_exit_labels(screen, cam, self.fonts["small"], self.area_names, self.vision.explored)
         self.spell_view.draw_bursts(screen)
         self.spell_view.draw_spin(screen, self.player)
+        self.spell_view.draw_barrier(screen, self.player)
         self._draw_portal_cast()
         self.ground_view.draw_labels(screen, cam, drops, self.keys.held("showItems"), self.hovered_drop, pygame.mouse.get_pos())
 
@@ -775,8 +783,9 @@ class Game:
             img.set_alpha(int(255 * max(0, min(1, f.life / 0.9))))
             screen.blit(img, (sx - img.get_width() // 2, sy - 56 - (0.9 - f.life) * 45))
 
+        corpses = [s for s in (self.world.corpse_spot(c) for c in self.session.corpses) if s is not None]
         self.vision.draw_automap(screen, self.world.layout, self.player.x, self.player.y, big=self.big_map,
-                                 portal=self.world.portal_spot(self.session.player_id))
+                                 portal=self.world.portal_spot(self.session.player_id), corpses=corpses)
         if self.art.status_text:
             img = self.fonts["small"].render(self.art.status_text, True, C.MUTED)
             screen.blit(img, img.get_rect(midtop=(screen.get_width() // 2, 8)))
@@ -860,6 +869,19 @@ class Game:
             pygame.draw.ellipse(glow, (60, 110, 230, 110), glow.get_rect())
             self.screen.blit(glow, gate)
             pygame.draw.ellipse(self.screen, (120, 180, 255), gate, 3)
+
+    def _draw_corpses(self) -> None:
+        """Your corpse, with your gear on it: a body on the floor and its label."""
+        for c in self.session.corpses:
+            spot = self.world.corpse_spot(c)
+            if spot is None or not self.vision.explored[round(spot[1]), round(spot[0])]:
+                continue
+            sx, sy = self.cam.to_screen(*spot)
+            pygame.draw.ellipse(self.screen, (0, 0, 0), (sx - 26, sy - 6, 52, 12))
+            pygame.draw.rect(self.screen, (120, 110, 100), (sx - 22, sy - 12, 34, 14), border_radius=5)
+            pygame.draw.circle(self.screen, (170, 150, 130), (sx + 18, sy - 6), 7)
+            img = self.fonts["tiny"].render("Your corpse", True, C.GOLD)
+            self.screen.blit(img, (sx - img.get_width() // 2, sy - 34))
 
     def _draw_portal(self) -> None:
         """The player's town portal, where it stands in this area (in the world, or beside the town waypoint)."""
@@ -1067,6 +1089,7 @@ class Game:
                 break
         if frames is None:
             self.store.save_session(self.session)
+        self.xp_log.close()
         if screenshot:
             pygame.image.save(self.screen, screenshot)
         pygame.quit()

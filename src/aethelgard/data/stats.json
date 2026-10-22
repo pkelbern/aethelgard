@@ -119,6 +119,14 @@
     { "id": "fasterCastPct"              , "label": "faster cast"                         , "format": "pct" },
     { "id": "fireResistPierce"           , "label": "enemy fire resistance ignored"       , "format": "pct" },
     { "id": "lengthTiles"                , "label": "length"                              , "format": "tiles", "signed": false },
-    { "id": "delaySeconds"               , "label": "delay"                               , "format": "seconds", "signed": false }
+    { "id": "delaySeconds"               , "label": "delay"                               , "format": "seconds", "signed": false },
+    { "id": "barrierPctOfMax"            , "label": "of your max life as a barrier"       , "format": "pct", "signed": false },
+    { "id": "barrierStrengthPct"         , "label": "barrier strength"                    , "format": "pct" },
+    { "id": "barrierRegenPct"            , "label": "barrier regained per second"         , "format": "pct" },
+    { "id": "buffResist"                 , "label": "to fire, cold and lightning resistance", "format": "pct" },
+    { "id": "buffThornsPct"              , "label": "of melee hits sent back"             , "format": "pct" },
+    { "id": "manaShieldPct"              , "label": "of damage taken from Energy"         , "format": "pct" },
+    { "id": "buffDamageTakenPct"         , "label": "damage taken"                        , "format": "pct" },
+    { "id": "wardingSkills"              , "label": "to Warding skills"                   , "format": "flat" }
   ]
 }

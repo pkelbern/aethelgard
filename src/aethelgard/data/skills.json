@@ -1,5 +1,5 @@
 {
- "_comment": "Trees per proficiency; each tree gets 1 point per level of its proficiency. layer = proficiency level that opens the node. requires = nodes that must be taken first (an active needs the actives before it unlocked; a passive needs a point in the passives before it). PASSIVES take points: one level per point, up to maxPoints. ACTIVES cost 1 point to unlock and then level up ONLY BY USE: each hit of the skill gives it skillXpRate x the proficiency XP of that hit, on the proficiency XP curve (curves.json), with no other cap. levelGates hold an active below 'level' until 'node' has 'points' (its XP keeps building; the levels arrive when the gate opens). useXp = for actives that hit nothing (Bulwark, War Cry): XP per use as a share of the XP of the nearest monster within useXpRadiusTiles. effects = value gained PER LEVEL; after 'diminishingAfter' levels the gain is halved. base = fixed value the node has from its first level (Wide Slash arc, Shield Bash stun). synergies: bonus THIS node gets per level of 'from'. cooldown = seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); keys in ui/keys.json. spell = the node is a spell (cast: bolt | ball | chain | nova | wall | field | storm | meteor | self — core/spells.py; element: fire | cold | lightning | holy; look = how the client draws it). Spell after-effects come from stats: chillPct/chillSeconds slow, stunSeconds freezes or stuns, chains/bounceRangeTiles jump, intervalSeconds = a storm's strikes. self spells: healPctOfMax heals, durationSeconds makes a buff whose buff* stats (and lifeRegenPerSecond) count while it lasts. A worn wand that carries a spell (items.json bases 'spell') adds its spellLevel to it and lets you cast it even before it is unlocked. damageMin/damageMax = elemental damage of one hit, raised by Intelligence (balance.json attributes) and <element>DamagePct.",
+ "_comment": "Trees per proficiency; each tree gets 1 point per level of its proficiency. layer = proficiency level that opens the node. requires = nodes that must be taken first (an active needs the actives before it unlocked; a passive needs a point in the passives before it). PASSIVES take points: one level per point, up to maxPoints. ACTIVES cost 1 point to unlock and then level up ONLY BY USE: each hit of the skill gives it skillXpRate x the proficiency XP of that hit, on the proficiency XP curve (curves.json), with no other cap. levelGates hold an active below 'level' until 'node' has 'points' (its XP keeps building; the levels arrive when the gate opens). useXp = for actives that hit nothing (Bulwark, War Cry): XP per use as a share of the XP of the nearest monster within useXpRadiusTiles. effects = value gained PER LEVEL; after 'diminishingAfter' levels the gain is halved. base = fixed value the node has from its first level (Wide Slash arc, Shield Bash stun). synergies: bonus THIS node gets per level of 'from'. cooldown = seconds (actives). description = tooltip text; {stat} is replaced by the value at the shown level (labels and formats in stats.json). barSlots = slots on the action bar (GDD 6.1); keys in ui/keys.json. spell = the node is a spell (cast: bolt | ball | chain | nova | wall | field | storm | meteor | self — core/spells.py; element: fire | cold | lightning | holy; look = how the client draws it). Spell after-effects come from stats: chillPct/chillSeconds slow, stunSeconds freezes or stuns, chains/bounceRangeTiles jump, intervalSeconds = a storm's strikes. self spells: healPctOfMax heals, durationSeconds makes a buff whose buff* stats (and lifeRegenPerSecond) count while it lasts. A worn wand that carries a spell (items.json bases 'spell') adds its spellLevel to it and lets you cast it even before it is unlocked. damageMin/damageMax = elemental damage of one hit, raised by Intelligence (balance.json attributes) and <element>DamagePct. Warding (defense school): barrierPctOfMax = a shield of that share of your max life that takes hits before your life for durationSeconds (its absorbed damage teaches Warding, like armor teaches Armor); buffResist, buffThornsPct (melee attackers take that share of their hit back) and buffDamageTakenPct (less damage taken) count while the buff lasts; a self skill with knockbackTiles and radiusTiles pushes away everyone around.",
  "diminishingAfter": 8,
  "skillXpRate": 0.75,
  "useXpRadiusTiles": 8,
@@ -2153,6 +2153,170 @@
    "requires": [
     "devotion"
    ]
+  },
+  {
+   "id": "arcane_barrier",
+   "tree": "warding",
+   "name": "Arcane Barrier",
+   "shortName": "Barrier",
+   "layer": 1,
+   "kind": "active",
+   "energyCost": 8,
+   "cooldown": 12.0,
+   "spell": {
+    "cast": "self",
+    "element": "arcane",
+    "look": "barrier"
+   },
+   "description": "A shimmering shield takes hits before your life: it holds {barrierPctOfMax} of your max life for {durationSeconds}.",
+   "effects": {
+    "barrierPctOfMax": 0.02
+   },
+   "base": {
+    "barrierPctOfMax": 0.15,
+    "durationSeconds": 12
+   },
+   "useXp": 0.25
+  },
+  {
+   "id": "fortify",
+   "tree": "warding",
+   "name": "Fortify",
+   "layer": 1,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Your barriers are {barrierStrengthPct} stronger.",
+   "effects": {
+    "barrierStrengthPct": 0.08
+   }
+  },
+  {
+   "id": "elemental_ward",
+   "tree": "warding",
+   "name": "Elemental Ward",
+   "shortName": "Ward",
+   "layer": 6,
+   "kind": "active",
+   "energyCost": 10,
+   "cooldown": 30.0,
+   "spell": {
+    "cast": "self",
+    "element": "arcane",
+    "look": "ward"
+   },
+   "description": "For {durationSeconds} you resist fire, cold and lightning {buffResist} more.",
+   "effects": {
+    "buffResist": 0.02
+   },
+   "base": {
+    "buffResist": 0.15,
+    "durationSeconds": 20
+   },
+   "requires": [
+    "arcane_barrier"
+   ],
+   "useXp": 0.25
+  },
+  {
+   "id": "mending_ward",
+   "tree": "warding",
+   "name": "Mending Ward",
+   "layer": 6,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "A barrier regains {barrierRegenPct} of its strength every second while it lasts.",
+   "effects": {
+    "barrierRegenPct": 0.01
+   },
+   "requires": [
+    "fortify"
+   ]
+  },
+  {
+   "id": "thorn_ward",
+   "tree": "warding",
+   "name": "Thorn Ward",
+   "shortName": "Thorns",
+   "layer": 12,
+   "kind": "active",
+   "energyCost": 12,
+   "cooldown": 25.0,
+   "spell": {
+    "cast": "self",
+    "element": "arcane",
+    "look": "ward"
+   },
+   "description": "For {durationSeconds} whoever hits you in melee takes {buffThornsPct} of that hit back.",
+   "effects": {
+    "buffThornsPct": 0.05
+   },
+   "base": {
+    "buffThornsPct": 0.3,
+    "durationSeconds": 15
+   },
+   "requires": [
+    "elemental_ward"
+   ],
+   "useXp": 0.25
+  },
+  {
+   "id": "mana_shield",
+   "tree": "warding",
+   "name": "Mana Shield",
+   "layer": 12,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "{manaShieldPct} of the damage you take comes out of your Energy instead of your life, while you have Energy.",
+   "effects": {
+    "manaShieldPct": 0.04
+   },
+   "requires": [
+    "mending_ward"
+   ]
+  },
+  {
+   "id": "sanctuary",
+   "tree": "warding",
+   "name": "Sanctuary",
+   "shortName": "Sanct",
+   "layer": 18,
+   "kind": "active",
+   "energyCost": 18,
+   "cooldown": 30.0,
+   "spell": {
+    "cast": "self",
+    "element": "arcane",
+    "look": "sanctuary"
+   },
+   "description": "A burst of force pushes every enemy within {radiusTiles} back {knockbackTiles}, and for {durationSeconds} you take {buffDamageTakenPct} damage.",
+   "effects": {
+    "buffDamageTakenPct": -0.01
+   },
+   "base": {
+    "buffDamageTakenPct": -0.15,
+    "durationSeconds": 8,
+    "radiusTiles": 3.5,
+    "knockbackTiles": 2.5
+   },
+   "requires": [
+    "thorn_ward"
+   ],
+   "useXp": 0.3
+  },
+  {
+   "id": "unbreakable",
+   "tree": "warding",
+   "name": "Unbreakable",
+   "layer": 18,
+   "kind": "passive",
+   "maxPoints": 10,
+   "description": "Stuns and slows on you are {ccReduction} shorter.",
+   "effects": {
+    "ccReduction": 0.04
+   },
+   "requires": [
+    "mana_shield"
+   ]
   }
  ],
  "synergies": [
@@ -2353,6 +2517,18 @@
    "from": "blessed_hands",
    "stat": "healPctOfMax",
    "perPoint": 0.005
+  },
+  {
+   "target": "arcane_barrier",
+   "from": "fortify",
+   "stat": "barrierPctOfMax",
+   "perPoint": 0.005
+  },
+  {
+   "target": "thorn_ward",
+   "from": "arcane_barrier",
+   "stat": "buffThornsPct",
+   "perPoint": 0.01
   }
  ]
 }

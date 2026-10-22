@@ -64,6 +64,17 @@ class DamageMitigated:
 
 
 @dataclass(frozen=True)
+class DamageAbsorbed:
+    """A barrier (Warding) took part of a hit: XP to Warding, like armor's to Armor, and to the barrier skill."""
+
+    attacker: MonsterXpInfo
+    raw_damage: float
+    absorbed_damage: float
+    player_id: int = 0
+    skill_id: str = ""
+
+
+@dataclass(frozen=True)
 class MonsterKilled:
     monster: MonsterXpInfo
     rank: str
@@ -76,6 +87,7 @@ class XpGained:
     amount: float
     source: str
     player_id: int = 0
+    monster: MonsterXpInfo | None = None  # whose fight it came from (the playtest XP log, M2-05)
 
 
 @dataclass(frozen=True)

@@ -22,7 +22,8 @@ ELEMENT_COLORS = {
     "cold": ((40, 80, 150), (120, 190, 255), (230, 250, 255)),
     "lightning": ((70, 60, 150), (150, 170, 255), (250, 250, 210)),
     "holy": ((150, 120, 40), (250, 220, 120), (255, 255, 230)),
-    "physical": ((90, 80, 60), (200, 180, 140), (250, 240, 220)),  # Rain of Arrows; a shout (War Cry)
+    "physical": ((90, 80, 60), (200, 180, 140), (250, 240, 220)),
+    "arcane": ((80, 40, 130), (170, 110, 240), (235, 215, 255)),  # Warding  # Rain of Arrows; a shout (War Cry)
 }
 BLOOD = (170, 20, 20)
 FIRE_DARK, FIRE, FIRE_HOT = ELEMENT_COLORS["fire"]
@@ -170,6 +171,18 @@ class SpellView:
                 surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
                 pygame.draw.polygon(surf, (200, 40, 30, alpha), pts, width)
                 screen.blit(surf, (0, 0))
+
+    def draw_barrier(self, screen, p) -> None:
+        """Arcane Barrier: a shimmering bubble around the hero, fainter as it wears down."""
+        if p.barrier <= 0 or p.barrier_max <= 0:
+            return
+        k = p.barrier / p.barrier_max
+        sx, sy = self.g.cam.to_screen(p.x, p.y)
+        surf = pygame.Surface((90, 110), pygame.SRCALPHA)
+        wobble = 2 * math.sin(self.clock * 5)
+        pygame.draw.ellipse(surf, (170, 110, 240, int(40 + 50 * k)), (5, 5 + wobble, 80, 100))
+        pygame.draw.ellipse(surf, (235, 215, 255, int(90 + 120 * k)), (5, 5 + wobble, 80, 100), 2)
+        screen.blit(surf, (sx - 45, sy - 95))
 
     def draw_slowed(self, screen, p) -> None:
         """Chilled by a monster: a pale ring at the hero's feet."""

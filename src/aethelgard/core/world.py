@@ -31,6 +31,7 @@ from .combat import (
 from .data import MonsterTypeDef
 from .events import (
     ConsumableUsed,
+    DamageAbsorbed,
     DamageDealt,
     DamageMitigated,
     ExitReached,
@@ -47,7 +48,7 @@ from .events import (
     StashChanged,
     WaypointReached,
 )
-from .items import GoldDrop, GroundItem, SharedStash
+from .items import GoldDrop, GroundItem, ItemDrop, SharedStash
 from .maneuvers import Dash, Maneuvers
 from .monster_ai import MonsterBrains
 from .monsters import MonsterInstance, PackKind
@@ -82,6 +83,7 @@ SPELL_SKILLS = {
     "ice_bolt", "frost_nova", "blizzard", "glacial_spike",
     "spark", "chain_lightning", "ball_lightning", "thunderstorm",
     "heal", "holy_bolt", "blessing_of_might", "divine_aegis",
+    "arcane_barrier", "elemental_ward", "thorn_ward", "sanctuary",
 }
 GROUND_SPELLS = {"wall", "meteor", "field", "storm"}  # spell.cast values aimed at the ground: only where the caster can see
 IMPLEMENTED_SKILLS = (TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS | BOW_SKILLS | SPELL_SKILLS | DASH_SKILLS
@@ -97,6 +99,7 @@ IMPLEMENTED_PASSIVES = {
     "frostbite", "deep_freeze", "shatter", "glacial_mastery",
     "conductivity", "overcharge", "static_focus", "storm_mastery",
     "blessed_hands", "zeal", "devotion", "grace",
+    "fortify", "mending_ward", "mana_shield", "unbreakable",
     "bleed", "combat_rhythm", "killing_blow", "riposte", "bastion", "second_wind", "elemental_resistance", "unshakable", "colossus",
 }
 RHYTHM_SECONDS = 2.0  # Combat Rhythm: stacks fall off this long after the last hit
@@ -313,6 +316,7 @@ class AreaState:
     ground: dict
 
 PORTAL_TOUCH = 0.7  # tiles: how close to a portal you must walk to go through it
+CORPSE_TOUCH = 1.0  # tiles: walking this close to your corpse takes your gear back
 WAYPOINT_TOUCH = 0.9  # tiles: standing this close activates the waypoint and opens its list
 
 
@@ -373,6 +377,9 @@ class PlayerActor:
     rhythm_stacks: int = 0  # Combat Rhythm: hits in a row, while rhythm_left > 0
     rhythm_left: float = 0.0
     riposte_ready: bool = False  # Riposte: the next swing after a block hits harder
+    barrier: float = 0.0  # Warding: damage the barrier still takes before life (while its buff lasts)
+    barrier_max: float = 0.0
+    barrier_skill: str = ""
     slow_pct: float = 0.0  # chilled by a monster (Cold Enchanted): moves and swings slower while slow_left > 0
     slow_left: float = 0.0
     deferred: list[list[float]] = field(default_factory=list)  # Unshakable: [damage per second, seconds left]
@@ -867,6 +874,17 @@ class World:
             # healing teaches only when it is needed: a full heal of a quarter of your life is a whole use
             self._practice(p, skill_id, node.use_xp * min(1.0, amount / max(1.0, 0.25 * p.max_life)))
         secs = sk.effect(skill_id, "durationSeconds")
+        barrier = sk.effect(skill_id, "barrierPctOfMax")
+        if barrier > 0:  # Arcane Barrier: a pool of life that takes hits first
+            p.barrier = p.barrier_max = p.max_life * barrier * (1 + p.session.stat("barrierStrengthPct"))
+            p.barrier_skill = skill_id
+        push, radius = sk.effect(skill_id, "knockbackTiles"), sk.effect(skill_id, "radiusTiles")
+        if push > 0 and radius > 0:  # Sanctuary: everyone around is pushed away
+            for m in self.monsters.values():
+                if m.alive and math.hypot(m.x - p.x, m.y - p.y) <= radius + m.radius:
+                    self._knock_back(m, p.x, p.y, push)
+                    self._alert(m)
+            self.bus.publish(SpellBurst(p.x, p.y, radius, node.spell.look if node.spell else skill_id))
         weaken = sk.effect(skill_id, "enemyDamageReduction")
         if weaken > 0:  # a shout (War Cry): enemies around deal less damage for a while; no buff on yourself
             radius = sk.effect(skill_id, "radiusTiles")
@@ -933,6 +951,11 @@ class World:
         p.cooldowns.tick(dt)
         p.exit_cooldown -= dt
         p.buffs = {k: v - dt for k, v in p.buffs.items() if v - dt > 0}
+        if p.barrier > 0:  # a barrier lasts as long as its buff; Mending Ward refills it
+            if p.barrier_skill not in p.buffs:
+                p.barrier = 0.0
+            else:
+                p.barrier = min(p.barrier_max, p.barrier + p.barrier_max * s.stat("barrierRegenPct") * dt)
         p.frenzy_left = max(0.0, p.frenzy_left - dt)
         if p.frenzy_left <= 0:
             p.frenzy_stacks = 0
@@ -1045,6 +1068,15 @@ class World:
                 if math.hypot(g.x - p.x, g.y - p.y) <= self.data.balance.loot.gold_pickup_range_tiles:
                     self._take(p, g)
 
+        # your corpse: walking over it puts your gear back on
+        for c in list(s.corpses):
+            spot = self.corpse_spot(c)
+            if spot is not None and math.hypot(spot[0] - p.x, spot[1] - p.y) <= CORPSE_TOUCH:
+                for item in s.recover_corpse(c):
+                    self.drop_at(ItemDrop(item), p.x, p.y, s.world_rng)
+                p.life, p.energy = min(p.life, p.max_life), min(p.energy, p.max_energy)
+                self._float(p.x, p.y, "Gear recovered", "levelup")
+
         # waypoint: touching it activates it (saved) and asks the client to show the list
         wp = self.layout.waypoint if self.layout else None
         if wp is not None:
@@ -1077,6 +1109,16 @@ class World:
             p.in_exit = here is not None
 
     # ------------------------------------------------------------ waypoints and town
+
+    def corpse_spot(self, c) -> tuple[float, float] | None:
+        """Where a corpse lies in the current area, or None. One from an earlier game lies in town by the waypoint."""
+        if self.layout is None or c.area_id != self.area_id or c.floor != self.floor:
+            return None
+        if c.x is not None:
+            return (c.x, c.y)
+        base = self.layout.waypoint or self.layout.entry
+        cell = self._inward((base[0] - 2, base[1] + 1))
+        return (float(cell[0]), float(cell[1]))
 
     def at_waypoint(self, p: PlayerActor, slack: float = 1.5) -> bool:
         wp = self.layout.waypoint if self.layout else None
@@ -1689,8 +1731,9 @@ class World:
         self._float(p.x, p.y, "stunned", "hurt")
 
     def slow_player(self, p: PlayerActor, pct: float, seconds: float) -> None:
-        """Chilled by a monster: moves and swings slower for a while (the strongest slow wins)."""
-        if pct >= p.slow_pct or p.slow_left <= 0:
+        """Chilled by a monster: moves and swings slower for a while (the strongest slow wins; ccReduction shortens it)."""
+        seconds *= max(0.0, 1 - p.session.stat("ccReduction"))
+        if seconds > 0 and (pct >= p.slow_pct or p.slow_left <= 0):
             p.slow_pct, p.slow_left = min(0.9, pct), seconds
 
     def spawn_monster(self, type_id: str, level: int, x: float, y: float, no_reward: bool = False) -> MonsterActor | None:
@@ -1724,7 +1767,7 @@ class World:
         """Share of an element's damage the player ignores: Elemental Resistance and items (elementalResist, or
         <element>Resist), Bastion with a shield; capped at combat.resistCap."""
         s = p.session
-        r = s.stat("elementalResist") + s.stat(f"{element}Resist")
+        r = s.stat("elementalResist") + s.stat(f"{element}Resist") + p.buff_total("buffResist")
         if s.gear.has_shield:
             r += s.skills.stat_total("allResistWithShield")
         return min(r, self.data.balance.combat.resist_cap)
@@ -1765,6 +1808,23 @@ class World:
             final, mitigated = r.reached_armor * (1 - self.player_resist(p, element)), 0.0
         for el, share in (extra or {}).items():
             final += r.reached_armor * share * (1 - self.player_resist(p, el))
+        final *= max(0.0, 1 + p.buff_total("buffDamageTakenPct"))  # Sanctuary
+        thorns = p.buff_total("buffThornsPct")
+        if melee is not None and thorns > 0 and melee.alive:  # Thorn Ward: the attacker takes part of it back
+            self._damage_monster(p, melee, final * thorns, self.data.node("thorn_ward").tree, recover=False, skill="thorn_ward")
+        if p.barrier > 0 and final > 0:  # the barrier first; what it takes teaches Warding
+            absorbed = min(p.barrier, final)
+            p.barrier -= absorbed
+            self.bus.publish(DamageAbsorbed(info, final, absorbed, p.player_id, p.barrier_skill))
+            final -= absorbed
+            if p.barrier <= 0:
+                p.buffs.pop(p.barrier_skill, None)
+                self._float(p.x, p.y, "barrier broken", "hurt")
+        shield = s.stat("manaShieldPct")
+        if shield > 0 and final > 0 and p.energy > 0:  # Mana Shield: part of it out of Energy instead
+            from_energy = min(p.energy, final * shield)
+            p.energy -= from_energy
+            final -= from_energy
 
         if r.blocked:  # the guard stops most of the hit, never all of it (GDD 7.4)
             perfect = r.block == BlockOutcome.PERFECT
@@ -1821,6 +1881,8 @@ class World:
             p.path.clear()
             p.dash = p.channel = None
             p.deferred.clear()
+            p.barrier = 0.0
+            p.session.leave_corpse(self.area_id, self.floor, p.x, p.y)  # the gear stays on the body
             self.bus.publish(PlayerDied(p.player_id))
             return True
         return False

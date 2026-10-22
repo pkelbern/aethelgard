@@ -54,6 +54,9 @@ class Hud:
         self._text(screen, info, (16, 44), self.f["small"], C.MUTED)
 
         self._bar(screen, (16, 68, 260, 14), p.life / max(1, p.max_life), C.LIFE, f"Life {p.life:.0f}/{p.max_life:.0f}")
+        if p.barrier > 0:  # Arcane Barrier: a violet band over the life bar, the share of life it still covers
+            k = min(1.0, p.barrier / max(1, p.max_life))
+            pygame.draw.rect(screen, (170, 110, 240), (16, 64, 260 * k, 3))
         self._bar(screen, (16, 86, 260, 14), p.energy / max(1, p.max_energy), C.ENERGY, f"Energy {p.energy:.0f}/{p.max_energy:.0f}")
 
         y = 110  # only the proficiencies in use; the others are summed up in one line (all of them are in the trees, T)

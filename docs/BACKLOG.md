@@ -50,8 +50,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Clique no monstro: aproxima, ataca no intervalo; dano efetivo sem overkill.
 - [x] **M1-03** Monstros atacam o jogador _(código, ~1 d)_  
   Alerta por raio e por grupo; persegue e ataca no alcance.
-- [ ] **M1-04** Morte e retorno à cidade _(código, ~1 d)_  
-  Feito: o personagem cai, a tela fica cinza com o que foi perdido, e um clique (ou Enter) leva à Vila (comando Respawn no World); perde 10% do ouro; perda de XP dentro do nível existe por parâmetro e está desligada. Pendente: corpo com equipamento para recuperar.
+- [ ] **M1-04** Morte e retorno à cidade _(código, ~1 d)_ — **escrito, validar**  
+  Feito: o personagem cai, a tela fica cinza com o que foi perdido, e um clique (ou Enter) leva à Vila (comando Respawn no World); perde 10% do ouro; perda de XP dentro do nível existe por parâmetro e está desligada. Corpo com equipamento (como no D2 Normal): ao morrer o que estava vestido fica no corpo e você levanta sem nada; passar por cima do corpo veste tudo de volta (o que vestiu nesse meio-tempo vai para a mochila, ou para o chão se não couber). O corpo aparece no chão e no mapa (cruz dourada); salva com o personagem (save v8) e, num jogo novo, espera na vila ao lado do waypoint. Desligar: balance.json death.dropCorpse.
 - [ ] **M1-05** Animação de ataque e impacto (placeholder) _(game feel, ~1.5 d)_  
   Flash no alvo, recuo curto e som de impacto. Critério: o golpe 'tem peso'. Com os sprites (M7-09): o alvo acende enquanto está em recuperação de golpe ou atordoado (`hitFlash` em data/ui/sprites.json).
 - [ ] **M1-06** Poções de vida e energia com recarga _(código, ~1 d)_ — **escrito, validar**  
@@ -91,8 +91,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   CharacterSheet com testes.
 - [x] **M2-04** HUD de proficiências e números flutuantes de XP _(código, ~0.5 d)_  
   Barras por proficiência e '+XP' sobre o jogador.
-- [ ] **M2-05** Log de XP por fonte para playtest _(ferramenta, ~1 d)_  
-  Arquivo CSV por sessão: tempo, proficiência, fonte, monstro, XP. Critério: dá para achar farm na planilha.
+- [ ] **M2-05** Log de XP por fonte para playtest _(ferramenta, ~1 d)_ — **escrito, validar**  
+  Arquivo CSV por sessão: tempo, proficiência, fonte, monstro, XP. Critério: dá para achar farm na planilha. Feito: core/xp_log.py grava `xp_logs/xp_<data-hora>.csv` na pasta dos saves a cada partida (segundos, jogador, proficiência, nível, fonte, nível e id do monstro, XP).
 - [ ] **M2-06** Playtest de 30 min focado no ritmo de XP _(balanceamento, ~0.5 d)_  
   Comparar tempo por nível com a simulação; ajustar escala da curva se preciso.
 
@@ -133,8 +133,8 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   Perfil 2 INT / 1 VIT. Frio desacelera (chillPct: velocidade de movimento e de ataque do monstro) e congela (mesmo estado do atordoamento). Ice Bolt, Frostbite, Frost Nova (anel em volta de si, sem mirar), Deep Freeze (chance de congelar), Blizzard (área no chão), Shatter (+dano em congelado/atordoado), Glacial Spike (bola que congela), Glacial Mastery (ignora resistência ao frio). Varinhas Frost e Rime. Zumbi e necromante resistem 20% ao frio.
 - [ ] **M3-16** Escola de raio: Electromancy _(código, ~2 d)_ — **escrito, validar**  
   Perfil 2 INT / 1 DES. Dano com grande variação. Spark, Conductivity, Chain Lightning (pula para 2+ inimigos diferentes), Overcharge (chance de dano dobrado), Ball Lightning, Static Focus (conjuração mais rápida), Thunderstorm (tempestade que acerta um inimigo dentro do círculo a cada 0,8 s), Storm Mastery (ignora resistência a raio). Varinhas Spark Rod e Storm Rod. Xamã resiste 20% a raio.
-- [ ] **M3-12** Escola de defesa (barreiras e proteções) _(código, ~3 d)_  
-  Mesmo modelo; XP pelo dano que as barreiras absorvem (como a Armadura). Os buffs (`PlayerActor.buffs`) e o `SkillPracticed` já servem de base.
+- [ ] **M3-12** Escola de defesa: Warding (barreiras e proteções) _(código, ~3 d)_ — **escrito, validar**  
+  Perfil 2 INT / 1 VIT. XP pelo dano que a barreira absorve (mesma conta da Armadura, evento DamageAbsorbed) e pelas proteções lançadas perto de inimigos. Árvore: Arcane Barrier (escudo de 15% da vida máxima que leva os golpes antes da vida, 12 s), Fortify (+força da barreira), Elemental Ward (+resistências 20 s), Mending Ward (a barreira se recompõe), Thorn Ward (quem bate em você corpo a corpo leva parte de volta), Mana Shield (parte do dano sai da Energia), Sanctuary (empurra todos em volta e reduz o dano recebido), Unbreakable (atordoamento e lentidão mais curtos). Varinhas Ward Rod e Aegis Rod; afixo Warder's. Títulos Warder, Spellguard, Aegis Knight, Ironward, Abbot.
 
 ## M4 – Monstros
 

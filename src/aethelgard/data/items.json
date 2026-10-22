@@ -896,6 +896,46 @@
    }
   },
   {
+   "id": "ward_rod",
+   "name": "Ward Rod",
+   "slot": "wand",
+   "itemClass": "wand",
+   "tags": [
+    "wand",
+    "arcane"
+   ],
+   "level": 2,
+   "spell": "arcane_barrier",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 8
+   }
+  },
+  {
+   "id": "aegis_rod",
+   "name": "Aegis Rod",
+   "slot": "wand",
+   "itemClass": "wand",
+   "tags": [
+    "wand",
+    "arcane"
+   ],
+   "level": 9,
+   "spell": "thorn_ward",
+   "spellLevel": 1,
+   "size": [
+    1,
+    2
+   ],
+   "req": {
+    "int": 20
+   }
+  },
+  {
    "id": "sun_rod",
    "name": "Sun Rod",
    "slot": "wand",
@@ -995,6 +1035,15 @@
    "name": "Stormcaller's",
    "group": "skill",
    "stat": "electromancySkills",
+   "tiers": [{"level": 12, "min": 1, "max": 1}],
+   "on": ["wand", "amulet"]
+  },
+  {
+   "id": "warders",
+   "kind": "prefix",
+   "name": "Warder's",
+   "group": "skill",
+   "stat": "wardingSkills",
    "tiers": [{"level": 12, "min": 1, "max": 1}],
    "on": ["wand", "amulet"]
   },

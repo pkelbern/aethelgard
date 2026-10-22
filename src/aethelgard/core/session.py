@@ -10,7 +10,7 @@ from enum import Enum
 from .combat import CombatMath
 from .data import GameData
 from .events import EventBus
-from .items import GoldDrop, Inventory, Item, ItemDrop, Loadout, LootGenerator, PotionDrop, ScrollDrop
+from .items import GoldDrop, Inventory, Item, ItemDrop, Loadout, LootGenerator, PotionDrop, ScrollDrop, item_from_dict, item_to_dict
 from .monsters import MonsterFactory, MonsterPack, PackKind, PackSpawner
 from .progression import (
     Allocate,
@@ -26,8 +26,8 @@ from .world_gen import AreaGenerator, AreaLayout
 
 # v1: gold, XP and skill points. v2: + name, equipment, backpack and consumables. v3: + action bar. v4: + waypoints.
 # v5: + spells learned and in training. v6: actives unlocked with a point and levelled by use (unlockedSkills, skillXp).
-# v7: backpack items keep their place in the grid ("pos"); older saves are placed in order.
-SAVE_VERSION = 7
+# v7: backpack items keep their place in the grid ("pos"); older saves are placed in order. v8: + corpses with their gear.
+SAVE_VERSION = 8
 DEFAULT_NAME = "Wanderer"
 
 
@@ -37,6 +37,18 @@ class Equip(Enum):
     REQUIREMENTS = "requirements not met"
     BACKPACK_FULL = "backpack full"
     WRONG_SLOT = "does not fit there"
+
+
+@dataclass
+class Corpse:
+    """Where the character died, with everything it wore (GDD 7.6, as in Diablo 2 Normal): walking over it
+    puts the gear back on. ``x``/``y`` None = in town beside the waypoint (a corpse from an earlier game)."""
+
+    gear: dict[str, Item]
+    area_id: str
+    floor: int = 0
+    x: float | None = None
+    y: float | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +93,7 @@ class GameSession:
             self.inventory.add(Item.plain(data.base(base_id)))
         self.consumables: Counter[str] = Counter()
         self.waypoints: set[str] = {data.town_id}  # areas whose waypoint this character has touched
+        self.corpses: list[Corpse] = []  # bodies left with gear on them, until walked over
         self.gold = 0
 
     def stat(self, name: str) -> float:
@@ -206,6 +219,31 @@ class GameSession:
             return self.inventory.add(drop.item)
         return False
 
+    def leave_corpse(self, area_id: str, floor: int, x: float, y: float) -> Corpse | None:
+        """On death (balance.json death.dropCorpse): the worn gear stays on the body; you get up without it."""
+        if not self.data.balance.death.drop_corpse or not self.gear.slots:
+            return None
+        c = Corpse(dict(self.gear.slots), area_id, floor, x, y)
+        self.corpses.append(c)
+        self.gear.slots.clear()
+        self._gear_changed()
+        return c
+
+    def recover_corpse(self, c: Corpse) -> list[Item]:
+        """Puts the corpse's gear back on. What you wore meanwhile goes to the backpack; what does not fit there
+        is returned (the world drops it on the floor)."""
+        overflow: list[Item] = []
+        for slot, item in c.gear.items():
+            now = self.gear.get(slot)
+            if now is not None:
+                del self.gear.slots[slot]
+                if not self.inventory.add(now):
+                    overflow.append(now)
+            self.gear.equip(item, slot)
+        self.corpses.remove(c)
+        self._gear_changed()
+        return overflow
+
     def apply_death(self) -> DeathResult:
         """Loses gold and, if enabled in balance.json, XP inside the current level (GDD 7.6)."""
         p = self.data.balance.death
@@ -237,6 +275,7 @@ class GameSession:
                 "inventory": self.inventory.to_list(),
                 "consumables": dict(self.consumables),
                 "waypoints": sorted(self.waypoints),
+                "corpses": [{slot: item_to_dict(i) for slot, i in c.gear.items()} for c in self.corpses],
             },
             ensure_ascii=False,
             indent=2,
@@ -267,6 +306,8 @@ class GameSession:
         s.consumables.update(raw.get("consumables", {}))
         known = {a.id for a in data.all_areas if a.waypoint}
         s.waypoints |= {w for w in raw.get("waypoints", []) if w in known}
+        for gear in raw.get("corpses", []):  # a new world: the bodies wait in town, beside the waypoint
+            s.corpses.append(Corpse({slot: item_from_dict(data, i) for slot, i in gear.items()}, data.town_id))
         return s
 
 

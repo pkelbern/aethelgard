@@ -9,6 +9,7 @@ from enum import Enum
 
 from .data import GameData, ProficienciesData, ProficiencyDef, SkillsData, XpParams
 from .events import (
+    DamageAbsorbed,
     DamageDealt,
     DamageMitigated,
     EventBus,
@@ -156,6 +157,7 @@ class ProficiencySet:
             bus.subscribe(DamageDealt, self.on_damage_dealt)
             bus.subscribe(HitBlocked, self.on_hit_blocked)
             bus.subscribe(DamageMitigated, self.on_damage_mitigated)
+            bus.subscribe(DamageAbsorbed, self.on_damage_absorbed)
             bus.subscribe(SkillPracticed, self.on_practiced)
             bus.subscribe(MonsterKilled, lambda e: self._defense_xp_by_monster.pop(e.monster.instance_id, None))
 
@@ -183,7 +185,7 @@ class ProficiencySet:
         if e.player_id != self.player_id or e.proficiency_id not in self._profs:
             return
         p = self._profs[e.proficiency_id]
-        self._give(p, self._calc.offense(e.target, e.effective_damage, p.level), "offense")
+        self._give(p, self._calc.offense(e.target, e.effective_damage, p.level), "offense", e.target)
 
     def on_practiced(self, e: SkillPracticed) -> None:
         """A skill that hits nothing (a heal, a blessing, a war cry) used near a monster: its tree learns from it."""
@@ -192,7 +194,7 @@ class ProficiencySet:
             return
         p = self._profs[node]
         if not self._calc.is_trivial(e.target.level, p.level):
-            self._give(p, e.target.xp_base * e.share * self._calc.factor(e.target.level, p.level), "practice")
+            self._give(p, e.target.xp_base * e.share * self._calc.factor(e.target.level, p.level), "practice", e.target)
 
     def on_hit_blocked(self, e: HitBlocked) -> None:
         if e.player_id != self.player_id:
@@ -207,6 +209,17 @@ class ProficiencySet:
         amount = self._calc.armor(e.attacker, e.raw_damage, e.mitigated_damage, p.level)
         self._give_defensive(p, e.attacker, amount, "armor")
 
+    def on_damage_absorbed(self, e: DamageAbsorbed) -> None:
+        """A barrier took part of a hit: Warding learns from it the way Armor learns from what armor soaks."""
+        if e.player_id != self.player_id or not e.skill_id:
+            return
+        tree = self._skill_tree_of(e.skill_id)
+        if tree is None or tree not in self._profs:
+            return
+        p = self._profs[tree]
+        amount = self._calc.armor(e.attacker, e.raw_damage, e.absorbed_damage, p.level)
+        self._give_defensive(p, e.attacker, amount, "absorb")
+
     def defense_xp_from(self, monster_id: int) -> float:
         return self._defense_xp_by_monster.get(monster_id, 0.0)
 
@@ -218,14 +231,14 @@ class ProficiencySet:
         if give <= 0:
             return
         self._defense_xp_by_monster[m.instance_id] = used + give
-        self._give(p, give, source)
+        self._give(p, give, source, m)
 
-    def _give(self, p: Proficiency, amount: float, source: str) -> None:
+    def _give(self, p: Proficiency, amount: float, source: str, monster: MonsterXpInfo | None = None) -> None:
         if amount <= 0:
             return
         gained = p.add_xp(amount)
         if self._bus:
-            self._bus.publish(XpGained(p.id, amount, source, self.player_id))
+            self._bus.publish(XpGained(p.id, amount, source, self.player_id, monster))
             if gained:
                 self._bus.publish(ProficiencyLeveledUp(p.id, p.level, self.player_id))
 
@@ -368,6 +381,7 @@ class SkillTrees:
         if bus is not None:
             bus.subscribe(DamageDealt, self.on_damage_dealt)
             bus.subscribe(SkillPracticed, self.on_practiced)
+            bus.subscribe(DamageAbsorbed, self.on_absorbed)
 
     def node(self, node_id: str):
         return self._nodes[node_id]
@@ -525,6 +539,13 @@ class SkillTrees:
         if e.player_id != self._profs.player_id or not self.is_active(e.skill_id):
             return
         amount = self._profs.calc.offense(e.target, e.effective_damage, self.xp_level(e.skill_id))
+        self.add_xp(e.skill_id, amount * self._d.skill_xp_rate)
+
+    def on_absorbed(self, e: DamageAbsorbed) -> None:
+        """A barrier skill levels up by the damage it takes for you (the share armor XP would give)."""
+        if e.player_id != self._profs.player_id or not self.is_active(e.skill_id):
+            return
+        amount = self._profs.calc.armor(e.attacker, e.raw_damage, e.absorbed_damage, self.xp_level(e.skill_id))
         self.add_xp(e.skill_id, amount * self._d.skill_xp_rate)
 
     def on_practiced(self, e: SkillPracticed) -> None:

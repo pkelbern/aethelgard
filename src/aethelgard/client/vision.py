@@ -48,7 +48,7 @@ class Vision:
         return v is not None and 0 <= cy < v.shape[0] and 0 <= cx < v.shape[1] and bool(v[cy, cx])
 
     def draw_automap(self, screen: pygame.Surface, layout: AreaLayout, px: float, py: float, big: bool,
-                     portal: tuple[float, float] | None = None) -> None:
+                     portal: tuple[float, float] | None = None, corpses: list[tuple[float, float]] = ()) -> None:
         """Automap: small in the corner, or large over the screen (Tab). ``portal`` = the player's town portal here."""
         h, w = layout.tiles.shape
         scale = max(1, min(6, (min(screen.get_width(), screen.get_height()) - 80) // max(w, h))) if big else 2
@@ -79,4 +79,8 @@ class Vision:
             gx, gy = pos[0] + int(portal[0] * scale), pos[1] + int(portal[1] * scale)
             r = max(2, scale)
             pygame.draw.ellipse(screen, C.PORTAL, (gx - r, gy - r * 2, r * 2 + 1, r * 3 + 1))
+        for cx, cy in corpses:  # your corpse: a gold cross
+            gx, gy, r = pos[0] + int(cx * scale), pos[1] + int(cy * scale), max(2, scale)
+            pygame.draw.line(screen, C.GOLD, (gx - r, gy - r), (gx + r, gy + r), 2)
+            pygame.draw.line(screen, C.GOLD, (gx - r, gy + r), (gx + r, gy - r), 2)
         pygame.draw.circle(screen, C.PLAYER_BODY, (pos[0] + int(px * scale), pos[1] + int(py * scale)), max(2, scale))

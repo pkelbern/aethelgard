@@ -533,7 +533,7 @@ class ProficienciesData:
 
 
 SPELL_CASTS = ("bolt", "ball", "chain", "nova", "wall", "field", "storm", "meteor", "self")  # how a spell is delivered (core/spells.py)
-ELEMENTS = ("fire", "cold", "lightning", "holy")
+ELEMENTS = ("fire", "cold", "lightning", "holy", "arcane")
 
 
 @dataclass

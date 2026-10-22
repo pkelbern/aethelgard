@@ -175,6 +175,19 @@
       },
       "weaponTags": [],
       "description": "XP from healing yourself when it is needed and from blessings cast near enemies (a share of the nearest enemy's XP), and from holy damage."
+    },
+    {
+      "id": "warding",
+      "name": "Warding",
+      "xpSource": "absorb",
+      "attributes": {
+        "str": 0,
+        "dex": 0,
+        "vit": 1,
+        "int": 2
+      },
+      "weaponTags": [],
+      "description": "XP from damage your barriers absorb (like armor) and from the wards themselves when enemies are near."
     }
   ],
   "titles": [
@@ -558,6 +571,40 @@
         "electromancy"
       ],
       "title": "Thunderlord"
+    },
+    {
+      "ids": [
+        "warding"
+      ],
+      "title": "Warder"
+    },
+    {
+      "ids": [
+        "blades",
+        "warding"
+      ],
+      "title": "Spellguard"
+    },
+    {
+      "ids": [
+        "shield",
+        "warding"
+      ],
+      "title": "Aegis Knight"
+    },
+    {
+      "ids": [
+        "armor",
+        "warding"
+      ],
+      "title": "Ironward"
+    },
+    {
+      "ids": [
+        "restoration",
+        "warding"
+      ],
+      "title": "Abbot"
     }
   ],
   "titleSecondaryThreshold": 0.5,
