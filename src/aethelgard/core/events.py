@@ -156,6 +156,15 @@ class SkillUsed:
 
 
 @dataclass(frozen=True)
+class ItemCrafted:
+    """The crafter salvaged an item (``recipe_id`` "salvage", ``what`` = the materials) or made one (``what`` = its name)."""
+
+    player_id: int
+    recipe_id: str
+    what: str
+
+
+@dataclass(frozen=True)
 class ActOpened:
     """An act boss fell: the next act's town is now on the player's waypoint list."""
 

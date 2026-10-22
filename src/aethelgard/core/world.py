@@ -28,6 +28,7 @@ from .combat import (
     player_guard,
     with_bonus,
 )
+from .crafting import Crafter
 from .data import MonsterTypeDef
 from .events import (
     ActOpened,
@@ -38,6 +39,7 @@ from .events import (
     ExitReached,
     FloatingText,
     HitBlocked,
+    ItemCrafted,
     LootPicked,
     MonsterKilled,
     PlayerDied,
@@ -295,7 +297,25 @@ Command = (
     MoveTo | AttackTarget | AttackInPlace | UseSkill | ReleaseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
     | OpenPortal | TravelWaypoint | Buy | BuyConsumable | Sell | StashPut | StashTake | StashGold | MoveItem | ForgetTree
 )
+@dataclass(frozen=True)
+class Salvage:
+    """Break the backpack item at ``index`` into crafting materials (stand by the crafter)."""
+
+    player_id: int
+    index: int
+
+
+@dataclass(frozen=True)
+class Craft:
+    """Use a crafting recipe on the backpack item at ``index`` (stand by the crafter); the result takes its place."""
+
+    player_id: int
+    recipe_id: str
+    index: int
+
+
 TOWN_COMMANDS = (Buy, BuyConsumable, Sell, StashPut, StashTake, StashGold)
+CRAFT_COMMANDS = (Salvage, Craft)
 
 
 @dataclass
@@ -571,6 +591,7 @@ class World:
         self._next_ground = 1
         self.portals: dict[int, TownPortal] = {}
         self.vendor = Vendor(self.data)
+        self.crafter = Crafter(self.data)
         self.stash: SharedStash | None = None  # shared by every character; the client loads and saves it
         self._town_visits = 0
         self._areas: dict[tuple[str, int], AreaState] = {}
@@ -722,6 +743,8 @@ class World:
             return self._travel(p, cmd.area_id)
         if isinstance(cmd, TOWN_COMMANDS):
             return self._town(p, cmd)
+        if isinstance(cmd, CRAFT_COMMANDS):
+            return self._craft(p, cmd)
         if isinstance(cmd, MoveItem):
             return self._move_item(p, cmd)
         if isinstance(cmd, ForgetTree):
@@ -1153,6 +1176,34 @@ class World:
         """Is the player within talking reach of this map NPC?"""
         marker = self.layout.markers.get(name) if self.layout is not None else None
         return marker is not None and math.hypot(marker[0][0] - p.x, marker[0][1] - p.y) <= self.data.items.trade.npc_range_tiles
+
+    def _craft(self, p: PlayerActor, cmd) -> str | None:
+        """Salvaging and recipes at the crafter (core/crafting.py)."""
+        s = p.session
+        if not self.npc_near(p, "crafter"):
+            return "Stand by the crafter"
+        if not 0 <= cmd.index < len(s.inventory.items):
+            return "no such item"
+        item = s.inventory.items[cmd.index]
+        if isinstance(cmd, Salvage):
+            got = self.crafter.salvage_yield(item)
+            s.inventory.take(cmd.index)
+            s.materials.update(got)
+            names = self.data.crafting.materials
+            self.bus.publish(ItemCrafted(p.player_id, "salvage", ", ".join(f"{n} {names[m]}" for m, n in got.items())))
+            return None
+        recipe = next((r for r in self.data.crafting.recipes if r.id == cmd.recipe_id), None)
+        if recipe is None:
+            return "no such recipe"
+        why = self.crafter.why_not(recipe, item, s.materials)
+        if why:
+            return why
+        made = self.crafter.apply(recipe, item, s.character.level, s.loot_rng)
+        if not s.inventory.replace(cmd.index, made):
+            return "No room in the backpack"
+        s.materials.subtract(recipe.cost)
+        self.bus.publish(ItemCrafted(p.player_id, recipe.id, made.name))
+        return None
 
     def _town(self, p: PlayerActor, cmd) -> str | None:
         s, d = p.session, self.data

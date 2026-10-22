@@ -13,6 +13,8 @@
  "bar.rightCleared": "Right click cleared.",
  "bar.rightHint": "Right click: right-click a skill in the trees, or drag one here.",
  "characters.cannotDeletePlaying": "You cannot delete the character you are playing: change character first.",
+ "craft.made": "Crafted: {what}.",
+ "craft.salvaged": "Salvaged: {what}.",
  "death.youDied": "You died. {death_text}",
  "game.welcome": "Welcome, {name}.",
  "game.welcomeBack": "Welcome back, {name}.",

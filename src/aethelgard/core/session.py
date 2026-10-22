@@ -95,6 +95,7 @@ class GameSession:
         self.consumables: Counter[str] = Counter()
         self.waypoints: set[str] = {data.town_id}  # areas whose waypoint this character has touched
         self.corpses: list[Corpse] = []  # bodies left with gear on them, until walked over
+        self.materials: Counter[str] = Counter()  # crafting materials (crafting.json), carried without taking room
         self.bosses_killed: set[str] = set()  # act bosses beaten: they open the next act (areas.json unlockedBy)
         self.gold = 0
 
@@ -298,6 +299,7 @@ class GameSession:
                 "consumables": dict(self.consumables),
                 "waypoints": sorted(self.waypoints),
                 "bossesKilled": sorted(self.bosses_killed),
+                "materials": {k: v for k, v in self.materials.items() if v > 0},
                 "corpses": [{slot: item_to_dict(i) for slot, i in c.gear.items()} for c in self.corpses],
             },
             ensure_ascii=False,
@@ -332,6 +334,7 @@ class GameSession:
         s.consumables.update(raw.get("consumables", {}))
         known = {a.id for a in data.all_areas if a.waypoint}
         s.waypoints |= {w for w in raw.get("waypoints", []) if w in known}
+        s.materials.update({k: int(v) for k, v in raw.get("materials", {}).items() if k in data.crafting.materials})
         for boss_id in raw.get("bossesKilled", []):
             s.defeat_boss(boss_id)
         for gear in raw.get("corpses", []):  # a new world: the bodies wait in town, beside the waypoint

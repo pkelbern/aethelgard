@@ -15,6 +15,7 @@ from ..core.events import (
     ActOpened,
     ExitReached,
     FloatingText,
+    ItemCrafted,
     LootPicked,
     MonsterKilled,
     PlayerDied,
@@ -56,7 +57,7 @@ from .gamepad import Gamepad
 from .hud import Hud
 from .icons import Icons
 from .iso import Camera, MapRenderer
-from .item_windows import InventoryWindow, ShopWindow, StashWindow
+from .item_windows import CraftWindow, InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
 from .screens import CharacterSelectScreen, CreditsScreen, DialogueScreen, OptionsScreen, TitleScreen
@@ -152,7 +153,7 @@ class Game:
         self.title = TitleScreen(self)
         self.select = CharacterSelectScreen(self)
         self.dialogue = DialogueScreen(self)
-        self.craft_view = None  # the crafter's bench (Act 2)
+        self.craft_view = CraftWindow(self)  # the crafter's bench (Act 2)
         self.show_fps = False
         self.ground_view.art = self.effects
         self.big_map = False
@@ -307,6 +308,8 @@ class Game:
         bus.subscribe(PlayerDied, self._on_death)
         bus.subscribe(MonsterKilled, self._on_monster_killed)
         bus.subscribe(WaypointReached, self._on_waypoint)
+        bus.subscribe(ItemCrafted, lambda e: e.player_id == session.player_id and self.hud.add(
+            self.tr("craft.salvaged" if e.recipe_id == "salvage" else "craft.made", what=e.what), C.GOLD))
         bus.subscribe(ActOpened, lambda e: e.player_id == session.player_id and self.hud.add(
             self.tr("act.opened", town=self.area_names.get(e.town_id, e.town_id)), C.GOLD))
         bus.subscribe(SkillLeveledUp, lambda e: self.hud.add(self.tr("skill.leveledUp", name=self.data.node(e.skill_id).name, level=e.level), C.GOLD))
@@ -322,8 +325,8 @@ class Game:
 
     @property
     def windows(self):
-        """Painted windows, front first: the service one (stash or shop), the inventory, the sheet and the skill trees."""
-        return (self.stash_view, self.shop_view, self.inventory_view, self.character_view, self.tree_view)
+        """Painted windows, front first: the service one (stash, shop or crafter), the inventory, the sheet and the trees."""
+        return (self.stash_view, self.shop_view, self.craft_view, self.inventory_view, self.character_view, self.tree_view)
 
     def window_at(self, pos):
         return next((w for w in self.windows if w.contains(pos)), None)
@@ -956,7 +959,7 @@ class Game:
         if self.dead:
             self._draw_death_screen()
         else:
-            if self.stash_view.open or self.shop_view.open:  # a service window shows its own backpack
+            if self.stash_view.open or self.shop_view.open or self.craft_view.open:  # a service window shows its own backpack
                 self.inventory_view.open = False
             for w in reversed(self.windows):
                 w.draw(screen)
@@ -1227,7 +1230,7 @@ class Game:
             self.world.apply(MoveTo(self.session.player_id, self.player.x, self.player.y))  # stop beside the NPC
             self._open_service(self.talk_to)
             self.talk_to = None
-        for w, role in ((self.stash_view, "stash"), (self.shop_view, "vendor")):  # walking away closes it
+        for w, role in ((self.stash_view, "stash"), (self.shop_view, "vendor"), (self.craft_view, "crafter")):  # walking away closes it
             if w.open and not self.world.npc_near(self.player, role):
                 w.open = False
         if self.waypoint_menu is not None and not self.world.at_waypoint(self.player):

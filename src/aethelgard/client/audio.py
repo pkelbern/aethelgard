@@ -18,6 +18,7 @@ from ..core.events import (
     ExitReached,
     FloatingText,
     HitBlocked,
+    ItemCrafted,
     LootPicked,
     MonsterKilled,
     PlayerDied,
@@ -115,6 +116,7 @@ class Audio:
         bus.subscribe(SkillLeveledUp, lambda e: pid(e) and self.play("levelUp", 0.6))
         bus.subscribe(LootPicked, lambda e: pid(e) and e.stored and self._loot(e.drop))
         bus.subscribe(ConsumableUsed, lambda e: pid(e) and self.play("potion"))
+        bus.subscribe(ItemCrafted, lambda e: pid(e) and self.play("item"))
         bus.subscribe(SpellBurst, lambda e: self.play(self.g.spell_view.look_element.get(e.look, "fire"), 0.8))
         bus.subscribe(ExitReached, lambda e: pid(e) and self.play("portal" if "portal" in e.kind else "stairs"))
         bus.subscribe(FloatingText, lambda e: e.kind == "hurt" and self.play("hurt", 0.7))

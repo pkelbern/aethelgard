@@ -882,6 +882,30 @@ def _find(items, item_id: str, what: str):
 
 
 @dataclass
+class CraftRecipeDef:
+    """One thing the crafter does (crafting.json; core/crafting.py says what each kind means)."""
+
+    id: str = ""
+    name: str = ""
+    kind: str = "reforge"  # reforge | imbue | upgrade | empower | craft
+    rarity: list[str] = field(default_factory=list)  # the rarities it takes (normal, magic, rare, unique, set)
+    on: list[str] = field(default_factory=list)  # item classes or groups (empty = any)
+    cost: dict[str, int] = field(default_factory=dict)  # material → amount
+    props: list[PropDef] = field(default_factory=list)  # a craft's own lines
+
+
+CRAFT_KINDS = ("reforge", "imbue", "upgrade", "empower", "craft")
+
+
+@dataclass
+class CraftingData:
+    materials: dict[str, str] = field(default_factory=dict)  # id → name
+    salvage_level_step: int = 6
+    salvage: dict[str, dict[str, int]] = field(default_factory=dict)  # rarity name → materials
+    recipes: list[CraftRecipeDef] = field(default_factory=list)
+
+
+@dataclass
 class TopicDef:
     title: str = ""
     text: str = ""
@@ -921,6 +945,8 @@ class GameData:
     items: ItemsData
     stats: StatsData
     npcs: NpcsData = field(default_factory=NpcsData)
+    crafting: CraftingData = field(default_factory=CraftingData)
+    crafted_affixes: dict[str, AffixDef] = field(default_factory=dict)  # the lines crafts add, as affixes (built at load)
     monster_levels: list[MonsterLevelRow] = field(default_factory=list)
     xp_total_by_level: list[int] = field(default_factory=list)
 
@@ -936,6 +962,7 @@ class GameData:
         "items": ("items.json", ItemsData),
         "stats": ("stats.json", StatsData),
         "npcs": ("npcs.json", NpcsData),
+        "crafting": ("crafting.json", CraftingData),
     }
 
     # ---- loading
@@ -970,6 +997,10 @@ class GameData:
         return cls.load(lambda name: (p / name).read_text(encoding="utf-8"))
 
     def _build_tables(self) -> None:
+        for r in self.crafting.recipes:  # a craft's lines are stored on items like affixes (saves keep their ids)
+            for i, p in enumerate(r.props):
+                aid = f"crafted_{r.id}_{i}"
+                self.crafted_affixes[aid] = AffixDef(aid, "crafted", r.name, f"crafted_{r.id}_{p.stat}", p.stat, [AffixTier(1, p.min, p.max)], [])
         for st in self.items.sets:
             for piece in st.pieces:
                 piece.set_id = st.id
@@ -1039,7 +1070,12 @@ class GameData:
         return _find(self.items.bases, base_id, "base")
 
     def affix(self, affix_id: str) -> AffixDef:
+        if affix_id in self.crafted_affixes:
+            return self.crafted_affixes[affix_id]
         return _find(self.items.affixes, affix_id, "affix")
+
+    def recipe(self, recipe_id: str) -> CraftRecipeDef:
+        return _find(self.crafting.recipes, recipe_id, "recipe")
 
     def item_class(self, base: ItemBaseDef) -> ItemClassDef:
         return self.items.item_classes[base.item_class]
@@ -1067,6 +1103,7 @@ def _validate_stats(d: GameData) -> list[str]:
     used |= {(f"affix '{a.id}'", a.stat) for a in d.items.affixes}
     used |= {(f"item '{f.id}'", p.stat) for f in d.items.uniques + d.items.set_pieces for p in f.props}
     used |= {(f"set '{st.id}' bonus", k) for st in d.items.sets for b in st.bonuses for k in b.stats}
+    used |= {(f"recipe '{r.id}'", p.stat) for r in d.crafting.recipes for p in r.props}
     used |= {(f"aura of '{t.id}'", k) for t in d.monsters.types if t.leader and t.leader.aura for k in t.leader.aura.stats}
     errors += [f"stats: {where} uses '{stat}', missing from stats.json" for where, stat in sorted(used) if stat not in stat_ids]
     for n in d.skills.nodes:
@@ -1174,6 +1211,16 @@ def validate(d: GameData) -> list[str]:
             errors += [f"npcs: '{npc_id}' topic '{t.title}' names missing boss '{b}'" for b in (t.after, t.before) if b and b not in boss_ids_all]
     errors += [f"areas: act '{act.id}' is unlocked by missing boss '{act.unlocked_by}'"
                for act in d.areas.acts if act.unlocked_by and act.unlocked_by not in boss_ids_all]
+    cr = d.crafting
+    mats = set(cr.materials)
+    for rarity, got in cr.salvage.items():
+        errors += [f"crafting: salvage of {rarity} gives unknown material '{m}'" for m in got if m not in mats]
+    for r in cr.recipes:
+        errors += [f"crafting: recipe '{r.id}' costs unknown material '{m}'" for m in r.cost if m not in mats]
+        if r.kind not in CRAFT_KINDS:
+            errors.append(f"crafting: recipe '{r.id}' has unknown kind '{r.kind}'")
+        if r.kind == "craft" and not r.props:
+            errors.append(f"crafting: recipe '{r.id}' is a craft without lines")
     pf = d.areas.prefabs
     if pf.chest_loot_as not in d.items.drop_count:
         errors.append(f"areas: prefabs chestLootAs '{pf.chest_loot_as}' has no dropCount in items.json")

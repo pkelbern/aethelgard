@@ -197,7 +197,12 @@ class LootGenerator:
             rarity = Rarity.RARE  # nothing hand-made this early: a rare instead
         base = rng.choice([b for b in self._d.items.bases if b.level <= item_level])
         rarity = min(max(rarity, Rarity.named(self._d.item_class(base).min_rarity)), max(maximum, Rarity.MAGIC))
-        affixes: list[RolledAffix] = []
+        return self.make(base, rarity, item_level, rng)
+
+    def make(self, base: ItemBaseDef, rarity: Rarity, item_level: int, rng: Rng, keep: list[RolledAffix] | None = None) -> Item:
+        """An item of this base and rarity with random lines (normal: none). ``keep`` = lines it already has, which
+        stay and count toward its number of lines (crafting: empowering a magic item into a rare)."""
+        affixes: list[RolledAffix] = list(keep or [])
         if rarity == Rarity.MAGIC:
             prefix = rng.chance(0.75)
             suffix = (not prefix) or rng.chance(0.5)
@@ -207,7 +212,7 @@ class LootGenerator:
                 self._try_add(affixes, "suffix", base, item_level, rng)
         elif rarity == Rarity.RARE:
             rc = self._d.items.rare_affix_count
-            for _ in range(rng.randint(rc.min, rc.max)):
+            for _ in range(max(0, rng.randint(rc.min, rc.max) - len(affixes))):
                 pre = sum(1 for a in affixes if a.affix.kind == "prefix")
                 suf = len(affixes) - pre
                 kind = "suffix" if pre >= 3 else "prefix" if suf >= 3 else rng.choice(["prefix", "suffix"])
@@ -223,8 +228,8 @@ class LootGenerator:
     def _try_add(self, out: list[RolledAffix], kind: str, base: ItemBaseDef, ilvl: int, rng: Rng) -> None:
         """Adds one affix that makes sense on this item class (items.json 'on'), never two of a group.
         When no affix of that kind is left, tries the other kind (boots have few prefixes)."""
-        used = {a.affix.group for a in out}
-        allowed = [a for a in self._d.items.affix_pool(base.item_class) if a.group not in used and any(t.level <= ilvl for t in a.tiers)]
+        used = {a.affix.group for a in out} | {a.affix.stat for a in out if a.affix.kind == "crafted"}
+        allowed = [a for a in self._d.items.affix_pool(base.item_class) if a.group not in used and a.stat not in used and any(t.level <= ilvl for t in a.tiers)]
         other = "suffix" if kind == "prefix" else "prefix"
         if sum(1 for a in out if a.affix.kind == other) < 3 and not any(a.kind == kind for a in allowed):
             kind = other

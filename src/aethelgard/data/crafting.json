@@ -1,0 +1,27 @@
+{
+  "_comment": "Crafting (from Act 2: Master Orrin in Kharos; core/crafting.py). salvage = materials an item breaks into, by rarity, plus 1 of each for every salvageLevelStep item levels. recipes: kind reforge = new lines for a magic or rare item (same base, rarity and item level); imbue = a normal item becomes magic at its item level; upgrade = the same item (lines kept) on the next stronger base of its kind; empower = a magic item becomes rare, keeping its lines and adding more; craft = a normal or magic item becomes a rare of the same base at the character's level with the recipe's own lines on top (props: {stat, min, max}). rarity = which items a recipe takes; on = item classes or groups (empty = any). cost = materials.",
+  "materials": { "scrap": "Scrap", "essence": "Arcane Essence", "shards": "Prism Shards", "aether": "Aether Crystal" },
+  "salvageLevelStep": 6,
+  "salvage": {
+    "normal": { "scrap": 2 },
+    "magic": { "scrap": 1, "essence": 2 },
+    "rare": { "essence": 2, "shards": 2 },
+    "unique": { "shards": 2, "aether": 1 },
+    "set": { "shards": 2, "aether": 1 }
+  },
+  "recipes": [
+    { "id": "reforge_magic", "name": "Reforge", "kind": "reforge", "rarity": ["magic"], "cost": { "essence": 3 } },
+    { "id": "reforge_rare", "name": "Reforge", "kind": "reforge", "rarity": ["rare"], "cost": { "essence": 3, "shards": 3 } },
+    { "id": "imbue", "name": "Imbue", "kind": "imbue", "rarity": ["normal"], "cost": { "scrap": 4, "essence": 2 } },
+    { "id": "upgrade", "name": "Upgrade base", "kind": "upgrade", "rarity": ["normal", "magic", "rare"], "cost": { "scrap": 8, "shards": 1 } },
+    { "id": "empower", "name": "Empower", "kind": "empower", "rarity": ["magic"], "cost": { "essence": 4, "shards": 4, "aether": 1 } },
+    { "id": "craft_blood", "name": "Blood Craft", "kind": "craft", "rarity": ["normal", "magic"], "on": ["weapon", "gloves", "jewelry"], "cost": { "shards": 3, "aether": 1 },
+      "props": [ { "stat": "lifeLeechPct", "min": 0.02, "max": 0.04 }, { "stat": "maxLife", "min": 10, "max": 25 } ] },
+    { "id": "craft_caster", "name": "Caster Craft", "kind": "craft", "rarity": ["normal", "magic"], "on": ["wand", "helm", "jewelry"], "cost": { "shards": 3, "aether": 1 },
+      "props": [ { "stat": "fasterCastPct", "min": 0.1, "max": 0.2 }, { "stat": "maxEnergy", "min": 10, "max": 25 } ] },
+    { "id": "craft_hit_power", "name": "Hit Power Craft", "kind": "craft", "rarity": ["normal", "magic"], "on": ["weapon", "gloves"], "cost": { "shards": 3, "aether": 1 },
+      "props": [ { "stat": "damagePct", "min": 0.2, "max": 0.4 }, { "stat": "accuracy", "min": 20, "max": 40 } ] },
+    { "id": "craft_safety", "name": "Safety Craft", "kind": "craft", "rarity": ["normal", "magic"], "on": ["armor", "shield", "belt", "boots"], "cost": { "shards": 3, "aether": 1 },
+      "props": [ { "stat": "armorPct", "min": 0.3, "max": 0.5 }, { "stat": "elementalResist", "min": 0.1, "max": 0.2 } ] }
+  ]
+}

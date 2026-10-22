@@ -18,7 +18,7 @@ import pygame
 from ..core.describe import Line, compare_items, describe_item
 from ..core.items import ItemContainer, SharedStash
 from ..core.town import item_price, sell_price
-from ..core.world import Buy, BuyConsumable, EquipItem, MoveItem, Sell, StashGold, StashPut, StashTake, UnequipItem
+from ..core.world import Buy, BuyConsumable, Craft, EquipItem, MoveItem, Salvage, Sell, StashGold, StashPut, StashTake, UnequipItem
 from . import palette as C
 from .tooltip import draw_button, draw_panel, draw_tooltip, wrap
 
@@ -529,3 +529,120 @@ class ShopWindow(TwoSided):
         else:
             trade = Line(f"Sell: {sell_price(d, item)} gold", "good")
         return [trade, *self.compare_lines(h, item)]
+
+
+# ---------------------------------------------------------------- the crafter (Act 2)
+
+
+class CraftWindow(BagMixin, ItemWindow):
+    """Master Orrin's bench (crafting.json): pick an item in the backpack, then salvage it or use a recipe on it.
+    The materials are listed at the top; a recipe that cannot be used says why."""
+
+    LEFT_W = 410
+    BTN_H = 30
+
+    def __init__(self, game: Game):
+        super().__init__(game)
+        self.grids = {"bag": self.bag_grid()}
+        self.chosen = None  # the backpack item on the bench (by identity: it may move in the grid)
+
+    @property
+    def title(self) -> str:
+        return "Master Orrin's bench   |   Backpack"
+
+    quick_hint = "click an item to put it on the bench · hold Shift to compare · Esc closes"
+
+    @property
+    def rect(self) -> pygame.Rect:
+        W, _ = self.g.screen.get_size()
+        bg = self.grids["bag"]
+        w = PAD * 3 + self.LEFT_W + bg.cols * CELL
+        h = HEADER + max(bg.rows * CELL, 540) + 20
+        return pygame.Rect((W - w) // 2, 64, w, h)
+
+    def layout(self) -> None:
+        r = self.rect
+        self.grids["bag"].origin = (r.x + PAD * 2 + self.LEFT_W, r.y + HEADER)
+
+    @property
+    def index(self) -> int | None:
+        items = self.g.session.inventory.items
+        return next((i for i, it in enumerate(items) if it is self.chosen), None)
+
+    def _buttons(self) -> dict[str, pygame.Rect]:
+        r = self.rect
+        x, y = r.x + PAD, r.y + HEADER + 150
+        out = {"salvage": pygame.Rect(x, y, self.LEFT_W, self.BTN_H)}
+        for i, rec in enumerate(self.g.data.crafting.recipes):
+            out[rec.id] = pygame.Rect(x, y + (i + 1) * (self.BTN_H + 6), self.LEFT_W, self.BTN_H)
+        out["talk"] = pygame.Rect(x + 2 * CELL + 10, r.y + HEADER + 90, 150, 26)
+        return out
+
+    def extra_hit(self, pos) -> Hit | None:
+        return next((("button", k) for k, r in self._buttons().items() if r.collidepoint(pos)), None)
+
+    def handle(self, ev: pygame.event.Event) -> bool:
+        if self.open and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and self.rect.collidepoint(ev.pos):
+            h = self.hit(ev.pos)
+            if h is not None and h[0] == "grid" and self.item_at(h) is not None:
+                self.chosen = self.item_at(h)
+        return super().handle(ev)
+
+    def on_quick(self, h: Hit) -> None:
+        self.chosen = self.item_at(h)
+
+    def on_drop(self, src: Hit, dst: Hit | None) -> None:
+        self.moved_within(src, dst)
+
+    def press_button(self, button_id: str) -> None:
+        if button_id == "talk":
+            self.open = False
+            self.g.dialogue.talk("orrin_artificer")
+            return
+        i = self.index
+        if i is None:
+            self.g.hud.add("Put an item on the bench first: click it in the backpack.", C.MUTED)
+            return
+        pid = self.g.session.player_id
+        if button_id == "salvage":
+            self.send(Salvage(pid, i))
+            self.chosen = None
+        else:
+            self.send(Craft(pid, button_id, i))
+            self.chosen = self.g.session.inventory.items[i] if i < len(self.g.session.inventory.items) else None
+
+    def cost_text(self, cost: dict[str, int]) -> str:
+        names = self.g.data.crafting.materials
+        return ", ".join(f"{n} {names[m]}" for m, n in cost.items())
+
+    def draw_extra(self, screen) -> None:
+        f, r, s, d = self.g.fonts, self.rect, self.g.session, self.g.data
+        x, y = r.x + PAD, r.y + HEADER
+        mats = "   ".join(f"{name}: {s.materials[m]}" for m, name in d.crafting.materials.items())
+        for k, line in enumerate(wrap(mats, f["tiny"], self.LEFT_W)):
+            screen.blit(f["tiny"].render(line, True, C.GOLD), (x, y + k * 16))
+        bench = pygame.Rect(x, y + 40, 2 * CELL, 2 * CELL)
+        pygame.draw.rect(screen, (24, 25, 31), bench)
+        pygame.draw.rect(screen, C.PANEL_EDGE, bench, 1)
+        item = self.chosen if self.index is not None else None
+        if item is not None:
+            self.item_box(screen, item, bench.inflate(-6, -6))
+            screen.blit(f["small"].render(item.name, True, C.RARITY[int(item.rarity)]), (bench.right + 10, bench.y + 4))
+            yields = self.g.world.crafter.salvage_yield(item)
+            screen.blit(f["tiny"].render(f"Salvage: {self.cost_text(yields) or 'nothing'}", True, C.MUTED), (bench.right + 10, bench.y + 26))
+        else:
+            screen.blit(f["small"].render("Click an item in the backpack", True, C.MUTED), (bench.right + 10, bench.y + 4))
+        why_shown = False
+        for bid, br in self._buttons().items():
+            if bid == "salvage":
+                self.button(screen, br, "Salvage into materials", item is not None)
+                continue
+            if bid == "talk":
+                self.button(screen, br, "Talk to Orrin")
+                continue
+            rec = d.recipe(bid)
+            why = self.g.world.crafter.why_not(rec, item, s.materials) if item is not None else "no item"
+            self.button(screen, br, f"{rec.name}  ·  {self.cost_text(rec.cost)}", why is None)
+            if item is not None and why and br.collidepoint(pygame.mouse.get_pos()) and not why_shown:
+                screen.blit(f["tiny"].render(why, True, C.WARN), (x, r.bottom - 22))
+                why_shown = True

@@ -216,6 +216,9 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [ ] **M6-05** Catálogo de únicos e sets _(design/dados)_ — **escrito, validar**  
   63 únicos (todo item base não-varinha tem o seu, mais varinhas de cada escola, anéis e amuletos) e 10 sets (Sentinel's Vigil, Grey Fletcher, Emberwright's Regalia, Duelist's Grace, Bonecrusher's Garb, Stormcaller's Vestments, Ironhide, Wardens of the Pass, Nomad's Hunt, Relics of the Sun Kings) em items.json; lista em docs/catalogo_itens.md (`python -m aethelgard.tools.item_catalog`). 20 bases novas do Ato 2 (níveis 14–24: War/Crystal Sword, War/Great Bow, Flanged Mace, Morning Star, Great Axe, Giant Sword, Gothic Shield, Field/Gothic Plate, Great Helm, Crown, Gauntlets, Greaves, Heavy Belt e varinhas Glacier, Tempest, Dawn, Sanctum). Validar: força dos únicos frente aos raros do mesmo nível.
 
+- [ ] **M6-06** Craft a partir do Ato 2 _(código, ~3 d)_ — **escrito, validar**  
+  Master Orrin, em Kharos (só lá: o craft começa no Ato 2). Desmontar qualquer item da mochila em materiais (Scrap, Arcane Essence, Prism Shards, Aether Crystal; por raridade, +1 de cada a cada 6 níveis do item). Receitas em data/crafting.json: Reforge (novas linhas para mágico ou raro), Imbue (comum → mágico), Upgrade base (o mesmo item, linhas mantidas, na próxima base mais forte da mesma classe), Empower (mágico → raro mantendo as linhas) e 4 crafts no estilo clássico (Blood, Caster, Hit Power, Safety: viram raro do nível do personagem com 2 linhas garantidas por cima das aleatórias, só em certas classes de item). Comandos Salvage/Craft no World (precisa estar ao lado do artífice), materiais salvos com o personagem, janela da bancada com custo e motivo quando não dá. Contradiz o GDD 2.2 ("crafting fora do MVP"): atualizar. Validar: preço das receitas frente ao ritmo de drops do Ato 2.
+
 ## M7 – Vertical slice
 
 **Pronto quando:** 5 pessoas de fora terminam o Ato 1; feedback coletado
