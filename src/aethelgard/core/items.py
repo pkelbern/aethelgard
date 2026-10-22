@@ -430,7 +430,14 @@ class Loadout:
         return out
 
     def totals(self) -> dict[str, float]:
-        """Every bonus of the equipment summed by stat: one place for combat, the character sheet and tooltips."""
+        """Every bonus of the equipment summed by stat: one place for combat, the character sheet and tooltips.
+        Cached until what is worn changes (it is read many times a frame)."""
+        key = tuple((k, id(v)) for k, v in self.slots.items())
+        if getattr(self, "_totals_key", None) != key:
+            self._totals_key, self._totals = key, self._sum_totals()
+        return self._totals
+
+    def _sum_totals(self) -> dict[str, float]:
         out: dict[str, float] = {}
         for item in self.slots.values():
             for k, v in item.mods:

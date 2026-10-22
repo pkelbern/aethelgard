@@ -92,7 +92,7 @@ def character_sheet(world, player) -> list[Section]:
 
     # ---- life and energy
     sec = Section("Life and Energy")
-    regen = s.skills.effect("recovery", "lifeRegenPerSecond")
+    regen = s.stat("lifeRegenPerSecond")
     sec.rows.append(Row("Life", f"{player.life:.0f} / {sheet.max_life:.0f}", [Line("Life", "title"),
                     Line(f"{_num(c.base_life)} base + {_num(c.life_per_vit)} per Vitality ({a.vit}) "
                          f"+ {_num(c.life_per_level)} per character level ({lvl}).", "body"),
@@ -139,7 +139,7 @@ def character_sheet(world, player) -> list[Section]:
     sec.rows.append(Row("Critical chance", _pct(atk.crit_chance), [Line("Critical chance", "title"),
                     Line(f"{_pct(ap.crit_per_dex)} per Dexterity, plus Hunter's Mark with bows.", "body")]))
     from_int = a.int * ap.spell_damage_per_int
-    elements = {e: s.skills.stat_total(f"{e}DamagePct") for e in ELEMENTS}
+    elements = {e: s.stat(f"{e}DamagePct") for e in ELEMENTS}
     extra = " ".join(f"{e.title()}: +{_pct(v)} more." for e, v in elements.items() if v)
     sec.rows.append(Row("Spell damage", f"+{_pct(from_int)}", [Line("Spell damage", "title"),
                     Line(f"{_pct(ap.spell_damage_per_int)} per Intelligence ({a.int}): +{_pct(from_int)}. {extra}".strip(), "body"),
@@ -177,11 +177,18 @@ def character_sheet(world, player) -> list[Section]:
         if deflect:
             help_.append(Line(f"Blade Guard deflects {_pct(deflect)} of melee hits instead.", "good"))
         sec.rows.append(Row("Block", "—", help_))
+    res = {e: world.player_resist(player, e) for e in ("fire", "cold", "lightning")}
+    sec.rows.append(Row("Resistances", " / ".join(_pct(v) for v in res.values()), [Line("Fire / Cold / Lightning resistance", "title"),
+                    Line("The share of elemental damage you ignore (shaman bolts are lightning, necromancer bolts cold). Armor does "
+                         f"nothing against it. From Elemental Resistance, Bastion (with a shield) and items; at most {_pct(d.balance.combat.resist_cap)}.",
+                         "body")]))
     out.append(sec)
 
     # ---- movement
-    mv = d.balance.movement.player_tiles_per_second
-    out.append(Section("Movement", [Row("Speed", f"{mv:g} tiles/s", [Line("Movement speed", "title"),
-               Line(f"Half as fast with the guard up ({_pct(d.balance.guard.move_speed_mult)}).", "body")])]))
+    mv = world.player_speed(player) if not player.guarding else d.balance.movement.player_tiles_per_second
+    bonus = s.stat("moveSpeedPct")
+    out.append(Section("Movement", [Row("Speed", f"{mv:.1f} tiles/s", [Line("Movement speed", "title"),
+               Line(f"{d.balance.movement.player_tiles_per_second:g} tiles/s, +{_pct(bonus)} from items. "
+                    f"Half as fast with the guard up ({_pct(d.balance.guard.move_speed_mult)}).", "body")])]))
     return out
 

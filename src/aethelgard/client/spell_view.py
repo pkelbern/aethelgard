@@ -22,7 +22,9 @@ ELEMENT_COLORS = {
     "cold": ((40, 80, 150), (120, 190, 255), (230, 250, 255)),
     "lightning": ((70, 60, 150), (150, 170, 255), (250, 250, 210)),
     "holy": ((150, 120, 40), (250, 220, 120), (255, 255, 230)),
+    "physical": ((90, 80, 60), (200, 180, 140), (250, 240, 220)),  # Rain of Arrows; a shout (War Cry)
 }
+BLOOD = (170, 20, 20)
 FIRE_DARK, FIRE, FIRE_HOT = ELEMENT_COLORS["fire"]
 CHILL = (130, 200, 255)
 BURST_SECONDS = 0.35
@@ -45,6 +47,7 @@ class SpellView:
         self.clock = 0.0
         # a spell's look → its element (bursts only carry the look)
         self.look_element = {n.spell.look: n.spell.element for n in game.data.skills.nodes if n.spell is not None}
+        self.look_element.update({"war_cry": "physical", "rain": "physical"})
 
     def listen(self, bus) -> None:
         bus.subscribe(SpellBurst, lambda e: self.bursts.append(Burst(e.x, e.y, e.radius, self.look_element.get(e.look, "fire"))))
@@ -83,6 +86,17 @@ class SpellView:
             if not sees((f.ax + f.bx) / 2, (f.ay + f.by) / 2):
                 continue
             dark, main, _ = ELEMENT_COLORS.get(f.element, ELEMENT_COLORS["fire"])
+            if f.strike_all:  # Rain of Arrows: arrows falling all over the circle
+                self._ellipse(screen, f.ax, f.ay, f.radius, dark, 0, 50)
+                n = max(6, int(f.radius * 6))
+                for i in range(n):
+                    a = i * 2.39996 + self.clock * 0.7  # golden-angle spread, slowly turning
+                    rr = f.radius * math.sqrt((i + 0.5) / n)
+                    sx, sy = self.g.cam.to_screen(f.ax + math.cos(a) * rr, f.ay + math.sin(a) * rr)
+                    fall = (self.clock * 3 + i * 0.37) % 1.0  # each arrow drops from 60 px above, again and again
+                    top = sy - 60 * (1 - fall)
+                    pygame.draw.line(screen, main, (sx, top - 14), (sx, top), 2)
+                continue
             if f.strike is not None:  # a storm: a dark cloud shadow over the circle
                 self._ellipse(screen, f.ax, f.ay, f.radius, dark, 0, 60)
                 self._ellipse(screen, f.ax, f.ay, f.radius, main, 2, 140)
@@ -129,6 +143,20 @@ class SpellView:
                 self._flame(screen, sx + dx, sy - 14 - 8 * i, 7, i * 3.1 + m.id)
         if m.chill_left > 0 and m.alive:
             self._ellipse(screen, m.x, m.y, max(0.45, m.radius), CHILL, 2, 170)
+        if "bleed" in m.dots and m.alive:  # Bleed: drops falling at its feet
+            for i in range(3):
+                k = (self.clock * 1.5 + i / 3) % 1.0
+                pygame.draw.circle(screen, BLOOD, (sx - 6 + 6 * i, sy - 20 + 18 * k), 2)
+
+    def draw_spin(self, screen, p) -> None:
+        """Whirlwind: blades sweeping around the hero while the key is held."""
+        if p.channel is None:
+            return
+        sx, sy = self.g.cam.to_screen(p.x, p.y)
+        for i in range(3):
+            a = self.clock * 14 + i * math.tau / 3
+            start, end = -a, -a + 1.0
+            pygame.draw.arc(screen, (230, 230, 240), (sx - 46, sy - 44, 92, 50), start, end, 3)
 
     def draw_projectile(self, screen, proj, head: tuple[float, float], tail: tuple[float, float]) -> bool:
         """Spell bolts and balls without their art: a glowing ball with a trail in the element's colors.

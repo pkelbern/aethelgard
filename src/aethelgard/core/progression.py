@@ -247,11 +247,17 @@ class Attributes:
 class CharacterSheet:
     """Values derived from the proficiencies (GDD 4). Keeps no state of its own."""
 
-    def __init__(self, data: GameData, profs: ProficiencySet):
+    def __init__(self, data: GameData, profs: ProficiencySet, bonus: Callable[[str], float] | None = None):
         self._d = data
         self._profs = profs
         self.base = Attributes(10, 10, 10, 10)
-        self.item_bonus = Attributes()
+        self._bonus = bonus or (lambda stat: 0.0)  # equipment and passives by stat (GameSession.stat)
+
+    @property
+    def item_bonus(self) -> Attributes:
+        """Attributes from what is worn (affixes, uniques, sets)."""
+        b = self._bonus
+        return Attributes(round(b("str")), round(b("dex")), round(b("vit")), round(b("int")))
 
     @property
     def data(self) -> GameData:
@@ -275,14 +281,16 @@ class CharacterSheet:
 
     @property
     def max_life(self) -> float:
+        """Base + Vitality + level, + flat life from items, then maxLifePct (Colossus)."""
         c = self._d.balance.character
-        return c.base_life + c.life_per_vit * self.attributes.vit + c.life_per_level * self.level
+        flat = c.base_life + c.life_per_vit * self.attributes.vit + c.life_per_level * self.level + self._bonus("maxLife")
+        return flat * (1 + self._bonus("maxLifePct"))
 
     @property
     def max_energy(self) -> float:
         c = self._d.balance.character
         a = self.attributes
-        return c.base_energy + c.energy_per_int * a.int + c.energy_per_two_vit * (a.vit // 2)
+        return c.base_energy + c.energy_per_int * a.int + c.energy_per_two_vit * (a.vit // 2) + self._bonus("maxEnergy")
 
     @property
     def title(self) -> str:
@@ -345,11 +353,13 @@ class SkillTrees:
     bar, the cast) sees the same number.
     """
 
-    def __init__(self, data: SkillsData, profs: ProficiencySet, granted: Callable[[], dict[str, int]] | None = None):
+    def __init__(self, data: SkillsData, profs: ProficiencySet, granted: Callable[[], dict[str, int]] | None = None,
+                 tree_bonus: Callable[[str], float] | None = None):
         self._d = data
         self._profs = profs
         self._nodes = {n.id: n for n in data.nodes}
         self._granted = granted or dict
+        self._tree_bonus = tree_bonus or (lambda tree: 0.0)  # +N to every skill of a tree you have (items: <tree>Skills)
         self._curve = profs.curve
         self.points: dict[str, int] = {}  # tree points in passives
         self.unlocked: set[str] = set()  # actives bought with a point
@@ -413,8 +423,11 @@ class SkillTrees:
         return self._granted().get(node_id, 0)
 
     def points_in(self, node_id: str) -> int:
-        """The node's level: its own level + what worn wands give."""
-        return self.own_level(node_id) + self.granted(node_id)
+        """The node's level: its own level + what worn wands give + "+N to <tree> skills" from items, which only
+        raises skills you already have (as in Diablo 2)."""
+        own = self.own_level(node_id)
+        extra = int(self._tree_bonus(self._nodes[node_id].tree)) if own > 0 else 0
+        return own + extra + self.granted(node_id)
 
     def spent(self, tree: str) -> int:
         return sum(self.points.get(n.id, 0) + (n.id in self.unlocked) for n in self.nodes_of(tree))

@@ -333,6 +333,7 @@ class ProjectileDef:
     radius: float = 0.15
     magic: bool = False
     look: str = "arrow"
+    element: str | None = None  # the whole shot is of this element: resistance instead of armor (shaman: lightning)
 
 
 @dataclass

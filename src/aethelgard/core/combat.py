@@ -186,13 +186,14 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: 
     if hand == "off" and gear.dual_wielding:  # the weaker hand (Off-Hand Training narrows the gap)
         mult = min(1.0, sheet.data.balance.dual_wield.off_hand_damage_mult + skills.effect("off_hand_training", "offHandDamagePct"))
         dmg_min, dmg_max = dmg_min * mult, dmg_max * mult
-    bonus = a.str * ap.damage_per_str
-    acc = ap.base_accuracy + a.dex * ap.accuracy_per_dex
+    item = gear.stat_total
+    bonus = a.str * ap.damage_per_str + item("damagePct")  # items: "+x% damage"
+    acc = ap.base_accuracy + a.dex * ap.accuracy_per_dex + item("accuracy")
     crit = min(0.5, a.dex * ap.crit_per_dex)
     for tag in w.base.tags if w else []:  # weapon passives: swordDamagePct (Sharp Blade), bowCritChance (Hunter's Mark), maceDamagePct…
-        bonus += skills.stat_total(f"{tag}DamagePct")
-        acc *= 1 + skills.stat_total(f"{tag}AccuracyPct")
-        crit += skills.stat_total(f"{tag}CritChance")
+        bonus += skills.stat_total(f"{tag}DamagePct") + item(f"{tag}DamagePct")
+        acc *= 1 + skills.stat_total(f"{tag}AccuracyPct") + item(f"{tag}AccuracyPct")
+        crit += skills.stat_total(f"{tag}CritChance") + item(f"{tag}CritChance")
     if skill:
         bonus += skills.effect(skill, "damagePct")
         acc *= 1 + skills.effect(skill, "accuracyPct")
@@ -200,8 +201,8 @@ def player_attack(sheet, skills, gear: Loadout, skill: str | None = None, hand: 
 
 
 def player_defense(sheet, skills, gear: Loadout) -> DefenderStats:
-    # Iron Skin raises all armor; Heavy Shield only the shield's own (nothing without a shield)
-    armor = gear.armor * (1 + skills.effect("iron_skin", "armorPct")) + gear.shield_armor * skills.effect("heavy_shield", "shieldArmorPct")
+    # Iron Skin and "+x% armor" items raise all armor; Heavy Shield only the shield's own (nothing without a shield)
+    armor = gear.armor * (1 + skills.stat_total("armorPct") + gear.stat_total("armorPct")) + gear.shield_armor * skills.effect("heavy_shield", "shieldArmorPct")
     return DefenderStats(sheet.level, sheet.attributes.dex * sheet.data.balance.attributes.defense_per_dex, armor)
 
 
@@ -209,9 +210,9 @@ def player_guard(skills, gear: Loadout, g: GuardParams) -> GuardProfile:
     if not gear.has_shield:
         return GuardProfile(False, 0, 0, 0)
     arc = g.arc_degrees + skills.effect("heavy_shield", "guardArcDegrees")
-    eff = gear.off_hand.base.guard_efficiency + skills.effect("defensive_stance", "guardEfficiency")
+    eff = gear.off_hand.base.guard_efficiency + skills.stat_total("guardEfficiency") + gear.stat_total("guardEfficiency")
     window = g.perfect_window_seconds + skills.effect("parry", "perfectWindowSeconds")
-    block = g.block_reduction + gear.off_hand.base.block_reduction + skills.effect("defensive_stance", "blockReduction")
+    block = g.block_reduction + gear.off_hand.base.block_reduction + skills.stat_total("blockReduction") + gear.stat_total("blockReduction")
     return GuardProfile(True, arc, min(eff, g.efficiency_cap), window, min(block, g.block_reduction_cap))
 
 

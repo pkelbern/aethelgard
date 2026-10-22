@@ -43,10 +43,12 @@ from .events import (
     SkillLeveledUp,
     SkillPracticed,
     SkillUsed,
+    SpellBurst,
     StashChanged,
     WaypointReached,
 )
 from .items import GoldDrop, GroundItem, SharedStash
+from .maneuvers import Dash, Maneuvers
 from .monsters import MonsterInstance, PackKind
 from .pathfinding import find_path
 from .projectiles import Projectile, line_of_sight
@@ -68,7 +70,10 @@ TARGET_SKILLS = {"precise_strike", "shield_bash", "double_strike", "frenzy", "cr
 AREA_SKILLS = {"wide_slash", "whirling_blades", "ground_slam", "earthquake", "cleave"}  # arcDegrees in front (360 = all around), radiusTiles
 TWO_HAND_HITS = {"double_strike", "frenzy", "whirling_blades"}  # one hit with each weapon in the same swing
 BOW_SKILLS = {"power_shot", "multishot", "piercing_arrow"}  # fire arrows; aimed at a target or at the mouse
-SELF_SKILLS = {"bulwark", "berserk"}  # buffs on the caster for durationSeconds; their buff* stats count while they last
+SELF_SKILLS = {"bulwark", "berserk", "war_cry"}  # on the caster: buffs (buff* stats) for durationSeconds; shouts (enemy* stats) on those around
+DASH_SKILLS = {"charge", "blade_dance"}  # move fast and strike (core/maneuvers.py)
+CHANNEL_SKILLS = {"whirlwind"}  # last while the key is held (ReleaseSkill), draining Energy per second
+GROUND_BOW_SKILLS = {"rain_of_arrows"}  # a bow shot aimed at the ground that leaves arrows falling there
 PROJECTILE_SKILLS = {"shield_throw"}
 # every skills.json node with 'spell' (a test checks they match): cast in place toward a point (core/spells.py)
 SPELL_SKILLS = {
@@ -78,7 +83,8 @@ SPELL_SKILLS = {
     "heal", "holy_bolt", "blessing_of_might", "divine_aegis",
 }
 GROUND_SPELLS = {"wall", "meteor", "field", "storm"}  # spell.cast values aimed at the ground: only where the caster can see
-IMPLEMENTED_SKILLS = TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS | BOW_SKILLS | SPELL_SKILLS
+IMPLEMENTED_SKILLS = (TARGET_SKILLS | AREA_SKILLS | SELF_SKILLS | PROJECTILE_SKILLS | BOW_SKILLS | SPELL_SKILLS | DASH_SKILLS
+                      | CHANNEL_SKILLS | GROUND_BOW_SKILLS)
 # Passives whose effect the rules already read (combat.py, world.py); the rest are M3-05.
 IMPLEMENTED_PASSIVES = {
     "sharp_blade", "defensive_stance", "parry", "heavy_shield", "iron_skin", "recovery", "steadfast",
@@ -90,7 +96,9 @@ IMPLEMENTED_PASSIVES = {
     "frostbite", "deep_freeze", "shatter", "glacial_mastery",
     "conductivity", "overcharge", "static_focus", "storm_mastery",
     "blessed_hands", "zeal", "devotion", "grace",
+    "bleed", "combat_rhythm", "killing_blow", "riposte", "bastion", "second_wind", "elemental_resistance", "unshakable", "colossus",
 }
+RHYTHM_SECONDS = 2.0  # Combat Rhythm: stacks fall off this long after the last hit
 
 
 def is_implemented(node_id: str) -> bool:
@@ -98,6 +106,7 @@ def is_implemented(node_id: str) -> bool:
     return node_id in IMPLEMENTED_SKILLS or node_id in IMPLEMENTED_PASSIVES
 
 MELEE_RANGE = 1.4
+MELEE_REACH_AROUND = MELEE_RANGE + 0.4  # 360° hits (Whirlwind spins) reach this far to the edge of a body
 DEFAULT_BODY_RADIUS = MonsterTypeDef.radius  # a man-sized body (monsters.json default); wider ones are reached that much sooner
 AGGRO_RADIUS = 8.0
 EXIT_COOLDOWN = 0.8
@@ -135,6 +144,14 @@ class UseSkill:
     target_id: int | None = None
     x: float | None = None
     y: float | None = None
+
+
+@dataclass(frozen=True)
+class ReleaseSkill:
+    """The key of a channelled skill (Whirlwind) was let go."""
+
+    player_id: int
+    skill_id: str
 
 
 @dataclass(frozen=True)
@@ -248,7 +265,7 @@ class Respawn:
 
 
 Command = (
-    MoveTo | AttackTarget | AttackInPlace | UseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
+    MoveTo | AttackTarget | AttackInPlace | UseSkill | ReleaseSkill | SetGuard | Stop | Respawn | PickUp | EquipItem | UnequipItem | UseConsumable
     | OpenPortal | TravelWaypoint | Buy | BuyConsumable | Sell | StashPut | StashTake | StashGold
 )
 TOWN_COMMANDS = (Buy, BuyConsumable, Sell, StashPut, StashTake, StashGold)
@@ -281,6 +298,18 @@ WAYPOINT_TOUCH = 0.9  # tiles: standing this close activates the waypoint and op
 
 def cell_of(x: float, y: float) -> tuple[int, int]:
     return (math.floor(x + 0.5), math.floor(y + 0.5))
+
+
+@dataclass
+class Dot:
+    """Damage over time on a monster (burning, bleeding): its XP goes to ``skill``/``prof``."""
+
+    dps: float
+    left: float
+    owner: int
+    skill: str = ""
+    prof: str = ""
+    tick: float = 0.0
 
 
 @dataclass
@@ -318,6 +347,13 @@ class PlayerActor:
     buffs: dict[str, float] = field(default_factory=dict)  # self skill → seconds left (Bulwark, Berserk, blessings)
     frenzy_stacks: int = 0  # Frenzy: attack speed per stack while frenzy_left > 0
     frenzy_left: float = 0.0
+    rhythm_stacks: int = 0  # Combat Rhythm: hits in a row, while rhythm_left > 0
+    rhythm_left: float = 0.0
+    riposte_ready: bool = False  # Riposte: the next swing after a block hits harder
+    deferred: list[list[float]] = field(default_factory=list)  # Unshakable: [damage per second, seconds left]
+    dash: Dash | None = None  # Charge, Blade Dance (core/maneuvers.py)
+    channel: str | None = None  # Whirlwind, while its key is held
+    channel_tick: float = 0.0
     cooldowns: Cooldowns = field(default_factory=Cooldowns)
     exit_cooldown: float = EXIT_COOLDOWN
     god_mode: bool = False  # debugging
@@ -387,13 +423,21 @@ class MonsterActor:
     base_speed: float = 3.75  # tiles/s before the type's moveSpeed (balance.json → movement)
     swing_seconds: float = 0.6  # longest swing animation (balance.json → timing.monsterSwingSeconds)
     buffs: dict[str, float] = field(default_factory=dict)  # from leader auras, refreshed every step
-    burn_dps: float = 0.0  # Ignite: fire damage per second while burn_left > 0 (core/spells.py)
-    burn_left: float = 0.0
-    burn_tick: float = 0.0
-    burn_owner: int = 0
-    burn_skill: str = ""  # the spell whose hit set it burning (it gets the XP of the burn)
+    dots: dict[str, Dot] = field(default_factory=dict)  # damage over time by kind: burn (Ignite), bleed (Bleed)
+    debuffs: dict[str, list[float]] = field(default_factory=dict)  # stat → [value, seconds left] (War Cry: damagePct)
     chill_left: float = 0.0  # cold: slower to move and to attack while it lasts
     chill_pct: float = 0.0
+
+    @property
+    def burn_left(self) -> float:
+        d = self.dots.get("burn")
+        return d.left if d else 0.0
+
+    def add_dot(self, kind: str, dot: Dot) -> None:
+        """The stronger of the old and the new one stays (same kind never stacks)."""
+        old = self.dots.get(kind)
+        if old is None or dot.dps * dot.left >= old.dps * old.left:
+            self.dots[kind] = dot
 
     @property
     def id(self) -> int:
@@ -406,7 +450,11 @@ class MonsterActor:
     def stat(self, name: str) -> float:
         """Modifiers of the monster plus the auras around it right now."""
         chill = self.chill_pct if self.chill_left > 0 and name in ("moveSpeedPct", "attackSpeedPct") else 0.0
-        return self.monster.stat(name) + self.buffs.get(name, 0.0) - chill
+        return self.monster.stat(name) + self.extra(name) - chill
+
+    def extra(self, name: str) -> float:
+        """What is on it right now from others: leader auras and debuffs (War Cry)."""
+        return self.buffs.get(name, 0.0) + sum(v for k, (v, _) in self.debuffs.items() if k == name)
 
     @property
     def speed(self) -> float:
@@ -443,7 +491,7 @@ class MonsterActor:
     @property
     def attack(self):
         """Numbers of its swing or shot, with aura damage on top."""
-        return with_bonus(monster_attack(self.monster), self.buffs.get("damagePct", 0.0))
+        return with_bonus(monster_attack(self.monster), self.extra("damagePct"))
 
     @property
     def reach(self) -> float:
@@ -474,6 +522,7 @@ class World:
         self.projectiles: dict[int, Projectile] = {}
         self._next_projectile = 1
         self.spells = SpellCaster(self)
+        self.moves = Maneuvers(self)
         self.ground: dict[int, GroundItem] = {}
         self._next_ground = 1
         self.portals: dict[int, TownPortal] = {}
@@ -582,6 +631,8 @@ class World:
                 p.target_id = p.pending_skill = None
                 p.guarding = p.guard_held = False
                 p.buffs.clear()
+                p.dash = p.channel = None
+                p.deferred.clear()
             return None
         if p is None or p.state == "dead":
             return None
@@ -593,6 +644,12 @@ class World:
             return None
         if isinstance(cmd, UseConsumable):
             return self._use_consumable(p, cmd.consumable_id)
+        if isinstance(cmd, ReleaseSkill):
+            if p.channel == cmd.skill_id:
+                self.moves.stop_channel(p)
+            return None
+        if isinstance(cmd, AttackTarget | AttackInPlace | PickUp) or (isinstance(cmd, UseSkill) and cmd.skill_id not in CHANNEL_SKILLS):
+            p.channel = None  # another action ends a spin (walking does not)
         if isinstance(cmd, AttackInPlace | AttackTarget | UseSkill) and self.area_id == self.data.town_id:
             return "You cannot fight in town"
         if isinstance(cmd, AttackInPlace):
@@ -645,7 +702,7 @@ class World:
             return self._use_skill(p, cmd)
         return None
 
-    def skill_block_reason(self, p: PlayerActor, skill_id: str) -> str | None:
+    def skill_block_reason(self, p: PlayerActor, skill_id: str, ignore_energy: bool = False) -> str | None:
         s = p.session
         node = self.data.node(skill_id)
         if s.skills.points_in(skill_id) <= 0:
@@ -659,7 +716,7 @@ class World:
             return f"{node.name}: not implemented yet"
         if not p.cooldowns.ready(skill_id):
             return f"{node.name}: cooldown {p.cooldowns.remaining(skill_id):.1f}s"
-        if p.energy < node.energy_cost:
+        if not ignore_energy and p.energy < node.energy_cost:
             return f"{node.name}: not enough Energy"
         return None
 
@@ -675,6 +732,26 @@ class World:
             return None
         if cmd.skill_id in PROJECTILE_SKILLS:
             return self._throw_shield(p, cmd)
+        if cmd.skill_id == "charge":
+            return self.moves.start_charge(p, cmd.skill_id, cmd.target_id)
+        if cmd.skill_id in DASH_SKILLS:
+            return self.moves.start_blade_dance(p, cmd.skill_id, cmd.x, cmd.y, cmd.target_id)
+        if cmd.skill_id in CHANNEL_SKILLS:
+            return self.moves.start_channel(p, cmd.skill_id)
+        if cmd.skill_id in GROUND_BOW_SKILLS:  # aimed at the ground, like a spell, only where you can see
+            t = self.monsters.get(cmd.target_id) if cmd.target_id is not None else None
+            ax, ay = (t.x, t.y) if t is not None else (cmd.x, cmd.y)
+            if ax is None or ay is None:
+                return "no target"
+            gx, gy = self.spells.aim_point(p, cmd.skill_id, (ax, ay), default_range=self.player_reach(p))
+            if not self.layout.is_floor(cell_of(gx, gy)) or not line_of_sight(self.layout, (p.x, p.y), (gx, gy)):
+                return f"{self.data.node(cmd.skill_id).name}: you cannot see there"
+            self._face(p, ax - p.x, ay - p.y)
+            p.aim_x, p.aim_y = gx, gy
+            p.path.clear()
+            p.target_id = None
+            p.pending_skill = cmd.skill_id
+            return None
         if cmd.skill_id in AREA_SKILLS:
             if cmd.x is not None and cmd.y is not None:
                 dx, dy = cmd.x - p.x, cmd.y - p.y
@@ -719,7 +796,7 @@ class World:
     def _commit_skill(self, p: PlayerActor, skill_id: str) -> None:
         node = self.data.node(skill_id)
         p.energy -= node.energy_cost
-        p.cooldowns.start(skill_id, skill_cooldown(node.cooldown, 0.0))
+        p.cooldowns.start(skill_id, skill_cooldown(node.cooldown, p.session.stat("cooldownReduction")))
         p.cooldowns.start("global", self.timing.global_cooldown_seconds)
         self.bus.publish(SkillUsed(p.player_id, skill_id))
         if node.use_xp > 0 and "healPctOfMax" not in node.stat_ids:  # a skill that hits nothing (war cry) learns from use in a fight
@@ -737,14 +814,23 @@ class World:
         sk, node = p.session.skills, self.data.node(skill_id)
         heal = sk.effect(skill_id, "healPctOfMax")
         if heal > 0:
-            amount = min(p.max_life - p.life, p.max_life * heal * (1 + sk.stat_total("healingPct")))
+            amount = min(p.max_life - p.life, p.max_life * heal * (1 + p.session.stat("healingPct")))
             p.life += amount
             self._float(p.x, p.y, f"+{amount:.0f}", "heal")
             # healing teaches only when it is needed: a full heal of a quarter of your life is a whole use
             self._practice(p, skill_id, node.use_xp * min(1.0, amount / max(1.0, 0.25 * p.max_life)))
         secs = sk.effect(skill_id, "durationSeconds")
-        if secs > 0:
-            p.buffs[skill_id] = secs * (1 + sk.stat_total("buffDurationPct"))
+        weaken = sk.effect(skill_id, "enemyDamageReduction")
+        if weaken > 0:  # a shout (War Cry): enemies around deal less damage for a while; no buff on yourself
+            radius = sk.effect(skill_id, "radiusTiles")
+            for m in self.monsters.values():
+                if m.alive and math.hypot(m.x - p.x, m.y - p.y) <= radius + m.radius:
+                    m.debuffs["damagePct"] = [-min(0.9, weaken), secs]
+                    self._alert(m)
+            self.bus.publish(SpellBurst(p.x, p.y, radius, skill_id))
+            self._float(p.x, p.y, f"{node.name}!", "info")
+        elif secs > 0:
+            p.buffs[skill_id] = secs * (1 + p.session.stat("buffDurationPct"))
             self._float(p.x, p.y, f"{node.name}!", "info")
 
     def _nearest_monster(self, x: float, y: float, radius: float) -> MonsterActor | None:
@@ -763,6 +849,28 @@ class World:
                 self._step_monster(m, dt)
         self._step_projectiles(dt)
         self.spells.step(dt)
+        self._step_afflictions(dt)
+
+    def _step_afflictions(self, dt: float) -> None:
+        """Damage over time (burning, bleeding) every magic.tickSeconds, and debuffs running out."""
+        tick = self.data.balance.magic.tick_seconds
+        for m in list(self.monsters.values()):
+            if m.debuffs:
+                for v in m.debuffs.values():
+                    v[1] -= dt
+                m.debuffs = {k: v for k, v in m.debuffs.items() if v[1] > 0}
+            for kind, d in list(m.dots.items()):
+                if not m.alive:
+                    break
+                d.left -= dt
+                d.tick -= dt
+                if d.tick <= 0:
+                    d.tick += tick
+                    p = self.players.get(d.owner)
+                    if p is not None:  # hurts, never staggers; XP to the skill (or swing) that caused it
+                        self._damage_monster(p, m, d.dps * tick, d.prof or self.data.node(d.skill).tree, recover=False, skill=d.skill or None)
+                if d.left <= 0:
+                    m.dots.pop(kind, None)
 
     def _step_player(self, p: PlayerActor, dt: float) -> None:
         if p.state == "dead":
@@ -774,10 +882,20 @@ class World:
         p.frenzy_left = max(0.0, p.frenzy_left - dt)
         if p.frenzy_left <= 0:
             p.frenzy_stacks = 0
+        p.rhythm_left = max(0.0, p.rhythm_left - dt)
+        if p.rhythm_left <= 0:
+            p.rhythm_stacks = 0
+        if p.deferred:  # Unshakable: the delayed share of earlier hits, a little every frame
+            due = sum(r[0] * min(dt, r[1]) for r in p.deferred)
+            for r in p.deferred:
+                r[1] -= dt
+            p.deferred = [r for r in p.deferred if r[1] > 1e-9]
+            if self._lose_life(p, due):
+                return
         c = self.data.balance.character
         regen = c.guard_energy_regen_pct_per_second if p.guarding else c.energy_regen_pct_per_second
         p.energy = min(p.max_energy, p.energy + p.max_energy * regen * dt)
-        regen_life = s.skills.stat_total("lifeRegenPerSecond") + p.buff_total("lifeRegenPerSecond")  # Recovery, Grace, Divine Aegis
+        regen_life = s.stat("lifeRegenPerSecond") + p.buff_total("lifeRegenPerSecond")  # Recovery, Grace, Divine Aegis, items
         p.life = min(p.max_life, p.life + regen_life * dt)
         for r in p.restores:  # potions: a share of the maximum over a few seconds
             step = min(dt, r[2])
@@ -800,6 +918,8 @@ class World:
             p.portal_cast_left -= dt
             if p.portal_cast_left <= 0:
                 self._finish_portal(p)
+            return
+        if self.moves.step(p, dt):  # dashing (Charge, Blade Dance)
             return
 
         # guard
@@ -827,7 +947,7 @@ class World:
             return
 
         # area skill (or a bow skill aimed at the ground): starts in place
-        in_place = (p.pending_skill in AREA_SKILLS or p.pending_skill in SPELL_SKILLS
+        in_place = (p.pending_skill in AREA_SKILLS or p.pending_skill in SPELL_SKILLS or p.pending_skill in GROUND_BOW_SKILLS
                     or (p.pending_skill in BOW_SKILLS and p.target_id is None))
         if in_place and not p.guarding:
             if p.cooldowns.ready("global") and self.skill_block_reason(p, p.pending_skill) is None:
@@ -839,8 +959,8 @@ class World:
         if p.pickup_id is not None and self._step_pickup(p, dt):
             return
 
-        # chase/attack the target
-        if p.target_id is not None and not p.guarding:
+        # chase/attack the target (not while spinning: Whirlwind hits on its own)
+        if p.target_id is not None and not p.guarding and p.channel is None:
             t = self.monsters.get(p.target_id)
             if t is None or not t.alive:
                 p.target_id = p.pending_skill = None
@@ -859,7 +979,7 @@ class World:
 
         # movement
         if p.path:
-            speed = self.data.balance.movement.player_tiles_per_second * (self.data.balance.guard.move_speed_mult if p.guarding else 1.0)
+            speed = self.player_speed(p)
             if self._step_towards(p, p.path[0], speed, dt):
                 p.path.pop(0)
             if not p.guarding and p.path:
@@ -1085,11 +1205,16 @@ class World:
             if start_cooldown:
                 p.cooldowns.start("guard_raise", self.data.balance.guard.guard_raise_cooldown_seconds)
 
+    def player_speed(self, p: PlayerActor) -> float:
+        """Tiles per second: base, + moveSpeedPct (boots), halved with the guard up."""
+        base = self.data.balance.movement.player_tiles_per_second * (1 + p.session.stat("moveSpeedPct"))
+        return base * (self.data.balance.guard.move_speed_mult if p.guarding else 1.0)
+
     def player_reach(self, p: PlayerActor) -> float:
         """Melee reach, or the bow's range (+ Eagle Eye)."""
         s = p.session
         if s.gear.has_bow:
-            return s.gear.main_hand.base.range_tiles + s.skills.effect("eagle_eye", "bowRangeTiles")
+            return s.gear.main_hand.base.range_tiles + s.stat("bowRangeTiles")  # Eagle Eye, items
         return MELEE_RANGE
 
     @staticmethod
@@ -1107,13 +1232,14 @@ class World:
     def attack_speed(self, p: PlayerActor) -> float:
         """Attack speed bonus: generic, the weapon's own (great weapons are slower), passives for its tags
         (Quick Draw: bowAttackSpeedPct), Ambidexterity with two weapons, Frenzy stacks and buffs."""
-        t, gear = p.session.skills, p.session.gear
-        ias = t.stat_total("attackSpeedPct") + p.buff_total("buffAttackSpeedPct")
+        s, t, gear = p.session, p.session.skills, p.session.gear
+        ias = s.stat("attackSpeedPct") + p.buff_total("buffAttackSpeedPct")
         w = gear.main_hand
         if w is not None:
-            ias += w.base.attack_speed_pct + sum(t.stat_total(f"{tag}AttackSpeedPct") for tag in w.base.tags)
+            ias += w.base.attack_speed_pct + sum(s.stat(f"{tag}AttackSpeedPct") for tag in w.base.tags)
         if gear.dual_wielding:
             ias += t.effect("ambidexterity", "dualAttackSpeedPct")
+        ias += p.rhythm_stacks * t.effect("combat_rhythm", "attackSpeedPerStackPct")
         return ias + p.frenzy_stacks * t.effect("frenzy", "attackSpeedPerStackPct")
 
     def swing_proficiency(self, p: PlayerActor) -> str:
@@ -1125,7 +1251,7 @@ class World:
         tags = set(gear.main_hand.base.tags) if gear.main_hand is not None else set()
         return next((d.id for d in pd.proficiencies if tags & set(d.weapon_tags)), pd.unarmed)
 
-    def _begin_attack(self, p: PlayerActor, target_id: int | None, skill: str | None) -> None:
+    def _begin_attack(self, p: PlayerActor, target_id: int | None, skill: str | None, commit: bool = True) -> None:
         ias = self.attack_speed(p)
         p.state = "attacking"
         p.attack_elapsed = 0.0
@@ -1137,7 +1263,7 @@ class World:
         dual = p.session.gear.dual_wielding
         p.attack_hand = ("off" if p.attack_hand == "main" else "main") if dual else "main"
         p.cooldowns.start("attack", p.attack_duration)
-        if skill:
+        if skill and commit:
             self._commit_skill(p, skill)
 
     def _player_hit(self, p: PlayerActor) -> None:
@@ -1145,6 +1271,9 @@ class World:
         skill = p.attack_skill
         if skill in SPELL_SKILLS:
             self.spells.release(p, skill)
+            return
+        if skill in GROUND_BOW_SKILLS:
+            self.spells.rain(p, skill)
             return
         if s.gear.has_bow:
             self._shoot_arrows(p, skill)
@@ -1167,37 +1296,71 @@ class World:
                     and s.combat.in_arc(p.face_x, p.face_y, m.x - p.x, m.y - p.y, arc)]
             if near:
                 targets.append(min(near, key=lambda m: math.hypot(m.x - p.x, m.y - p.y)))
-        # XP: a skill feeds its own tree; a plain swing the weapon's proficiency
-        prof = self.data.node(skill).tree if skill else self.swing_proficiency(p)
         hands = ("main", "off") if skill in TWO_HAND_HITS else (p.attack_hand,)
         for t in targets:
-            for hand in hands:
-                if not t.alive:
-                    break
-                atk = self._hit_bonuses(p, t, player_attack(s.character, s.skills, s.gear, skill, hand))
-                if t.ranged:  # closing in on an archer or caster pays off
-                    atk = melee_edge(atk, self.data.balance.combat)
-                r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
-                if not r.hit:
-                    self._float(t.x, t.y, "miss", "miss")
-                    continue
-                self._damage_monster(p, t, r.final, prof, crit=r.crit, skill=skill)
-                self._weapon_stun(p, t, s.gear.weapon(hand))
-                if skill == "frenzy":
-                    top = round(s.skills.effect("frenzy", "maxStacks"))
-                    p.frenzy_stacks = min(top, p.frenzy_stacks + 1)
-                    p.frenzy_left = s.skills.effect("frenzy", "durationSeconds")
-            if skill and t.alive:
-                self._skill_on_hit(p, t, skill)
+            self.strike(p, t, skill, hands)
+        if not targets:
+            p.rhythm_stacks = 0  # a swing at nothing breaks the rhythm
+
+    def strike(self, p: PlayerActor, t: MonsterActor, skill: str | None, hands: tuple[str, ...]) -> None:
+        """One melee blow (or one per hand) on ``t``: rolled with every bonus, then what lands with it (stun by the
+        weapon, Bleed, Frenzy and Combat Rhythm stacks, the skill's push or stun). XP: a skill feeds its own tree,
+        a plain swing the weapon's proficiency. Swings, Whirlwind spins and Blade Dance all hit through here."""
+        s = p.session
+        prof = self.data.node(skill).tree if skill else self.swing_proficiency(p)
+        for hand in hands:
+            if not t.alive:
+                break
+            atk = self._hit_bonuses(p, t, player_attack(s.character, s.skills, s.gear, skill, hand))
+            if t.ranged:  # closing in on an archer or caster pays off
+                atk = melee_edge(atk, self.data.balance.combat)
+            r = s.combat.resolve_physical(atk, t.defense, s.combat_rng)
+            if not r.hit:
+                self._float(t.x, t.y, "miss", "miss")
+                p.rhythm_stacks = 0
+                continue
+            fire = s.gear.stat_total("fireDamage")  # items: flat fire on every blow, resisted like a spell
+            amount = r.final + (self.spells.resisted(p, t, fire, "fire") if fire > 0 else 0.0)
+            self._damage_monster(p, t, amount, prof, crit=r.crit, skill=skill)
+            self._weapon_stun(p, t, s.gear.weapon(hand))
+            self._after_blow(p, t, s.gear.weapon(hand), skill)
+        if skill and t.alive:
+            self._skill_on_hit(p, t, skill)
+
+    def _after_blow(self, p: PlayerActor, t: MonsterActor, weapon, skill: str | None) -> None:
+        """Passives that react to a landed blow: Combat Rhythm stacks, Bleed, Frenzy; Riposte is used up."""
+        sk = p.session.skills
+        p.riposte_ready = False
+        top = round(sk.effect("combat_rhythm", "maxStacks"))
+        if top > 0:
+            p.rhythm_stacks = min(top, p.rhythm_stacks + 1)
+            p.rhythm_left = RHYTHM_SECONDS
+        if skill == "frenzy":
+            p.frenzy_stacks = min(round(sk.effect("frenzy", "maxStacks")), p.frenzy_stacks + 1)
+            p.frenzy_left = sk.effect("frenzy", "durationSeconds")
+        chance = sk.effect("bleed", "bleedChance")
+        if chance > 0 and t.alive and p.session.combat_rng.chance(chance):
+            base = (weapon.base.dmg_min + weapon.base.dmg_max) / 2 if weapon is not None and weapon.base.dmg_max > 0 else 1.5
+            t.add_dot("bleed", Dot(base * sk.effect("bleed", "bleedDamagePct"), sk.effect("bleed", "durationSeconds") or 4.0,
+                                   p.player_id, skill or "", self.data.node(skill).tree if skill else self.swing_proficiency(p)))
 
     def _hit_bonuses(self, p: PlayerActor, t: MonsterActor, atk):
         """Bonuses that depend on the target: against its family (Bone Breaker: undeadDamagePct), against a stunned
         enemy (Executioner), and the player's buffs (Berserk)."""
         sk = p.session.skills
-        extra = sk.stat_total(f"{t.monster.type.family}DamagePct") + p.buff_total("buffDamagePct")
+        extra = p.session.stat(f"{t.monster.type.family}DamagePct") + p.buff_total("buffDamagePct")
         if t.state == "stunned":
             extra += sk.stat_total("damageVsStunnedPct")
-        return with_bonus(atk, extra) if extra else atk
+        if p.riposte_ready:  # Riposte: the swing after a block
+            extra += sk.effect("riposte", "damageAfterBlockPct")
+        missing = 1 - p.life / max(1.0, p.max_life)  # Colossus: harder the more life is missing
+        extra += math.floor(missing * 10 + 1e-9) * sk.stat_total("damagePerMissingLife10Pct")
+        if extra:
+            atk = with_bonus(atk, extra)
+        low = sk.effect("killing_blow", "lowLifeThreshold")
+        if low > 0 and t.monster.hp < t.monster.max_hp * low:  # Killing Blow: crits on the nearly dead
+            atk = replace(atk, crit_chance=min(0.95, atk.crit_chance + sk.effect("killing_blow", "critChanceLowLife")))
+        return atk
 
     def _weapon_stun(self, p: PlayerActor, t: MonsterActor, weapon) -> None:
         """Passives that stun with a kind of weapon (Concussive: maceStunChance / maceStunSeconds)."""
@@ -1228,8 +1391,9 @@ class World:
         """Every hit on a monster goes through here: XP to ``prof`` and to the active ``skill`` that dealt it."""
         eff = t.monster.take_damage(amount)
         self.bus.publish(DamageDealt(prof, t.monster.xp_info, eff, p.player_id, skill or ""))
-        if eff > 0 and p.session.gear.dual_wielding:  # Bloodlust
-            p.life = min(p.max_life, p.life + eff * p.session.skills.effect("bloodlust", "lifeLeechPct"))
+        leech = p.session.gear.stat_total("lifeLeechPct") + (p.session.skills.effect("bloodlust", "lifeLeechPct") if p.session.gear.dual_wielding else 0.0)
+        if eff > 0 and leech > 0:  # items, and Bloodlust with two weapons
+            p.life = min(p.max_life, p.life + eff * leech)
         self._float(t.x, t.y, f"{amount:.0f}{'!' if crit else ''}", "crit" if crit else "damage")
         self._alert(t)
         if not t.alive:
@@ -1274,7 +1438,7 @@ class World:
         m = t.monster
         self.bus.publish(MonsterKilled(m.xp_info, m.rank.id, killer.player_id))
         s = killer.session
-        for drop in s.loot.roll_drops(m.rank.id, m.level, 0.0, s.loot_rng):
+        for drop in s.loot.roll_drops(m.rank.id, m.level, s.stat("magicFind"), s.loot_rng):
             self.drop_at(drop, t.x, t.y, s.world_rng)
         del self.monsters[t.id]
 
@@ -1426,9 +1590,21 @@ class World:
         atk = melee_edge(m.attack, self.data.balance.combat) if p.session.gear.has_bow else m.attack  # an archer caught in melee
         self._hit_player(p, atk, m.monster.xp_info, m.x, m.y, magic=False, melee=m)
 
-    def _hit_player(self, p: PlayerActor, attack, info, from_x: float, from_y: float, magic: bool, melee: MonsterActor | None) -> None:
+    def player_resist(self, p: PlayerActor, element: str) -> float:
+        """Share of an element's damage the player ignores: Elemental Resistance and items (elementalResist, or
+        <element>Resist), Bastion with a shield; capped at combat.resistCap."""
+        s = p.session
+        r = s.stat("elementalResist") + s.stat(f"{element}Resist")
+        if s.gear.has_shield:
+            r += s.skills.stat_total("allResistWithShield")
+        return min(r, self.data.balance.combat.resist_cap)
+
+    def _hit_player(self, p: PlayerActor, attack, info, from_x: float, from_y: float, magic: bool, melee: MonsterActor | None,
+                    element: str | None = None, extra: dict[str, float] | None = None) -> None:
         """A swing or a shot reaches the player. (from_x, from_y) is where it comes from, for the guard arc.
-        Magic gets past the guard unless Bulwark is up; only melee hits can be counterattacked."""
+        Magic gets past the guard unless Bulwark is up; only melee hits can be counterattacked.
+        ``element``: the whole hit is of that element (a shaman's bolt): armor does nothing, resistance takes its
+        share. ``extra``: element → share of the hit added on top as that element (Fire Enchanted)."""
         s = p.session
         deflect = s.skills.effect("blade_guard", "deflectChance")
         if melee is not None and s.gear.dual_wielding and deflect > 0 and s.combat_rng.chance(deflect):
@@ -1454,16 +1630,22 @@ class World:
             self._float(p.x, p.y, "dodged", "miss")
             return
         p.energy = max(0.0, p.energy - r.guard_energy_cost)
+        final, mitigated = r.final, r.mitigated
+        if element is not None:  # all of it elemental: past the guard as usual, then resistance instead of armor
+            final, mitigated = r.reached_armor * (1 - self.player_resist(p, element)), 0.0
+        for el, share in (extra or {}).items():
+            final += r.reached_armor * share * (1 - self.player_resist(p, el))
 
         if r.blocked:  # the guard stops most of the hit, never all of it (GDD 7.4)
             perfect = r.block == BlockOutcome.PERFECT
             self.bus.publish(HitBlocked(info, perfect, p.player_id))
+            p.riposte_ready = s.skills.points_in("riposte") > 0
             word = "parried!" if perfect else "blocked"
-            self._float(p.x, p.y, f"{word} -{r.final:.0f}", "perfect" if perfect else "block")
+            self._float(p.x, p.y, f"{word} -{final:.0f}", "perfect" if perfect else "block")
             if perfect and melee is not None:
                 self._counter(p, melee)
             else:
-                fbr = s.skills.stat_total("fasterBlockRecovery")
+                fbr = s.stat("fasterBlockRecovery")
                 p.state, p.state_left = "block_recovery", player_block_recovery(self.timing, fbr)
                 p.path.clear()
         elif r.block == BlockOutcome.GUARD_BROKEN:
@@ -1472,25 +1654,45 @@ class World:
             p.state, p.state_left = "stunned", self.data.balance.guard.guard_break_stun_seconds
             p.path.clear()
             self._float(p.x, p.y, "guard broken", "hurt")
-        if r.mitigated > 0:  # armor works on what got past the guard
-            self.bus.publish(DamageMitigated(info, r.reached_armor, r.mitigated, p.player_id))
+        if mitigated > 0:  # armor works on what got past the guard
+            self.bus.publish(DamageMitigated(info, r.reached_armor, mitigated, p.player_id))
         if not r.blocked:
-            self._float(p.x, p.y, f"-{r.final:.0f}", "hurt")
-        if not p.god_mode:
-            p.life -= r.final
-        if p.life <= 0:
-            p.life = 0
-            p.state = "dead"
-            p.path.clear()
-            self.bus.publish(PlayerDied(p.player_id))
+            self._float(p.x, p.y, f"-{final:.0f}", "hurt")
+        defer = s.skills.stat_total("deferredDamagePct")  # Unshakable: part of it arrives over a few seconds
+        if defer > 0:
+            secs = max(0.1, s.skills.effect("unshakable", "deferSeconds"))
+            p.deferred.append([final * defer / secs, secs])
+        if self._lose_life(p, final * (1 - defer)):
             return
         if not r.blocked and p.state != "stunned":
-            fhr = s.skills.stat_total("fasterHitRecovery")
-            rec = player_hit_recovery(self.timing, r.final, p.max_life, fhr)
+            fhr = s.stat("fasterHitRecovery")
+            rec = player_hit_recovery(self.timing, final, p.max_life, fhr)
             if rec > 0:
                 p.state, p.state_left = "hit_recovery", rec  # interrupts attack, movement and an opening portal
                 p.attack_hit_done = True
                 self._cancel_portal(p)
+
+    def _lose_life(self, p: PlayerActor, amount: float) -> bool:
+        """Takes life (not in god mode). Second Wind heals once when it falls low. True: the player died."""
+        if p.god_mode or amount <= 0:
+            return False
+        p.life -= amount
+        sk = p.session.skills
+        low = sk.effect("second_wind", "threshold")
+        if 0 < p.life < p.max_life * low and p.cooldowns.ready("second_wind"):
+            heal = p.max_life * sk.effect("second_wind", "healPctOfMax")
+            p.life = min(p.max_life, p.life + heal)
+            p.cooldowns.start("second_wind", sk.effect("second_wind", "cooldownSeconds"))
+            self._float(p.x, p.y, f"Second Wind +{heal:.0f}", "heal")
+        if p.life <= 0:
+            p.life = 0
+            p.state = "dead"
+            p.path.clear()
+            p.dash = p.channel = None
+            p.deferred.clear()
+            self.bus.publish(PlayerDied(p.player_id))
+            return True
+        return False
 
     # ------------------------------------------------------------ projectiles
 
@@ -1504,7 +1706,7 @@ class World:
         """Fires toward where the target is NOW; the shot never turns afterwards."""
         d = m.monster.type.projectile
         proj = self._launch(x=m.x, y=m.y, speed=d.speed, radius=d.radius, max_range=m.reach + 2, look=d.look,
-                            owner="monster", owner_id=m.id, magic=d.magic, attack=m.attack, info=m.monster.xp_info)
+                            owner="monster", owner_id=m.id, magic=d.magic, attack=m.attack, info=m.monster.xp_info, element=d.element)
         proj.aim(target.x, target.y)
 
     def _shoot_arrows(self, p: PlayerActor, skill: str | None) -> None:
@@ -1576,7 +1778,8 @@ class World:
             if proj.owner == "monster":
                 for p in self.players.values():
                     if p.state != "dead" and math.hypot(p.x - x, p.y - y) < p.radius + proj.radius:
-                        self._hit_player(p, proj.attack, proj.info, x - proj.dir_x, y - proj.dir_y, proj.magic, melee=None)
+                        self._hit_player(p, proj.attack, proj.info, x - proj.dir_x, y - proj.dir_y, proj.magic, melee=None,
+                                         element=proj.element)
                         return False
             else:
                 hit = next((m for m in self.monsters.values() if m.alive and m.id not in proj.hit_ids

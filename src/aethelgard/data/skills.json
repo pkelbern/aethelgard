@@ -80,7 +80,7 @@
    "id": "bleed",
    "tree": "blades",
    "name": "Bleed",
-   "description": "Hits have a {bleedChance} chance to make the enemy bleed, taking {bleedDamagePct} of your weapon damage each second.",
+   "description": "Hits have a {bleedChance} chance to make the enemy bleed for {durationSeconds}, taking {bleedDamagePct} of your weapon's average damage each second.",
    "layer": 6,
    "kind": "passive",
    "maxPoints": 10,
@@ -90,14 +90,17 @@
    },
    "requires": [
     "sharp_blade"
-   ]
+   ],
+   "base": {
+    "durationSeconds": 4
+   }
   },
   {
    "id": "charge",
    "tree": "blades",
    "name": "Charge",
    "shortName": "Charge",
-   "description": "Rush up to {rangeTiles} toward the target and strike it, dealing {damagePct} more damage.",
+   "description": "Rush up to {rangeTiles} toward the target and strike it, dealing {damagePct} more damage. With points in Shield Bash it may stun ({stunChance}, {stunSeconds}).",
    "layer": 12,
    "kind": "active",
    "energyCost": 6,
@@ -106,7 +109,8 @@
    },
    "cooldown": 6.0,
    "base": {
-    "rangeTiles": 6
+    "rangeTiles": 6,
+    "stunSeconds": 1.0
    },
    "requires": [
     "wide_slash"
@@ -430,7 +434,7 @@
    "tree": "armor",
    "name": "War Cry",
    "shortName": "War Cry",
-   "description": "Enemies within {radiusTiles} deal {enemyDamageReduction} less damage for {durationSeconds}.",
+   "description": "Enemies within {radiusTiles} deal {enemyDamageReduction} less damage for {durationSeconds}. It teaches War Cry and Armor when shouted near enemies.",
    "layer": 12,
    "kind": "active",
    "energyCost": 8,

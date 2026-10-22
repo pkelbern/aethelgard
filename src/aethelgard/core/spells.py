@@ -47,7 +47,7 @@ def spell_attack(session, node_id: str) -> AttackerStats:
     node = d.node(node_id)
     e = s.skills.effect
     bonus = (s.character.attributes.int * d.balance.attributes.spell_damage_per_int
-             + s.skills.stat_total(f"{node.spell.element}DamagePct") + e(node_id, "damagePct"))
+             + s.stat(f"{node.spell.element}DamagePct") + e(node_id, "damagePct"))
     return AttackerStats(s.character.level, SPELL_ACCURACY, e(node_id, "damageMin"), e(node_id, "damageMax"), bonus)
 
 
@@ -100,6 +100,7 @@ class GroundFire:
 
     strike: AttackerStats | None = None  # storm: one enemy in it takes this hit every ``interval`` seconds
     interval: float = 0.0
+    strike_all: bool = False  # rain: every enemy in it takes the hit, not just one
 
     def touches(self, m: MonsterActor) -> bool:
         return segment_distance(m.x, m.y, self.ax, self.ay, self.bx, self.by) <= self.radius + m.radius
@@ -119,11 +120,13 @@ class SpellCaster:
     # ------------------------------------------------------------ casting
 
     def cast_seconds(self, p: PlayerActor) -> float:
-        return self.w.data.balance.magic.cast_seconds / (1 + p.session.skills.stat_total("fasterCastPct"))
+        return self.w.data.balance.magic.cast_seconds / (1 + p.session.stat("fasterCastPct"))
 
-    def aim_point(self, p: PlayerActor, node_id: str, at: tuple[float, float] | None = None) -> tuple[float, float]:
-        """Where the spell goes: the aimed point (``at``, or the player's aim), pulled back to the spell's range."""
-        rng = p.session.skills.effect(node_id, "rangeTiles") or 14.0
+    def aim_point(self, p: PlayerActor, node_id: str, at: tuple[float, float] | None = None,
+                  default_range: float = 14.0) -> tuple[float, float]:
+        """Where the spell goes: the aimed point (``at``, or the player's aim), pulled back to the spell's range
+        (its rangeTiles, else ``default_range``: a bow's reach for Rain of Arrows)."""
+        rng = p.session.skills.effect(node_id, "rangeTiles") or default_range
         if at is not None:
             ax, ay = at
         else:
@@ -190,11 +193,19 @@ class SpellCaster:
 
     def hit(self, p: PlayerActor, t: MonsterActor, attack: AttackerStats, element: str, skill: str, can_ignite: bool = True) -> float:
         """One spell hit on a monster: rolled (with the target bonuses of any hit), maybe critical (lightning), resisted,
-        dealt (XP and loot as for any hit), then its after-effects. Returns the damage."""
+        dealt (XP and loot as for any hit), then its after-effects. Returns the damage. ``physical`` (Rain of
+        Arrows): an ordinary blow instead, with accuracy against defense and armor."""
         s = p.session
         attack = self.w._hit_bonuses(p, t, attack)
+        if element == "physical":
+            r = s.combat.resolve_physical(attack, t.defense, s.combat_rng)
+            if not r.hit:
+                self.w._float(t.x, t.y, "missed", "miss")
+                return 0.0
+            self.deal(p, t, r.final, skill, crit=r.crit)
+            return r.final
         raw = s.combat_rng.uniform(attack.dmg_min, attack.dmg_max) * (1 + attack.damage_bonus_pct)
-        crit = s.combat_rng.chance(s.skills.stat_total(f"{element}CritChance"))
+        crit = s.combat_rng.chance(s.stat(f"{element}CritChance"))
         amount = self.resisted(p, t, raw * (2 if crit else 1), element)
         if amount <= 0:
             return 0.0
@@ -222,7 +233,7 @@ class SpellCaster:
 
     def resisted(self, p: PlayerActor, t: MonsterActor, raw: float, element: str) -> float:
         cap = self.w.data.balance.combat.resist_cap
-        pierce = p.session.skills.stat_total(f"{element}ResistPierce")
+        pierce = p.session.stat(f"{element}ResistPierce")
         return raw * (1 - effective_resist(t.resist(element), pierce, cap))
 
     def ignite(self, p: PlayerActor, t: MonsterActor, amount: float, skill: str) -> None:
@@ -231,9 +242,9 @@ class SpellCaster:
         share, secs = e("ignite", "burnPctOfHit"), e("ignite", "burnSeconds")
         if share <= 0 or secs <= 0:
             return
-        dps = amount * share / secs
-        if dps * secs >= t.burn_dps * t.burn_left:
-            t.burn_dps, t.burn_left, t.burn_owner, t.burn_skill = dps, secs, p.player_id, skill
+        from .world import Dot
+
+        t.add_dot("burn", Dot(amount * share / secs, secs, p.player_id, skill, self.w.data.node(skill).tree))
 
     def burst(self, p: PlayerActor, x: float, y: float, radius: float, attack: AttackerStats, element: str, skill: str, look: str) -> None:
         """Every monster within ``radius`` of (x, y) takes the hit (its body counts: a wide wolf is caught sooner)."""
@@ -278,11 +289,14 @@ class SpellCaster:
                 continue
             f.left -= dt
             f.tick -= dt
-            if f.strike is not None:  # a storm: one enemy inside, picked at random, every interval
+            if f.strike is not None:  # a storm: one enemy inside, picked at random, every interval (rain: all of them)
                 if f.tick <= 0:
                     f.tick += f.interval
                     inside = [m for m in self.w.monsters.values() if m.alive and f.touches(m)]
-                    if inside:
+                    if inside and f.strike_all:
+                        for m in inside:
+                            self.hit(p, m, f.strike, f.element, f.skill)
+                    elif inside:
                         m = inside[p.session.combat_rng.randint(0, len(inside) - 1)]
                         self.w.bus.publish(SpellBurst(m.x, m.y, 0.6, f.look))
                         self.hit(p, m, f.strike, f.element, f.skill)
@@ -298,18 +312,17 @@ class SpellCaster:
             if f.left <= 0:
                 del self.fires[f.id]
         for m in list(self.w.monsters.values()):
-            if m.burn_left > 0 and m.alive:
-                self._step_burn(m, dt, tick)
             if m.chill_left > 0:
                 m.chill_left = max(0.0, m.chill_left - dt)
 
-    def _step_burn(self, m: MonsterActor, dt: float, tick: float) -> None:
-        m.burn_left -= dt
-        m.burn_tick -= dt
-        if m.burn_tick <= 0:
-            m.burn_tick += tick
-            p = self.w.players.get(m.burn_owner)
-            if p is not None:
-                self.deal(p, m, m.burn_dps * tick, m.burn_skill, recover=False)
-        if m.burn_left <= 0:
-            m.burn_left = m.burn_dps = 0.0
+    def rain(self, p: PlayerActor, skill: str) -> None:
+        """Rain of Arrows: arrows fall on the aimed circle every tick for durationSeconds; each enemy inside takes a
+        bow shot with the skill's bonus (accuracy, armor and crits as for any arrow)."""
+        from .combat import player_attack
+
+        s, e = p.session, p.session.skills.effect
+        ax, ay = self.aim_point(p, skill, default_range=self.w.player_reach(p))
+        node = self.w.data.node(skill)
+        self._add(GroundFire(0, p.player_id, skill, node.tree, "physical", "rain", ax, ay, ax, ay, e(skill, "radiusTiles"), 0.0,
+                             e(skill, "durationSeconds"), strike=player_attack(s.character, s.skills, s.gear, skill),
+                             interval=self.w.data.balance.magic.tick_seconds, strike_all=True))

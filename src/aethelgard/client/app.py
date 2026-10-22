@@ -28,12 +28,14 @@ from ..core.saves import SaveStore
 from ..core.session import GameSession
 from ..core.simulation import run_act
 from ..core.world import (
+    GROUND_BOW_SKILLS,
     AttackInPlace,
     AttackTarget,
     MonsterActor,
     MoveTo,
     OpenPortal,
     PickUp,
+    ReleaseSkill,
     Respawn,
     SetGuard,
     TravelWaypoint,
@@ -428,12 +430,19 @@ class Game:
             r = bar.bind(slot, node_id)
             self.hud.add(f"{name} on key {label}." if r is Bind.OK else f"{name}: {r.value}", C.TEXT if r is Bind.OK else C.MUTED)
 
+    def _on_key_up(self, key: int) -> None:
+        """Letting go of a channelled skill's key (Whirlwind) stops it."""
+        slot = self.keys.slot_for(key)
+        skill = self.session.skill_bar.skill_at(slot) if slot is not None else None
+        if skill is not None and self.data.node(skill).channeled:
+            self.world.apply(ReleaseSkill(self.session.player_id, skill))
+
     def use_slot(self, slot: int) -> None:
         skill = self.session.skill_bar.skill_at(slot)
         if skill is None:
             self.hud.add(f"Key {self.keys.slot_label(slot)} is empty: click the slot to choose a skill.", C.MUTED)
             return
-        if self.data.node(skill).spell is not None:  # spells go where the mouse points, or at the monster under it
+        if self.data.node(skill).spell is not None or skill in GROUND_BOW_SKILLS:  # aimed at the mouse, or at the monster under it
             target = self.hovered
         else:
             target = self.hovered or self.nearest_monster(max(3.0, self.world.player_reach(self.player)))  # a bow reaches farther
@@ -491,6 +500,8 @@ class Game:
                 self.hold = None
             elif ev.type == pygame.KEYDOWN:
                 self._on_key(ev.key)
+            elif ev.type == pygame.KEYUP:
+                self._on_key_up(ev.key)
         if self.dead or self.menu.open:
             self.hold = None
             return
@@ -741,6 +752,7 @@ class Game:
             self._draw_projectile(proj)
         self.map.draw_exit_labels(screen, cam, self.fonts["small"], self.area_names, self.vision.explored)
         self.spell_view.draw_bursts(screen)
+        self.spell_view.draw_spin(screen, self.player)
         self._draw_portal_cast()
         self.ground_view.draw_labels(screen, cam, drops, self.keys.held("showItems"), self.hovered_drop, pygame.mouse.get_pos())
 

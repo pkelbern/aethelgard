@@ -65,8 +65,9 @@ class GameSession:
 
         self.xp = XpCalculator(LevelFactor(data.balance.level_factor.table), data.balance.xp)
         self.proficiencies = ProficiencySet(data, self.xp, self.bus, player_id)
-        self.character = CharacterSheet(data, self.proficiencies)
-        self.skills = SkillTrees(data.skills, self.proficiencies, lambda: self.gear.granted_spells())
+        self.character = CharacterSheet(data, self.proficiencies, lambda stat: self.stat(stat))
+        self.skills = SkillTrees(data.skills, self.proficiencies, lambda: self.gear.granted_spells(),
+                                 lambda tree: self.gear.stat_total(f"{tree}Skills"))
         self.skill_bar = SkillBar(self.skills, data.skills.bar_slots)
         self.combat = CombatMath(data.balance.combat, data.balance.guard)
         self.monster_factory = MonsterFactory(data)
@@ -80,6 +81,11 @@ class GameSession:
         self.consumables: Counter[str] = Counter()
         self.waypoints: set[str] = {data.town_id}  # areas whose waypoint this character has touched
         self.gold = 0
+
+    def stat(self, name: str) -> float:
+        """A bonus summed over the passives with a level and everything worn (affixes, uniques, set bonuses):
+        the one place the rules read generic stats such as attackSpeedPct, fasterHitRecovery or fireDamagePct."""
+        return self.skills.stat_total(name) + self.gear.stat_total(name)
 
     def enter_area(self, area_id: str, floor: int = 0) -> tuple[AreaLayout, list[MonsterPack]]:
         area = self.data.area(area_id)
