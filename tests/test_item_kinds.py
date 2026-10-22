@@ -109,12 +109,14 @@ def test_the_same_set_piece_twice_counts_once(data):
 def test_unique_and_set_items_survive_the_stash(data):
     loot, rng = LootGenerator(data), Rng(5)
     items = [loot.make_fixed(f, 15, rng) for f in data.items.uniques + data.items.set_pieces]
-    stash = SharedStash()
-    for it in items:
-        assert stash.deposit(it)
-    back = SharedStash.from_json(data, stash.to_json())
-    for a, b in zip(items, back, strict=True):
-        assert (b.rarity, b.name, b.fixed, b.mods) == (a.rarity, a.name, a.fixed, a.mods)
+    while items:  # as many as fit in one stash, then the next stash
+        stash, kept = SharedStash(), []
+        while items and stash.deposit(items[0]):
+            kept.append(items.pop(0))
+        assert kept, "an item must fit an empty stash"
+        back = SharedStash.from_json(data, stash.to_json())
+        for a, b in zip(kept, back, strict=True):
+            assert (b.rarity, b.name, b.fixed, b.mods) == (a.rarity, a.name, a.fixed, a.mods)
 
 
 def test_a_line_added_to_a_unique_later_loads_at_its_minimum(data):
@@ -141,3 +143,16 @@ def test_validation_catches_item_mistakes(fresh_data):
     assert "unknown class or group 'spoon'" in errors
     assert "unknown base 'no_such_base'" in errors
     assert "bonuses must go up from 2 pieces" in errors
+
+
+def test_every_base_has_a_unique_and_the_catalog_lists_them(data):
+    from aethelgard.tools.item_catalog import catalog
+
+    with_unique = {u.base for u in data.items.uniques}
+    plain = {b.id for b in data.items.bases if b.slot != "wand"}
+    assert plain <= with_unique, sorted(plain - with_unique)
+    schools = {data.node(data.base(u.base).spell).tree for u in data.items.uniques if data.base(u.base).spell}
+    assert {"pyromancy", "cryomancy", "electromancy", "restoration", "warding"} <= schools
+    text = catalog(data)
+    assert all(u.name in text for u in data.items.uniques) and all(s.name in text for s in data.items.sets)
+    assert len(data.items.sets) >= 10 and all(len(s.pieces) >= 3 for s in data.items.sets)

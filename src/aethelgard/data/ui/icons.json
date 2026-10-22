@@ -30,7 +30,8 @@
     "leather_armor": 137, "studded_leather": 145, "chain_mail": 153, "scale_mail": 185, "plate_mail": 161,
     "helm": 160, "gloves": 154, "boots": 156, "belt": 208, "ring": 198, "amulet": 212,
     "ember_wand": 105, "cinder_wand": 105, "blaze_wand": 105, "star_wand": 107, "frost_wand": 107, "rime_wand": 107,
-    "spark_rod": 106, "storm_rod": 106, "prayer_rod": 104, "ward_rod": 104, "aegis_rod": 104, "sun_rod": 104
+    "spark_rod": 106, "storm_rod": 106, "prayer_rod": 104, "ward_rod": 104, "aegis_rod": 104, "sun_rod": 104,
+    "war_sword": 99, "crystal_sword": 98, "war_bow": 114, "great_bow": 115, "flanged_mace": 111, "morning_star": 103, "great_axe": 118, "giant_sword": 100, "gothic_shield": 123, "field_plate": 161, "gothic_plate": 161, "great_helm": 168, "crown": 160, "gauntlets": 170, "greaves": 172, "heavy_belt": 208, "glacier_wand": 107, "tempest_rod": 106, "dawn_rod": 104, "sanctum_rod": 104
   },
   "consumables": { "life_potion": 64, "energy_potion": 65, "respec_scroll": 224 }
 }

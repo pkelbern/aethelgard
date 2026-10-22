@@ -954,7 +954,27 @@
    "req": {
     "int": 20
    }
-  }
+  },
+  {"id": "war_sword", "name": "War Sword", "slot": "mainhand", "itemClass": "sword", "tags": ["sword"], "level": 17, "dmgMin": 11, "dmgMax": 26, "size": [1, 3], "req": {"str": 50, "dex": 30}},
+  {"id": "crystal_sword", "name": "Crystal Sword", "slot": "mainhand", "itemClass": "sword", "tags": ["sword"], "level": 22, "dmgMin": 14, "dmgMax": 33, "size": [1, 3], "req": {"str": 62, "dex": 40}},
+  {"id": "war_bow", "name": "War Bow", "slot": "mainhand", "itemClass": "bow", "tags": ["bow"], "twoHanded": true, "rangeTiles": 16, "level": 17, "dmgMin": 10, "dmgMax": 24, "size": [2, 3], "req": {"str": 22, "dex": 45}},
+  {"id": "great_bow", "name": "Great Bow", "slot": "mainhand", "itemClass": "bow", "tags": ["bow"], "twoHanded": true, "rangeTiles": 16, "level": 22, "dmgMin": 13, "dmgMax": 30, "size": [2, 3], "req": {"str": 30, "dex": 58}},
+  {"id": "flanged_mace", "name": "Flanged Mace", "slot": "mainhand", "itemClass": "mace", "tags": ["mace"], "level": 17, "dmgMin": 10, "dmgMax": 23, "size": [1, 3], "req": {"str": 55}},
+  {"id": "morning_star", "name": "Morning Star", "slot": "mainhand", "itemClass": "mace", "tags": ["mace"], "level": 21, "dmgMin": 13, "dmgMax": 29, "size": [1, 3], "req": {"str": 68}},
+  {"id": "great_axe", "name": "Great Axe", "slot": "mainhand", "itemClass": "great", "tags": ["great", "axe"], "twoHanded": true, "attackSpeedPct": -0.15, "level": 17, "dmgMin": 19, "dmgMax": 46, "size": [2, 4], "req": {"str": 62}},
+  {"id": "giant_sword", "name": "Giant Sword", "slot": "mainhand", "itemClass": "great", "tags": ["great", "sword2h"], "twoHanded": true, "attackSpeedPct": -0.15, "level": 22, "dmgMin": 24, "dmgMax": 55, "size": [2, 4], "req": {"str": 78, "dex": 30}},
+  {"id": "gothic_shield", "name": "Gothic Shield", "slot": "offhand", "itemClass": "shield", "tags": ["shield"], "level": 17, "armor": 30, "guardEfficiency": 0.35, "blockReduction": 0.18, "size": [2, 3], "req": {"str": 58}},
+  {"id": "field_plate", "name": "Field Plate", "slot": "body", "itemClass": "body", "tags": ["armor"], "level": 18, "armor": 76, "size": [2, 3], "req": {"str": 66}},
+  {"id": "gothic_plate", "name": "Gothic Plate", "slot": "body", "itemClass": "body", "tags": ["armor"], "level": 22, "armor": 94, "size": [2, 3], "req": {"str": 82}},
+  {"id": "great_helm", "name": "Great Helm", "slot": "head", "itemClass": "helm", "tags": ["armor"], "level": 14, "armor": 9, "size": [2, 2], "req": {"str": 32}},
+  {"id": "crown", "name": "Crown", "slot": "head", "itemClass": "helm", "tags": ["armor"], "level": 21, "armor": 14, "size": [2, 2], "req": {"str": 42}},
+  {"id": "gauntlets", "name": "Gauntlets", "slot": "hands", "itemClass": "gloves", "tags": ["armor"], "level": 14, "armor": 6, "size": [2, 2], "req": {"str": 28}},
+  {"id": "greaves", "name": "Greaves", "slot": "feet", "itemClass": "boots", "tags": ["armor"], "level": 14, "armor": 6, "size": [2, 2], "req": {"str": 28}},
+  {"id": "heavy_belt", "name": "Heavy Belt", "slot": "waist", "itemClass": "belt", "tags": ["armor"], "level": 14, "armor": 5, "size": [2, 1], "req": {"str": 28}, "beltSlots": 6},
+  {"id": "glacier_wand", "name": "Glacier Wand", "slot": "wand", "itemClass": "wand", "tags": ["wand", "cold"], "level": 16, "spell": "glacial_spike", "spellLevel": 1, "size": [1, 2], "req": {"int": 35}},
+  {"id": "tempest_rod", "name": "Tempest Rod", "slot": "wand", "itemClass": "wand", "tags": ["wand", "lightning"], "level": 18, "spell": "thunderstorm", "spellLevel": 1, "size": [1, 2], "req": {"int": 38}},
+  {"id": "dawn_rod", "name": "Dawn Rod", "slot": "wand", "itemClass": "wand", "tags": ["wand", "holy"], "level": 18, "spell": "divine_aegis", "spellLevel": 1, "size": [1, 2], "req": {"int": 38}},
+  {"id": "sanctum_rod", "name": "Sanctum Rod", "slot": "wand", "itemClass": "wand", "tags": ["wand", "arcane"], "level": 16, "spell": "sanctuary", "spellLevel": 1, "size": [1, 2], "req": {"int": 35}}
  ],
  "affixes": [
   {
@@ -1296,125 +1316,80 @@
   "max": 6
  },
  "uniques": [
-  {
-   "id": "thornbite",
-   "name": "Thornbite",
-   "base": "short_sword",
-   "level": 3,
-   "props": [
-    {"stat": "damagePct", "min": 0.3, "max": 0.5},
-    {"stat": "accuracy", "min": 20, "max": 35},
-    {"stat": "lifeLeechPct", "value": 0.03},
-    {"stat": "str", "value": 5}
-   ]
-  },
-  {
-   "id": "wanderers_stride",
-   "name": "Wanderer's Stride",
-   "base": "boots",
-   "level": 5,
-   "props": [
-    {"stat": "moveSpeedPct", "value": 0.2},
-    {"stat": "dex", "min": 5, "max": 8},
-    {"stat": "magicFind", "min": 0.1, "max": 0.2},
-    {"stat": "attackSpeedPct", "value": 0.1}
-   ]
-  },
-  {
-   "id": "emberline",
-   "name": "Emberline",
-   "base": "hunters_bow",
-   "level": 6,
-   "props": [
-    {"stat": "damagePct", "min": 0.4, "max": 0.6},
-    {"stat": "fireDamage", "min": 3, "max": 8},
-    {"stat": "attackSpeedPct", "value": 0.2},
-    {"stat": "bowRangeTiles", "value": 2}
-   ]
-  },
-  {
-   "id": "oathkeepers_ward",
-   "name": "Oathkeeper's Ward",
-   "base": "round_shield",
-   "level": 8,
-   "props": [
-    {"stat": "armorPct", "min": 0.5, "max": 0.8},
-    {"stat": "guardEfficiency", "value": 0.1},
-    {"stat": "fasterBlockRecovery", "value": 0.3},
-    {"stat": "maxLife", "min": 15, "max": 25},
-    {"stat": "shieldSkills", "value": 1}
-   ]
-  },
-  {
-   "id": "cinderheart",
-   "name": "Cinderheart",
-   "base": "amulet",
-   "level": 10,
-   "props": [
-    {"stat": "pyromancySkills", "value": 1},
-    {"stat": "fireDamagePct", "min": 0.15, "max": 0.25},
-    {"stat": "int", "min": 8, "max": 12},
-    {"stat": "maxEnergy", "value": 15},
-    {"stat": "elementalResist", "value": 0.1}
-   ]
-  }
+  {"id": "hollowfang", "name": "Hollowfang", "base": "long_dagger", "level": 2, "props": [{"stat": "damagePct", "min": 0.25, "max": 0.4}, {"stat": "lifeLeechPct", "value": 0.04}, {"stat": "dex", "min": 3, "max": 6}, {"stat": "attackSpeedPct", "value": 0.1}]},
+  {"id": "thornbite", "name": "Thornbite", "base": "short_sword", "level": 3, "props": [{"stat": "damagePct", "min": 0.3, "max": 0.5}, {"stat": "accuracy", "min": 20, "max": 35}, {"stat": "lifeLeechPct", "value": 0.03}, {"stat": "str", "value": 5}]},
+  {"id": "the_reaper_s_whisper", "name": "Reaper's Whisper", "base": "gladius", "level": 6, "props": [{"stat": "damagePct", "min": 0.4, "max": 0.6}, {"stat": "accuracy", "min": 30, "max": 50}, {"stat": "swordDamagePct", "value": 0.15}, {"stat": "str", "min": 5, "max": 8}]},
+  {"id": "galebrand", "name": "Galebrand", "base": "sabre", "level": 9, "props": [{"stat": "damagePct", "min": 0.5, "max": 0.7}, {"stat": "attackSpeedPct", "value": 0.2}, {"stat": "dex", "min": 6, "max": 10}, {"stat": "lightningDamagePct", "value": 0.15}]},
+  {"id": "oath_of_the_vale", "name": "Oath of the Vale", "base": "long_sword", "level": 12, "props": [{"stat": "damagePct", "min": 0.6, "max": 0.8}, {"stat": "maxLife", "min": 20, "max": 30}, {"stat": "bladesSkills", "value": 1}, {"stat": "elementalResist", "min": 0.1, "max": 0.15}]},
+  {"id": "kingsbane", "name": "Kingsbane", "base": "bastard_sword", "level": 16, "props": [{"stat": "damagePct", "min": 0.8, "max": 1.0}, {"stat": "lifeLeechPct", "value": 0.05}, {"stat": "bladesSkills", "value": 1}, {"stat": "str", "min": 8, "max": 12}, {"stat": "fasterHitRecovery", "value": 0.2}]},
+  {"id": "rootbreaker", "name": "Rootbreaker", "base": "club", "level": 2, "props": [{"stat": "damagePct", "min": 0.3, "max": 0.45}, {"stat": "str", "min": 3, "max": 6}, {"stat": "maceDamagePct", "value": 0.1}, {"stat": "maxLife", "min": 8, "max": 12}]},
+  {"id": "bonegrinder", "name": "Bonegrinder", "base": "spiked_club", "level": 6, "props": [{"stat": "damagePct", "min": 0.4, "max": 0.6}, {"stat": "maceDamagePct", "value": 0.15}, {"stat": "vit", "min": 4, "max": 7}, {"stat": "fasterHitRecovery", "value": 0.15}]},
+  {"id": "the_reckoning", "name": "The Reckoning", "base": "mace", "level": 10, "props": [{"stat": "damagePct", "min": 0.6, "max": 0.8}, {"stat": "macesSkills", "value": 1}, {"stat": "str", "min": 6, "max": 9}, {"stat": "holyDamagePct", "value": 0.2}]},
+  {"id": "anvil_of_ruin", "name": "Anvil of Ruin", "base": "war_hammer", "level": 15, "props": [{"stat": "damagePct", "min": 0.8, "max": 1.0}, {"stat": "macesSkills", "value": 1}, {"stat": "maceDamagePct", "value": 0.2}, {"stat": "maxLife", "min": 30, "max": 45}]},
+  {"id": "woodsplitter", "name": "Woodsplitter", "base": "battle_axe", "level": 4, "props": [{"stat": "damagePct", "min": 0.35, "max": 0.5}, {"stat": "greatDamagePct", "value": 0.1}, {"stat": "str", "min": 5, "max": 8}, {"stat": "lifeRegenPerSecond", "min": 0.5, "max": 1.0}]},
+  {"id": "riverwarden", "name": "Riverwarden", "base": "zweihander", "level": 7, "props": [{"stat": "damagePct", "min": 0.45, "max": 0.65}, {"stat": "twoHandedSkills", "value": 1}, {"stat": "accuracy", "min": 30, "max": 45}, {"stat": "vit", "min": 4, "max": 7}]},
+  {"id": "thunderfall", "name": "Thunderfall", "base": "maul", "level": 11, "props": [{"stat": "damagePct", "min": 0.6, "max": 0.8}, {"stat": "greatDamagePct", "value": 0.2}, {"stat": "str", "min": 8, "max": 12}, {"stat": "lightningDamagePct", "value": 0.2}]},
+  {"id": "the_last_vigil", "name": "The Last Vigil", "base": "claymore", "level": 15, "props": [{"stat": "damagePct", "min": 0.8, "max": 1.05}, {"stat": "twoHandedSkills", "value": 1}, {"stat": "lifeLeechPct", "value": 0.04}, {"stat": "maxLife", "min": 25, "max": 40}]},
+  {"id": "whisperwind", "name": "Whisperwind", "base": "short_bow", "level": 2, "props": [{"stat": "damagePct", "min": 0.3, "max": 0.45}, {"stat": "dex", "min": 3, "max": 6}, {"stat": "bowRangeTiles", "value": 1}, {"stat": "moveSpeedPct", "value": 0.05}]},
+  {"id": "emberline", "name": "Emberline", "base": "hunters_bow", "level": 6, "props": [{"stat": "damagePct", "min": 0.4, "max": 0.6}, {"stat": "fireDamage", "min": 3, "max": 8}, {"stat": "attackSpeedPct", "value": 0.2}, {"stat": "bowRangeTiles", "value": 2}]},
+  {"id": "ravens_call", "name": "Raven's Call", "base": "long_bow", "level": 11, "props": [{"stat": "damagePct", "min": 0.6, "max": 0.8}, {"stat": "bowsSkills", "value": 1}, {"stat": "dex", "min": 6, "max": 10}, {"stat": "attackSpeedPct", "value": 0.1}]},
+  {"id": "skyrender", "name": "Skyrender", "base": "composite_bow", "level": 15, "props": [{"stat": "damagePct", "min": 0.8, "max": 1.0}, {"stat": "bowsSkills", "value": 1}, {"stat": "bowRangeTiles", "value": 2}, {"stat": "lightningDamagePct", "min": 0.15, "max": 0.25}]},
+  {"id": "bark_of_the_old_oak", "name": "Bark of the Old Oak", "base": "buckler", "level": 3, "props": [{"stat": "armorPct", "min": 0.3, "max": 0.5}, {"stat": "guardEfficiency", "value": 0.08}, {"stat": "vit", "min": 3, "max": 5}, {"stat": "lifeRegenPerSecond", "value": 0.5}]},
+  {"id": "oathkeepers_ward", "name": "Oathkeeper's Ward", "base": "round_shield", "level": 8, "props": [{"stat": "armorPct", "min": 0.5, "max": 0.8}, {"stat": "guardEfficiency", "value": 0.1}, {"stat": "fasterBlockRecovery", "value": 0.3}, {"stat": "maxLife", "min": 15, "max": 25}, {"stat": "shieldSkills", "value": 1}]},
+  {"id": "gravewall", "name": "Gravewall", "base": "kite_shield", "level": 11, "props": [{"stat": "armorPct", "min": 0.5, "max": 0.8}, {"stat": "blockReduction", "value": 0.08}, {"stat": "shieldSkills", "value": 1}, {"stat": "elementalResist", "min": 0.1, "max": 0.2}]},
+  {"id": "the_unbroken", "name": "The Unbroken", "base": "tower_shield", "level": 15, "props": [{"stat": "armorPct", "min": 0.7, "max": 1.0}, {"stat": "guardEfficiency", "value": 0.12}, {"stat": "shieldSkills", "value": 1}, {"stat": "maxLife", "min": 30, "max": 45}, {"stat": "fasterBlockRecovery", "value": 0.2}]},
+  {"id": "poachers_hide", "name": "Poacher's Hide", "base": "leather_armor", "level": 3, "props": [{"stat": "armorPct", "min": 0.4, "max": 0.6}, {"stat": "dex", "min": 3, "max": 6}, {"stat": "moveSpeedPct", "value": 0.05}, {"stat": "maxLife", "min": 8, "max": 12}]},
+  {"id": "vagrants_coat", "name": "Vagrant's Coat", "base": "studded_leather", "level": 6, "props": [{"stat": "armorPct", "min": 0.5, "max": 0.7}, {"stat": "fasterHitRecovery", "value": 0.2}, {"stat": "vit", "min": 4, "max": 7}, {"stat": "magicFind", "value": 0.15}]},
+  {"id": "the_iron_chorus", "name": "The Iron Chorus", "base": "chain_mail", "level": 10, "props": [{"stat": "armorPct", "min": 0.6, "max": 0.9}, {"stat": "maxLife", "min": 20, "max": 30}, {"stat": "str", "min": 5, "max": 8}, {"stat": "elementalResist", "min": 0.1, "max": 0.15}]},
+  {"id": "dragonscale_vest", "name": "Dragonscale Vest", "base": "scale_mail", "level": 13, "props": [{"stat": "armorPct", "min": 0.7, "max": 1.0}, {"stat": "elementalResist", "min": 0.15, "max": 0.25}, {"stat": "maxLife", "min": 25, "max": 35}, {"stat": "fireDamagePct", "value": 0.1}]},
+  {"id": "bulwark_of_ages", "name": "Bulwark of Ages", "base": "plate_mail", "level": 17, "props": [{"stat": "armorPct", "min": 0.9, "max": 1.2}, {"stat": "maxLife", "min": 35, "max": 50}, {"stat": "fasterHitRecovery", "value": 0.25}, {"stat": "vit", "min": 8, "max": 12}]},
+  {"id": "crown_of_thorns", "name": "Coif of Thorns", "base": "helm", "level": 4, "props": [{"stat": "armorPct", "min": 0.4, "max": 0.6}, {"stat": "lifeLeechPct", "min": 0.02, "max": 0.03}, {"stat": "str", "min": 3, "max": 5}, {"stat": "maxLife", "value": 10}]},
+  {"id": "handsome_reward", "name": "Grip of the Hangman", "base": "gloves", "level": 4, "props": [{"stat": "armorPct", "min": 0.3, "max": 0.5}, {"stat": "attackSpeedPct", "value": 0.1}, {"stat": "str", "min": 3, "max": 5}, {"stat": "lifeLeechPct", "value": 0.02}]},
+  {"id": "wanderers_stride", "name": "Wanderer's Stride", "base": "boots", "level": 5, "props": [{"stat": "moveSpeedPct", "value": 0.2}, {"stat": "dex", "min": 5, "max": 8}, {"stat": "magicFind", "min": 0.1, "max": 0.2}, {"stat": "attackSpeedPct", "value": 0.1}]},
+  {"id": "girdle_of_the_tinker", "name": "Tinker's Girdle", "base": "belt", "level": 5, "props": [{"stat": "armorPct", "min": 0.3, "max": 0.5}, {"stat": "vit", "min": 4, "max": 6}, {"stat": "maxLife", "value": 15}, {"stat": "magicFind", "min": 0.1, "max": 0.15}]},
+  {"id": "eye_of_the_storm", "name": "Eye of the Storm", "base": "ring", "level": 6, "props": [{"stat": "int", "min": 4, "max": 7}, {"stat": "lightningDamagePct", "value": 0.2}, {"stat": "maxEnergy", "min": 10, "max": 15}, {"stat": "fasterCastPct", "value": 0.1}]},
+  {"id": "band_of_the_wolf", "name": "Band of the Wolf", "base": "ring", "level": 8, "props": [{"stat": "str", "min": 4, "max": 7}, {"stat": "dex", "min": 4, "max": 7}, {"stat": "lifeLeechPct", "value": 0.03}, {"stat": "accuracy", "min": 20, "max": 35}]},
+  {"id": "the_grey_tear", "name": "The Grey Tear", "base": "amulet", "level": 9, "props": [{"stat": "elementalResist", "min": 0.15, "max": 0.25}, {"stat": "maxLife", "min": 15, "max": 25}, {"stat": "magicFind", "min": 0.1, "max": 0.2}, {"stat": "vit", "value": 5}]},
+  {"id": "cinderheart", "name": "Cinderheart", "base": "amulet", "level": 10, "props": [{"stat": "pyromancySkills", "value": 1}, {"stat": "fireDamagePct", "min": 0.15, "max": 0.25}, {"stat": "int", "min": 8, "max": 12}, {"stat": "maxEnergy", "value": 15}, {"stat": "elementalResist", "value": 0.1}]},
+  {"id": "kindlewhisper", "name": "Kindlewhisper", "base": "ember_wand", "level": 3, "props": [{"stat": "pyromancySkills", "value": 1}, {"stat": "fireDamagePct", "min": 0.2, "max": 0.3}, {"stat": "int", "min": 3, "max": 6}, {"stat": "maxEnergy", "min": 8, "max": 12}]},
+  {"id": "frostbloom", "name": "Frostbloom", "base": "frost_wand", "level": 5, "props": [{"stat": "cryomancySkills", "value": 1}, {"stat": "coldDamagePct", "min": 0.2, "max": 0.3}, {"stat": "int", "min": 4, "max": 7}, {"stat": "maxEnergy", "min": 10, "max": 15}]},
+  {"id": "the_spark_of_eld", "name": "Spark of Eld", "base": "spark_rod", "level": 5, "props": [{"stat": "electromancySkills", "value": 1}, {"stat": "lightningDamagePct", "min": 0.2, "max": 0.3}, {"stat": "fasterCastPct", "value": 0.1}, {"stat": "int", "min": 4, "max": 7}]},
+  {"id": "hearthlight", "name": "Hearthlight", "base": "prayer_rod", "level": 4, "props": [{"stat": "restorationSkills", "value": 1}, {"stat": "holyDamagePct", "min": 0.2, "max": 0.3}, {"stat": "vit", "min": 4, "max": 7}, {"stat": "lifeRegenPerSecond", "value": 1.0}]},
+  {"id": "stillwater", "name": "Stillwater", "base": "ward_rod", "level": 4, "props": [{"stat": "wardingSkills", "value": 1}, {"stat": "elementalResist", "min": 0.1, "max": 0.2}, {"stat": "maxLife", "min": 10, "max": 20}, {"stat": "int", "min": 3, "max": 6}]},
+  {"id": "sunreaver", "name": "Sunreaver", "base": "war_sword", "level": 19, "props": [{"stat": "damagePct", "min": 0.9, "max": 1.2}, {"stat": "bladesSkills", "value": 1}, {"stat": "fireDamage", "min": 6, "max": 12}, {"stat": "str", "min": 8, "max": 12}, {"stat": "attackSpeedPct", "value": 0.1}]},
+  {"id": "glassmind", "name": "Glassmind", "base": "crystal_sword", "level": 24, "props": [{"stat": "damagePct", "min": 1.0, "max": 1.4}, {"stat": "bladesSkills", "value": 2}, {"stat": "dex", "min": 10, "max": 15}, {"stat": "lifeLeechPct", "value": 0.05}]},
+  {"id": "dune_whisper", "name": "Dune Whisper", "base": "war_bow", "level": 19, "props": [{"stat": "damagePct", "min": 0.9, "max": 1.2}, {"stat": "bowsSkills", "value": 1}, {"stat": "attackSpeedPct", "value": 0.15}, {"stat": "dex", "min": 8, "max": 12}]},
+  {"id": "horizon", "name": "The Horizon", "base": "great_bow", "level": 24, "props": [{"stat": "damagePct", "min": 1.0, "max": 1.4}, {"stat": "bowsSkills", "value": 2}, {"stat": "bowRangeTiles", "value": 2}, {"stat": "fireDamage", "min": 8, "max": 15}]},
+  {"id": "templars_judgment", "name": "Templar's Judgment", "base": "flanged_mace", "level": 19, "props": [{"stat": "damagePct", "min": 0.9, "max": 1.2}, {"stat": "macesSkills", "value": 1}, {"stat": "holyDamagePct", "value": 0.25}, {"stat": "maxLife", "min": 30, "max": 45}]},
+  {"id": "the_falling_star", "name": "The Falling Star", "base": "morning_star", "level": 23, "props": [{"stat": "damagePct", "min": 1.0, "max": 1.4}, {"stat": "macesSkills", "value": 2}, {"stat": "maceDamagePct", "value": 0.25}, {"stat": "str", "min": 10, "max": 15}]},
+  {"id": "ashcleaver", "name": "Ashcleaver", "base": "great_axe", "level": 19, "props": [{"stat": "damagePct", "min": 1.0, "max": 1.3}, {"stat": "twoHandedSkills", "value": 1}, {"stat": "lifeLeechPct", "value": 0.05}, {"stat": "str", "min": 10, "max": 14}]},
+  {"id": "titans_oath", "name": "Titan's Oath", "base": "giant_sword", "level": 24, "props": [{"stat": "damagePct", "min": 1.1, "max": 1.5}, {"stat": "twoHandedSkills", "value": 2}, {"stat": "greatDamagePct", "value": 0.25}, {"stat": "maxLife", "min": 40, "max": 60}]},
+  {"id": "sandwall", "name": "Sandwall", "base": "gothic_shield", "level": 19, "props": [{"stat": "armorPct", "min": 0.8, "max": 1.1}, {"stat": "shieldSkills", "value": 1}, {"stat": "guardEfficiency", "value": 0.1}, {"stat": "elementalResist", "min": 0.2, "max": 0.3}]},
+  {"id": "the_sun_kings_mail", "name": "The Sun King's Mail", "base": "field_plate", "level": 20, "props": [{"stat": "armorPct", "min": 1.0, "max": 1.3}, {"stat": "maxLife", "min": 40, "max": 60}, {"stat": "fireDamagePct", "value": 0.15}, {"stat": "elementalResist", "min": 0.15, "max": 0.25}]},
+  {"id": "tyrants_shell", "name": "Tyrant's Shell", "base": "gothic_plate", "level": 24, "props": [{"stat": "armorPct", "min": 1.1, "max": 1.5}, {"stat": "maxLife", "min": 50, "max": 70}, {"stat": "fasterHitRecovery", "value": 0.3}, {"stat": "str", "min": 10, "max": 15}, {"stat": "physicalReduction", "value": 0.05}]},
+  {"id": "visage_of_the_dunes", "name": "Visage of the Dunes", "base": "great_helm", "level": 16, "props": [{"stat": "armorPct", "min": 0.6, "max": 0.9}, {"stat": "maxLife", "min": 20, "max": 30}, {"stat": "magicFind", "min": 0.15, "max": 0.25}, {"stat": "dex", "value": 6}]},
+  {"id": "the_ash_crown", "name": "The Ash Crown", "base": "crown", "level": 23, "props": [{"stat": "armorPct", "min": 0.8, "max": 1.1}, {"stat": "int", "min": 10, "max": 15}, {"stat": "maxEnergy", "min": 20, "max": 30}, {"stat": "fasterCastPct", "value": 0.15}, {"stat": "pyromancySkills", "value": 1}]},
+  {"id": "ironclasp", "name": "Ironclasp", "base": "gauntlets", "level": 16, "props": [{"stat": "armorPct", "min": 0.6, "max": 0.9}, {"stat": "attackSpeedPct", "value": 0.15}, {"stat": "str", "min": 6, "max": 10}, {"stat": "lifeLeechPct", "value": 0.03}]},
+  {"id": "striders_of_kharos", "name": "Striders of Kharos", "base": "greaves", "level": 16, "props": [{"stat": "armorPct", "min": 0.6, "max": 0.9}, {"stat": "moveSpeedPct", "value": 0.2}, {"stat": "vit", "min": 6, "max": 10}, {"stat": "fasterHitRecovery", "value": 0.15}]},
+  {"id": "the_coil", "name": "The Coil", "base": "heavy_belt", "level": 16, "props": [{"stat": "armorPct", "min": 0.5, "max": 0.8}, {"stat": "maxLife", "min": 25, "max": 40}, {"stat": "str", "min": 6, "max": 10}, {"stat": "elementalResist", "min": 0.1, "max": 0.15}]},
+  {"id": "glacial_heart", "name": "Glacial Heart", "base": "glacier_wand", "level": 18, "props": [{"stat": "cryomancySkills", "value": 2}, {"stat": "coldDamagePct", "min": 0.3, "max": 0.45}, {"stat": "int", "min": 8, "max": 12}, {"stat": "fasterCastPct", "value": 0.1}]},
+  {"id": "skybreaker", "name": "Skybreaker", "base": "tempest_rod", "level": 20, "props": [{"stat": "electromancySkills", "value": 2}, {"stat": "lightningDamagePct", "min": 0.3, "max": 0.45}, {"stat": "maxEnergy", "min": 20, "max": 30}, {"stat": "fasterCastPct", "value": 0.15}]},
+  {"id": "first_light", "name": "First Light", "base": "dawn_rod", "level": 20, "props": [{"stat": "restorationSkills", "value": 2}, {"stat": "holyDamagePct", "min": 0.3, "max": 0.45}, {"stat": "maxLife", "min": 30, "max": 45}, {"stat": "int", "min": 8, "max": 12}]},
+  {"id": "the_quiet_bastion", "name": "The Quiet Bastion", "base": "sanctum_rod", "level": 18, "props": [{"stat": "wardingSkills", "value": 2}, {"stat": "elementalResist", "min": 0.2, "max": 0.3}, {"stat": "maxLife", "min": 30, "max": 45}, {"stat": "int", "min": 8, "max": 12}]},
+  {"id": "seal_of_the_wastes", "name": "Seal of the Wastes", "base": "ring", "level": 18, "props": [{"stat": "damagePct", "min": 0.15, "max": 0.25}, {"stat": "maxLife", "min": 20, "max": 30}, {"stat": "elementalResist", "min": 0.1, "max": 0.15}, {"stat": "magicFind", "value": 0.15}]},
+  {"id": "the_scorpions_tail", "name": "The Scorpion's Tail", "base": "amulet", "level": 20, "props": [{"stat": "bladesSkills", "value": 1}, {"stat": "bowsSkills", "value": 1}, {"stat": "dex", "min": 8, "max": 12}, {"stat": "attackSpeedPct", "value": 0.1}, {"stat": "lifeLeechPct", "min": 0.02, "max": 0.04}]},
+  {"id": "tear_of_the_oasis", "name": "Tear of the Oasis", "base": "amulet", "level": 22, "props": [{"stat": "pyromancySkills", "value": 1}, {"stat": "cryomancySkills", "value": 1}, {"stat": "electromancySkills", "value": 1}, {"stat": "int", "min": 10, "max": 15}, {"stat": "maxEnergy", "min": 20, "max": 35}]}
  ],
  "sets": [
-  {
-   "id": "sentinels_vigil",
-   "name": "Sentinel's Vigil",
-   "pieces": [
-    {
-     "id": "sentinels_visor",
-     "name": "Sentinel's Visor",
-     "base": "helm",
-     "level": 4,
-     "props": [{"stat": "armorPct", "min": 0.3, "max": 0.5}, {"stat": "vit", "value": 5}]
-    },
-    {
-     "id": "sentinels_hauberk",
-     "name": "Sentinel's Hauberk",
-     "base": "chain_mail",
-     "level": 9,
-     "props": [{"stat": "armorPct", "min": 0.4, "max": 0.6}, {"stat": "maxLife", "value": 20}]
-    },
-    {
-     "id": "sentinels_bulwark",
-     "name": "Sentinel's Bulwark",
-     "base": "kite_shield",
-     "level": 11,
-     "props": [{"stat": "guardEfficiency", "value": 0.1}, {"stat": "blockReduction", "value": 0.05}, {"stat": "str", "min": 5, "max": 8}]
-    }
-   ],
-   "bonuses": [{"pieces": 2, "stats": {"maxLife": 20}}, {"pieces": 3, "stats": {"fasterHitRecovery": 0.2, "shieldSkills": 1, "elementalResist": 0.15}}]
-  },
-  {
-   "id": "grey_fletcher",
-   "name": "Grey Fletcher",
-   "pieces": [
-    {
-     "id": "fletchers_bracers",
-     "name": "Fletcher's Bracers",
-     "base": "gloves",
-     "level": 6,
-     "props": [{"stat": "attackSpeedPct", "value": 0.1}, {"stat": "dex", "min": 3, "max": 5}]
-    },
-    {
-     "id": "fletchers_treads",
-     "name": "Fletcher's Treads",
-     "base": "boots",
-     "level": 6,
-     "props": [{"stat": "moveSpeedPct", "value": 0.1}, {"stat": "dex", "min": 3, "max": 5}]
-    },
-    {
-     "id": "fletchers_recurve",
-     "name": "Fletcher's Recurve",
-     "base": "long_bow",
-     "level": 9,
-     "props": [{"stat": "damagePct", "min": 0.3, "max": 0.5}, {"stat": "accuracy", "value": 30}]
-    }
-   ],
-   "bonuses": [{"pieces": 2, "stats": {"accuracy": 40}}, {"pieces": 3, "stats": {"bowsSkills": 1, "attackSpeedPct": 0.1, "moveSpeedPct": 0.05}}]
-  }
+  {"id": "sentinels_vigil", "name": "Sentinel's Vigil", "pieces": [{"id": "sentinels_visor", "name": "Sentinel's Visor", "base": "helm", "level": 4, "props": [{"stat": "armorPct", "min": 0.3, "max": 0.5}, {"stat": "vit", "value": 5}]}, {"id": "sentinels_hauberk", "name": "Sentinel's Hauberk", "base": "chain_mail", "level": 9, "props": [{"stat": "armorPct", "min": 0.4, "max": 0.6}, {"stat": "maxLife", "value": 20}]}, {"id": "sentinels_bulwark", "name": "Sentinel's Bulwark", "base": "kite_shield", "level": 11, "props": [{"stat": "guardEfficiency", "value": 0.1}, {"stat": "blockReduction", "value": 0.05}, {"stat": "str", "min": 5, "max": 8}]}], "bonuses": [{"pieces": 2, "stats": {"maxLife": 20}}, {"pieces": 3, "stats": {"fasterHitRecovery": 0.2, "shieldSkills": 1, "elementalResist": 0.15}}]},
+  {"id": "grey_fletcher", "name": "Grey Fletcher", "pieces": [{"id": "fletchers_bracers", "name": "Fletcher's Bracers", "base": "gloves", "level": 6, "props": [{"stat": "attackSpeedPct", "value": 0.1}, {"stat": "dex", "min": 3, "max": 5}]}, {"id": "fletchers_treads", "name": "Fletcher's Treads", "base": "boots", "level": 6, "props": [{"stat": "moveSpeedPct", "value": 0.1}, {"stat": "dex", "min": 3, "max": 5}]}, {"id": "fletchers_recurve", "name": "Fletcher's Recurve", "base": "long_bow", "level": 9, "props": [{"stat": "damagePct", "min": 0.3, "max": 0.5}, {"stat": "accuracy", "value": 30}]}], "bonuses": [{"pieces": 2, "stats": {"accuracy": 40}}, {"pieces": 3, "stats": {"bowsSkills": 1, "attackSpeedPct": 0.1, "moveSpeedPct": 0.05}}]},
+  {"id": "emberwrights_regalia", "name": "Emberwright's Regalia", "pieces": [{"id": "emberwrights_circlet", "name": "Emberwright's Circlet", "base": "helm", "level": 5, "props": [{"stat": "int", "min": 4, "max": 6}, {"stat": "maxEnergy", "value": 10}]}, {"id": "emberwrights_robe", "name": "Emberwright's Robe", "base": "studded_leather", "level": 7, "props": [{"stat": "armorPct", "min": 0.3, "max": 0.5}, {"stat": "fireDamagePct", "min": 0.1, "max": 0.15}]}, {"id": "emberwrights_kindler", "name": "Emberwright's Kindler", "base": "cinder_wand", "level": 8, "props": [{"stat": "pyromancySkills", "value": 1}, {"stat": "int", "min": 3, "max": 5}]}], "bonuses": [{"pieces": 2, "stats": {"fasterCastPct": 0.1, "maxEnergy": 15}}, {"pieces": 3, "stats": {"pyromancySkills": 1, "fireDamagePct": 0.2, "elementalResist": 0.1}}]},
+  {"id": "duelists_grace", "name": "Duelist's Grace", "pieces": [{"id": "duelists_needle", "name": "Duelist's Needle", "base": "sabre", "level": 8, "props": [{"stat": "damagePct", "min": 0.3, "max": 0.45}, {"stat": "attackSpeedPct", "value": 0.1}]}, {"id": "duelists_cuffs", "name": "Duelist's Cuffs", "base": "gloves", "level": 6, "props": [{"stat": "dex", "min": 4, "max": 6}, {"stat": "accuracy", "value": 25}]}, {"id": "duelists_step", "name": "Duelist's Step", "base": "boots", "level": 6, "props": [{"stat": "moveSpeedPct", "value": 0.1}, {"stat": "dex", "min": 3, "max": 5}]}, {"id": "duelists_signet", "name": "Duelist's Signet", "base": "ring", "level": 8, "props": [{"stat": "damagePct", "min": 0.1, "max": 0.15}, {"stat": "lifeLeechPct", "value": 0.02}]}], "bonuses": [{"pieces": 2, "stats": {"attackSpeedPct": 0.1}}, {"pieces": 3, "stats": {"swordDamagePct": 0.15, "dex": 8}}, {"pieces": 4, "stats": {"bladesSkills": 1, "fasterHitRecovery": 0.2}}]},
+  {"id": "bonecrushers_garb", "name": "Bonecrusher's Garb", "pieces": [{"id": "bonecrushers_knob", "name": "Bonecrusher's Knob", "base": "mace", "level": 9, "props": [{"stat": "damagePct", "min": 0.35, "max": 0.5}, {"stat": "maceDamagePct", "value": 0.1}]}, {"id": "bonecrushers_cap", "name": "Bonecrusher's Cap", "base": "helm", "level": 7, "props": [{"stat": "armorPct", "min": 0.3, "max": 0.5}, {"stat": "str", "min": 3, "max": 5}]}, {"id": "bonecrushers_cinch", "name": "Bonecrusher's Cinch", "base": "belt", "level": 7, "props": [{"stat": "maxLife", "min": 12, "max": 18}, {"stat": "vit", "value": 4}]}], "bonuses": [{"pieces": 2, "stats": {"maxLife": 20}}, {"pieces": 3, "stats": {"macesSkills": 1, "maceDamagePct": 0.2, "fasterHitRecovery": 0.15}}]},
+  {"id": "stormcallers_vestments", "name": "Stormcaller's Vestments", "pieces": [{"id": "stormcallers_rod", "name": "Stormcaller's Rod", "base": "storm_rod", "level": 10, "props": [{"stat": "electromancySkills", "value": 1}, {"stat": "lightningDamagePct", "min": 0.15, "max": 0.2}]}, {"id": "stormcallers_hood", "name": "Stormcaller's Hood", "base": "helm", "level": 9, "props": [{"stat": "int", "min": 4, "max": 6}, {"stat": "maxEnergy", "value": 15}]}, {"id": "stormcallers_charm", "name": "Stormcaller's Charm", "base": "amulet", "level": 11, "props": [{"stat": "int", "min": 4, "max": 6}, {"stat": "fasterCastPct", "value": 0.1}]}], "bonuses": [{"pieces": 2, "stats": {"lightningDamagePct": 0.15}}, {"pieces": 3, "stats": {"electromancySkills": 1, "maxEnergy": 25, "elementalResist": 0.15}}]},
+  {"id": "ironhide", "name": "Ironhide", "pieces": [{"id": "ironhide_plate", "name": "Ironhide Plate", "base": "plate_mail", "level": 16, "props": [{"stat": "armorPct", "min": 0.5, "max": 0.7}, {"stat": "maxLife", "min": 20, "max": 30}]}, {"id": "ironhide_grips", "name": "Ironhide Grips", "base": "gauntlets", "level": 15, "props": [{"stat": "armorPct", "min": 0.4, "max": 0.6}, {"stat": "str", "min": 4, "max": 6}]}, {"id": "ironhide_girth", "name": "Ironhide Girth", "base": "heavy_belt", "level": 15, "props": [{"stat": "maxLife", "min": 15, "max": 25}, {"stat": "vit", "min": 4, "max": 6}]}], "bonuses": [{"pieces": 2, "stats": {"armorPct": 0.3, "fasterHitRecovery": 0.15}}, {"pieces": 3, "stats": {"maxLife": 40, "elementalResist": 0.15, "physicalReduction": 0.05}}]},
+  {"id": "wardens_of_the_pass", "name": "Wardens of the Pass", "pieces": [{"id": "wardens_helm", "name": "Warden's Great Helm", "base": "great_helm", "level": 16, "props": [{"stat": "armorPct", "min": 0.5, "max": 0.7}, {"stat": "vit", "min": 5, "max": 8}]}, {"id": "wardens_plate", "name": "Warden's Field Plate", "base": "field_plate", "level": 19, "props": [{"stat": "armorPct", "min": 0.6, "max": 0.8}, {"stat": "maxLife", "min": 25, "max": 35}]}, {"id": "wardens_aegis", "name": "Warden's Aegis", "base": "gothic_shield", "level": 18, "props": [{"stat": "guardEfficiency", "value": 0.1}, {"stat": "blockReduction", "min": 0.05, "max": 0.08}]}, {"id": "wardens_greaves", "name": "Warden's Greaves", "base": "greaves", "level": 16, "props": [{"stat": "moveSpeedPct", "value": 0.1}, {"stat": "vit", "min": 4, "max": 6}]}], "bonuses": [{"pieces": 2, "stats": {"maxLife": 30}}, {"pieces": 3, "stats": {"shieldSkills": 1, "elementalResist": 0.2}}, {"pieces": 4, "stats": {"armorPct": 0.5, "fasterBlockRecovery": 0.3, "physicalReduction": 0.05}}]},
+  {"id": "nomads_hunt", "name": "Nomad's Hunt", "pieces": [{"id": "nomads_bow", "name": "Nomad's Bow", "base": "war_bow", "level": 19, "props": [{"stat": "damagePct", "min": 0.5, "max": 0.7}, {"stat": "attackSpeedPct", "value": 0.1}]}, {"id": "nomads_wraps", "name": "Nomad's Wraps", "base": "gauntlets", "level": 16, "props": [{"stat": "dex", "min": 5, "max": 8}, {"stat": "accuracy", "value": 40}]}, {"id": "nomads_sandals", "name": "Nomad's Sandals", "base": "greaves", "level": 16, "props": [{"stat": "moveSpeedPct", "value": 0.15}, {"stat": "dex", "min": 4, "max": 6}]}, {"id": "nomads_eye", "name": "Nomad's Eye", "base": "ring", "level": 18, "props": [{"stat": "dex", "min": 4, "max": 6}, {"stat": "magicFind", "value": 0.15}]}], "bonuses": [{"pieces": 2, "stats": {"bowDamagePct": 0.15}}, {"pieces": 3, "stats": {"bowsSkills": 1, "moveSpeedPct": 0.05}}, {"pieces": 4, "stats": {"attackSpeedPct": 0.15, "elementalResist": 0.15}}]},
+  {"id": "relics_of_the_sun_kings", "name": "Relics of the Sun Kings", "pieces": [{"id": "sun_kings_crown", "name": "Sun King's Crown", "base": "crown", "level": 22, "props": [{"stat": "int", "min": 6, "max": 10}, {"stat": "maxEnergy", "value": 20}]}, {"id": "sun_kings_scepter", "name": "Sun King's Scepter", "base": "dawn_rod", "level": 21, "props": [{"stat": "restorationSkills", "value": 1}, {"stat": "holyDamagePct", "min": 0.2, "max": 0.3}]}, {"id": "sun_kings_seal", "name": "Sun King's Seal", "base": "amulet", "level": 22, "props": [{"stat": "maxLife", "min": 20, "max": 30}, {"stat": "vit", "min": 5, "max": 8}]}], "bonuses": [{"pieces": 2, "stats": {"holyDamagePct": 0.2, "lifeRegenPerSecond": 2.0}}, {"pieces": 3, "stats": {"restorationSkills": 1, "wardingSkills": 1, "elementalResist": 0.2, "maxLife": 40}}]}
  ]
 }

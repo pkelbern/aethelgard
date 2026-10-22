@@ -208,6 +208,9 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
 - [x] **M6-08** Baú compartilhado no núcleo _(código, ~0.5 d)_  
   SharedStash: arquivo próprio, versionado, lido por todos os personagens; testes de ida e volta.
 
+- [ ] **M6-05** Catálogo de únicos e sets _(design/dados)_ — **escrito, validar**  
+  63 únicos (todo item base não-varinha tem o seu, mais varinhas de cada escola, anéis e amuletos) e 10 sets (Sentinel's Vigil, Grey Fletcher, Emberwright's Regalia, Duelist's Grace, Bonecrusher's Garb, Stormcaller's Vestments, Ironhide, Wardens of the Pass, Nomad's Hunt, Relics of the Sun Kings) em items.json; lista em docs/catalogo_itens.md (`python -m aethelgard.tools.item_catalog`). 20 bases novas do Ato 2 (níveis 14–24: War/Crystal Sword, War/Great Bow, Flanged Mace, Morning Star, Great Axe, Giant Sword, Gothic Shield, Field/Gothic Plate, Great Helm, Crown, Gauntlets, Greaves, Heavy Belt e varinhas Glacier, Tempest, Dawn, Sanctum). Validar: força dos únicos frente aos raros do mesmo nível.
+
 ## M7 – Vertical slice
 
 **Pronto quando:** 5 pessoas de fora terminam o Ato 1; feedback coletado
