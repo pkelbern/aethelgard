@@ -1,0 +1,22 @@
+{
+  "_comment": "Gamepad (GDD 12.3, M0-07/M9-02), by SDL game-controller button names (pygame CONTROLLER_BUTTON_*, lower case, without the prefix). Left stick walks, the right stick aims (guard and ground skills). skillBar = the bar slots in order: X, Y, B, right shoulder; with the left shoulder held, X and Y are slots 5 and 6. a = attack the nearest monster, or pick up / talk to what is next to you. Menus: the d-pad moves, a presses, b goes back. deadZone and aimTiles are fractions of the stick and tiles in front of the hero.",
+  "skillBar": ["x", "y", "b", "rightshoulder"],
+  "shiftedBar": ["x", "y"],
+  "shift": "leftshoulder",
+  "attack": "a",
+  "guardTrigger": "triggerleft",
+  "lifePotion": "dpad_up",
+  "energyPotion": "dpad_down",
+  "townPortal": "dpad_left",
+  "standStill": "dpad_right",
+  "menu": "start",
+  "map": "back",
+  "inventory": "rightstick",
+  "skillTrees": "leftstick",
+  "deadZone": 0.25,
+  "triggerPress": 0.5,
+  "stepTiles": 1.2,
+  "aimTiles": 5.0,
+  "attackReachTiles": 6.0,
+  "pickupReachTiles": 2.5
+}

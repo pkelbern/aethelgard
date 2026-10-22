@@ -38,6 +38,7 @@ class Panel:
         self.g = game
         self.open = False
         self._buttons: dict[str, pygame.Rect] = {}
+        self.focus: str | None = None  # button chosen with the arrows / d-pad
 
     def items(self) -> list[tuple[str, str, bool]]:
         """(id, label, enabled) of each button, top to bottom."""
@@ -61,15 +62,35 @@ class Panel:
         if not self.open:
             return False
         if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-            self.layout()
-            enabled = {bid for bid, _, ok in self.items() if ok}
-            for bid, r in self._buttons.items():
-                if r.collidepoint(ev.pos) and bid in enabled:
+            for bid in self.enabled():
+                if self._buttons[bid].collidepoint(ev.pos):
                     self.press(bid)
                     break
         elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
             self.back()
+        elif ev.type == pygame.KEYDOWN and ev.key in (pygame.K_UP, pygame.K_DOWN):
+            self.move_focus(-1 if ev.key == pygame.K_UP else 1)
+        elif ev.type == pygame.KEYDOWN and ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            self.press_focus()
         return ev.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.KEYDOWN, pygame.KEYUP)
+
+    # ---- the keyboard's arrows and the gamepad's d-pad walk through the buttons
+
+    def enabled(self) -> list[str]:
+        """The buttons that can be pressed now, top to bottom."""
+        self.layout()
+        off = {bid for bid, _, ok in self.items() if not ok}
+        return [bid for bid in self._buttons if bid not in off]
+
+    def move_focus(self, step: int) -> None:
+        ids = self.enabled()
+        if ids:
+            i = ids.index(self.focus) if self.focus in ids else (-1 if step > 0 else 0)
+            self.focus = ids[(i + step) % len(ids)]
+
+    def press_focus(self) -> None:
+        if self.focus in self.enabled():
+            self.press(self.focus)
 
     def press(self, bid: str) -> None: ...
 
@@ -91,6 +112,8 @@ class Panel:
         for bid, label, ok in self.items():
             draw_button(screen, self.g.fonts["small"], self._buttons[bid], label, ok)
         self.draw_extra(screen)
+        if self.focus in self._buttons:
+            pygame.draw.rect(screen, C.GOLD, self._buttons[self.focus].inflate(6, 6), 2, border_radius=5)
 
     def draw_extra(self, screen: pygame.Surface) -> None: ...
 
@@ -149,13 +172,6 @@ class OptionsScreen(Panel):
             for bid in ("music", "sfx"):
                 if self._buttons[bid].collidepoint(ev.pos):
                     self._volume(bid, -0.1)
-            return True
-        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-            self.layout()
-            for bid, r in self._buttons.items():
-                if r.collidepoint(ev.pos):
-                    self.press(bid)
-                    break
             return True
         return super().handle(ev)
 
@@ -219,7 +235,7 @@ class CreditsScreen(Panel):
             out.append((src.get("title", "Art"), "title"))
             out.append((f"{src.get('credit', '')}", "body"))
             out.append((f"{src.get('license', '')} · {src.get('page', src.get('url', ''))}", "muted"))
-        out += [("Sounds and music", "title"), ("From the Flare project (same source and license as the Flare art above).", "body"),
+        out += [("Sounds, music and icons", "title"), ("From the Flare project (same source and license as the Flare art above).", "body"),
                 ("", "body"), ("Libraries: pygame-ce, pygame_gui, numpy, python-tcod, pytmx, py7zr.", "muted"),
                 ("Full list of files and authors: ATTRIBUTION.md in the art folder and docs/licencas_assets.csv.", "muted")]
         return out
@@ -265,7 +281,7 @@ class TitleScreen(Panel):
 
     def items(self) -> list[tuple[str, str, bool]]:
         if self.naming is not None:
-            return [("create", "Start", bool(self.naming.strip())), ("cancel", "Back", True)]
+            return [("create", "Start", True), ("cancel", "Back", True)]
         chars = SaveStore.characters(self.g.store.directory)[: self.MAX_SHOWN]
         out = [(f"play:{slot}", f"{'Continue' if i == 0 else 'Play'}: {name}", True) for i, (slot, name, _) in enumerate(chars)]
         return out + [("new", "New character", True), ("options", "Options", True), ("credits", "Credits", True), ("quit", "Quit", True)]
@@ -305,11 +321,14 @@ class TitleScreen(Panel):
         elif bid == "new":
             self.naming = ""
         elif bid == "create":
-            name = self.naming.strip()
-            if name:
-                g.start_character(slot_name(name), new_name=name)
-                self.naming = None
-                self.open = False
+            name = self.naming.strip() or "Hero"  # (a gamepad has no letters)
+            taken = {slot for slot, _, _ in SaveStore.characters(g.store.directory)}
+            slot, n = slot_name(name), 2
+            while slot in taken:  # never over another character's save
+                slot, n = f"{slot_name(name)}_{n}", n + 1
+            g.start_character(slot, new_name=name)
+            self.naming = None
+            self.open = False
         elif bid == "cancel":
             self.naming = None
         elif bid == "options":
@@ -330,5 +349,5 @@ class TitleScreen(Panel):
             caret = "|" if (pygame.time.get_ticks() // 500) % 2 else ""
             text = f["body"].render((self.naming or "") + caret, True, C.TEXT)
             screen.blit(text, (box.x + 8, box.y + 6))
-            hint = f["tiny"].render("Name your character, then Enter", True, C.MUTED)
+            hint = f["tiny"].render("Name your character, then Enter (empty: Hero)", True, C.MUTED)
             screen.blit(hint, hint.get_rect(midbottom=(r.centerx, box.y - 4)))

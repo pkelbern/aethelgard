@@ -28,6 +28,7 @@ class Hud:
         self.f = fonts
         self.keys = keys
         self.log: deque[tuple[str, tuple[int, int, int]]] = deque(maxlen=7)
+        self.icons = None  # client.icons.Icons, set by the game
         self.area_title = ""
 
     def add(self, text: str, color=C.TEXT) -> None:
@@ -43,6 +44,11 @@ class Hud:
 
     def slot_at(self, pos: tuple[int, int], slots: int, size: tuple[int, int]) -> int | None:
         return next((i for i, r in enumerate(self.slot_rects(slots, size)) if r.collidepoint(pos)), None)
+
+    def right_rect(self, slots: int, size: tuple[int, int]) -> pygame.Rect:
+        """The right-click skill, a little apart to the right of the bar."""
+        last = self.slot_rects(slots, size)[-1]
+        return pygame.Rect(last.right + 3 * SLOT_GAP, last.y, SLOT_SIZE, SLOT_SIZE)
 
     # ------------------------------------------------------------ drawing
 
@@ -97,7 +103,7 @@ class Hud:
         parts = [("guard", "guard"), ("skillTrees", "trees"), ("inventory", "inventory"), ("character", "character"),
                  ("showItems", "items"), ("map", "map"), ("save", "save")]
         potions = f"{k.action_label('lifePotion')}/{k.action_label('energyPotion')}: potions · {k.action_label('townPortal')}: town portal"
-        help_ = f"Click: move/attack · {k.bar_labels}: skills · {potions} · " + " · ".join(f"{k.action_label(a)}: {label}" for a, label in parts)
+        help_ = f"Click: move/attack · Right click, {k.bar_labels}: skills · {potions} · " + " · ".join(f"{k.action_label(a)}: {label}" for a, label in parts)
         self._text(screen, help_, (W - self.f["tiny"].size(help_)[0] - 16, H - 20), self.f["tiny"], C.MUTED)
 
     def _consumables(self, screen, p: PlayerActor) -> None:
@@ -138,19 +144,32 @@ class Hud:
         s = p.session
         bar = s.skill_bar
         mouse = pygame.mouse.get_pos()
-        for i, r in enumerate(self.slot_rects(len(bar), screen.get_size())):
-            skill = bar.skill_at(i)
+        rects = list(enumerate(self.slot_rects(len(bar), screen.get_size())))
+        rects.append((-1, self.right_rect(len(bar), screen.get_size())))
+        for i, r in rects:
+            skill = bar.skill_at(i) if i >= 0 else bar.right
             has = skill is not None and s.skills.points_in(skill) > 0
             hover = r.collidepoint(mouse)
             pygame.draw.rect(screen, C.PANEL, r, border_radius=4)
             edge = C.TEXT if hover else (C.GOLD if has else C.PANEL_EDGE)
             pygame.draw.rect(screen, edge, r, 2, border_radius=4)
-            self._text(screen, self.keys.slot_label(i), (r.right - 14, r.bottom - 18), self.f["small"], C.MUTED)
+            key = self.keys.slot_label(i) if i >= 0 else "RMB"
+            self._text(screen, key, (r.right - self.f["small"].size(key)[0] - 4, r.bottom - 18), self.f["small"], C.MUTED)
             if skill is None:
                 self._text(screen, "empty", (r.x + 5, r.y + 6), self.f["tiny"], C.PANEL_EDGE)
                 continue
             node = s.data.node(skill)
-            self._text(screen, node.short_name or node.name, (r.x + 5, r.y + 6), self.f["tiny"], C.TEXT if has else C.MUTED)
+            icon = self.icons.skill(skill, SLOT_SIZE - 8) if self.icons else None
+            if icon is not None:
+                icon.set_alpha(255 if has else 90)
+                screen.blit(icon, icon.get_rect(center=r.center))
+                icon.set_alpha(255)
+                kw, kh = self.f["small"].size(key)
+                chip = pygame.Rect(r.right - kw - 7, r.bottom - kh - 5, kw + 5, kh + 2)
+                pygame.draw.rect(screen, (0, 0, 0), chip, border_radius=3)
+                self._text(screen, key, (chip.x + 3, chip.y + 1), self.f["small"], C.TEXT)
+            else:
+                self._text(screen, node.short_name or node.name, (r.x + 5, r.y + 6), self.f["tiny"], C.TEXT if has else C.MUTED)
             if not has:
                 continue
             if skill not in IMPLEMENTED_SKILLS:

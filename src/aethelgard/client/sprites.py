@@ -439,10 +439,10 @@ class ArtDownload:
     The main loop calls ``poll()`` every frame: it returns a message once, when the download ends,
     and then the library is told to load the new sheets."""
 
-    def __init__(self, lib: SpriteLibrary, fetch=None, sounds: dict | None = None):
+    def __init__(self, lib: SpriteLibrary, fetch=None, extras: list[dict] | None = None):
         self.lib = lib
         self._fetch = fetch
-        self.sounds = sounds  # data/ui/sounds.json: the sounds come in the same download (M7-04)
+        self.extras = extras or []  # data/ui/sounds.json, icons.json: plain files in the same download (M7-04, M7-02)
         self.state = "idle"  # idle | running | done | failed
         self.stage, self.done, self.total = "", 0, 0
         self.error = ""
@@ -460,9 +460,9 @@ class ArtDownload:
         return True
 
     def missing(self) -> list[str]:
-        """Missing sprite sheets and sound files."""
-        sounds = missing_sounds(self.sounds, self.lib.art_dir) if self.sounds else []
-        return [*self.lib.missing(), *(f"sound {n}" for n in sounds)]
+        """Missing sprite sheets, sounds and icons."""
+        files = [f"{cfg.get('folder', 'sounds')}/{n}" for cfg in self.extras for n in missing_sounds(cfg, self.lib.art_dir)]
+        return [*self.lib.missing(), *files]
 
     def _run(self) -> None:
         self.problems = []
@@ -470,10 +470,10 @@ class ArtDownload:
             fetch = self._fetch or http_fetch()
             if self.lib.missing():
                 fetch_art(self.lib.cfg, self.lib.art_dir, fetch, progress=self._progress)
-            if self.sounds:
-                failed = fetch_sounds(self.sounds, self.lib.cfg, self.lib.art_dir, fetch, progress=self._progress)
-                if failed:
-                    raise ArtError([f"sound {n} not downloaded" for n in failed], [])
+            failed = [f"{cfg.get('folder', 'sounds')}/{n}" for cfg in self.extras
+                      for n in fetch_sounds(cfg, self.lib.cfg, self.lib.art_dir, fetch, progress=self._progress)]
+            if failed:
+                raise ArtError([f"{n} not downloaded" for n in failed], [])
             self.state = "done"
         except ArtError as ex:  # some sources worked: those sheets are in place
             self.problems = ex.problems
@@ -493,7 +493,7 @@ class ArtDownload:
         if self.state in ("done", "failed"):
             return 1.0
         part = self.done / self.total if self.total else 0.0
-        if self.stage == "sounds":
+        if self.stage in ("sounds", "icons"):
             return part
         return 0.7 * part if self.stage != "convert" else 0.7 + 0.3 * part
 
@@ -505,7 +505,7 @@ class ArtDownload:
     def status_text(self) -> str:
         if self.state != "running":
             return ""
-        what = {"convert": "Preparing sprites", "sounds": "Downloading sounds"}.get(self.stage, "Downloading art")
+        what = {"convert": "Preparing sprites", "sounds": "Downloading sounds", "icons": "Downloading icons"}.get(self.stage, "Downloading art")
         pct = f" {100 * self.done // self.total}%" if self.total else ""
         return f"{what}{pct}… (missing sprites show as magenta squares)"
 

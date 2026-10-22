@@ -608,12 +608,14 @@ class SkillBar:
 
     Each skill sits in at most one slot: binding it elsewhere moves it and leaves the old slot empty;
     a skill that was already in the target slot is taken off the bar (no swap). It belongs to the
-    character and is saved with it.
+    character and is saved with it. ``right`` is the right-click skill (GDD 7.1, 12.3): any learned active,
+    on the bar or not.
     """
 
     def __init__(self, trees: SkillTrees, size: int):
         self._trees = trees
         self.slots: list[str | None] = [None] * size
+        self.right: str | None = None
 
     def __len__(self) -> int:
         return len(self.slots)
@@ -650,6 +652,21 @@ class SkillBar:
         if 0 <= slot < len(self.slots):
             self.slots[slot] = None
 
+    def swap(self, a: int, b: int) -> None:
+        """Dragging a bar skill onto another slot: the two trade places (an empty slot just receives it)."""
+        if 0 <= a < len(self.slots) and 0 <= b < len(self.slots):
+            self.slots[a], self.slots[b] = self.slots[b], self.slots[a]
+
+    def set_right(self, node_id: str | None) -> Bind:
+        """The right-click skill (None clears it)."""
+        if node_id is None:
+            self.right = None
+            return Bind.OK
+        r = self.can_bind(0, node_id)
+        if r is Bind.OK:
+            self.right = node_id
+        return r
+
     def auto_bind(self, node_id: str) -> int | None:
         """A newly learned active goes to the first free slot, if there is one and it is not on the bar yet."""
         if self.slot_of(node_id) is not None or None not in self.slots:
@@ -660,6 +677,8 @@ class SkillBar:
     def drop_unusable(self) -> None:
         """Empties the slots whose skill has no level any more (respec, a wand taken off)."""
         self.slots = [x if x is not None and self.can_bind(i, x) is Bind.OK else None for i, x in enumerate(self.slots)]
+        if self.right is not None and self.can_bind(0, self.right) is not Bind.OK:
+            self.right = None
 
     def sync(self) -> None:
         """Drops skills that are no longer learned (respec) and fills free slots with learned actives."""

@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from .app import Game
 
 NODE_W, NODE_H = 184, 58
+ICON = 34  # an active skill's icon, left of its name
 GAP_X, ROW_GAP = 18, 30
 LABEL_W = 64  # "Level 12" at the left of each row
 PAD = 16
@@ -90,6 +91,7 @@ class SkillTreeWindow:
         self._tabs: list[tuple[pygame.Rect, str]] = []
         self._nodes: list[tuple[pygame.Rect, str]] = []
         self._forget: pygame.Rect | None = None  # "Forget this tree" (with a Scroll of Forgetting)
+        self._pressed: str | None = None  # node under the last press
 
     # ---- window protocol (same as the item windows)
 
@@ -148,11 +150,17 @@ class SkillTreeWindow:
                 msg = self.g.world.apply(ForgetTree(self.g.session.player_id, self.tab))
                 self.g.hud.add(msg or f"{self.g.data.proficiency(self.tab).name}: every point is back.", C.MUTED if msg else C.GOLD)
                 return True
-            node_id = self.node_at(ev.pos)
-            if node_id is not None:
+            self._pressed = self.node_at(ev.pos)  # a point is spent when the button comes up (a drag spends none)
+        elif ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
+            node_id, pressed, self._pressed = self.node_at(ev.pos), self._pressed, None
+            if node_id is not None and node_id == pressed:
                 r = self.g.session.allocate_skill(node_id)
                 if r not in (Allocate.OK, Allocate.BY_USE):
                     self.g.hud.add(f"{self.g.data.node(node_id).name}: {r.value}", C.MUTED)
+        elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 3:  # right click: the right-click skill
+            node_id = self.node_at(ev.pos)
+            if node_id is not None and self.g.data.node(node_id).kind == "active":
+                self.g.set_right_skill(node_id)
         return True
 
     # ---- drawing
@@ -175,7 +183,8 @@ class SkillTreeWindow:
             self._forget = pygame.Rect(r.x + PAD + info_img.get_width() + 16, r.y + self.tab_rows * TAB_H + 8, 210, 24)
             draw_button(screen, f["tiny"], self._forget, f"Forget this tree (Scroll ×{scrolls})")
         keys = self.g.keys
-        hint = f"click: spend a point  ·  hover an active + {keys.bar_labels}: put it on that key  ·  {keys.action_label('skillTrees')} closes"
+        hint = (f"click: spend a point  ·  drag an active to the bar (or hover + {keys.bar_labels})  ·  "
+                f"right-click: right-click skill  ·  {keys.action_label('skillTrees')} closes")
         img = f["tiny"].render(hint, True, C.MUTED)
         screen.blit(img, (r.right - PAD - img.get_width(), r.y + self.tab_rows * TAB_H + 14))
 
@@ -250,7 +259,14 @@ class SkillTreeWindow:
         pygame.draw.rect(screen, C.TEXT if hot else edge, box, 2 if taken or r is Allocate.OK else 1, border_radius=5)
         name_color = LOCKED if locked else C.GOLD if taken else C.TEXT
         slot = s.skill_bar.slot_of(n.id)
-        screen.blit(f["small"].render(fit(f["small"], n.name, box.w - (40 if slot is not None else 16)), True, name_color), (box.x + 8, box.y + 6))
+        icon = self.g.icons.skill(n.id, ICON) if n.kind == "active" else None
+        tx = box.x + 8
+        if icon is not None:
+            icon.set_alpha(110 if locked else 255)
+            screen.blit(icon, (box.x + 6, box.y + 6))
+            icon.set_alpha(255)
+            tx += ICON + 4
+        screen.blit(f["small"].render(fit(f["small"], n.name, box.right - tx - (32 if slot is not None else 8)), True, name_color), (tx, box.y + 6))
         if slot is not None:
             key = f["tiny"].render(self.g.keys.slot_label(slot), True, C.BG)
             chip = pygame.Rect(0, 0, key.get_width() + 8, 15)
@@ -258,7 +274,7 @@ class SkillTreeWindow:
             pygame.draw.rect(screen, C.GOLD, chip, border_radius=3)
             screen.blit(key, key.get_rect(center=chip.center))
         status, color = self._status(n, r, level)
-        screen.blit(f["tiny"].render(fit(f["tiny"], status, box.w - 16), True, color), (box.x + 8, box.y + 25))
+        screen.blit(f["tiny"].render(fit(f["tiny"], status, box.right - tx - 8), True, color), (tx, box.y + 25))
         bar = pygame.Rect(box.x + 8, box.bottom - 12, box.w - 16, 5)
         if n.kind == "active":
             if n.id in t.unlocked:  # XP by use toward the next level

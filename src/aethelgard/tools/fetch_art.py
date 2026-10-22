@@ -526,10 +526,12 @@ def main() -> None:
     finally:
         pygame.quit()
     print(f"{len(built)} sheet(s) built." if built else "No sheet missing.")
-    from .fetch_sounds import fetch_sounds, load_sound_config  # the sounds come from the same source (M7-04)
+    from .fetch_sounds import fetch_sounds, load_icon_config, load_sound_config  # same source (M7-02, M7-04)
 
-    failed = fetch_sounds(load_sound_config(), cfg, art_dir, fetch)
-    print(f"Sounds: {len(failed)} could not be downloaded ({', '.join(failed)})." if failed else "Sounds ready.")
+    for extra in (load_sound_config(), load_icon_config()):
+        failed = fetch_sounds(extra, cfg, art_dir, fetch)
+        what = extra.get("folder", "sounds")
+        print(f"{what}: {len(failed)} could not be downloaded ({', '.join(failed)})." if failed else f"{what}: ready.")
 
 
 if __name__ == "__main__":

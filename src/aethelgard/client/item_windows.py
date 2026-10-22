@@ -296,6 +296,10 @@ class ItemWindow:
         usable = not self.g.session.missing_requirements(item)
         pygame.draw.rect(screen, (34, 30, 30) if not usable else (30, 32, 40), box)
         pygame.draw.rect(screen, color if usable else C.LIFE, box, 2)
+        icon = self.g.icons.item(item.base.id, max(8, min(box.w, box.h) - 8))
+        if icon is not None:
+            screen.blit(icon, icon.get_rect(center=box.center))
+            return
         font = self.g.fonts["tiny"]
         lines = wrap(item.base.name, font, box.w - 6)[:3]
         y = box.centery - len(lines) * font.get_height() // 2

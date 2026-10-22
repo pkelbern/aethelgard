@@ -271,6 +271,7 @@ class GameSession:
                 "unlockedSkills": sorted(self.skills.unlocked),
                 "skillXp": dict(self.skills.xp),
                 "skillBar": self.skill_bar.to_list(),
+                "rightSkill": self.skill_bar.right,
                 "gear": self.gear.to_dict(),
                 "inventory": self.inventory.to_list(),
                 "consumables": dict(self.consumables),
@@ -300,6 +301,7 @@ class GameSession:
         s.skills.restore(*_skills_from_save(s, raw))
         if "skillBar" in raw:
             s.skill_bar.restore(raw["skillBar"])
+            s.skill_bar.set_right(raw.get("rightSkill"))  # older saves: none
         else:  # v1/v2 saves: learned actives fill the bar in tree order
             s.skill_bar.sync()
         s.inventory.load_list(data, raw.get("inventory", []))

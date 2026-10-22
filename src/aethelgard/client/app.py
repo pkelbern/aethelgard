@@ -46,18 +46,21 @@ from ..core.world import (
 )
 from ..core.world_gen import ExitKind
 from ..core.xp_log import XpLog
-from ..tools.fetch_sounds import load_sound_config
+from ..tools.fetch_sounds import load_icon_config, load_sound_config
 from . import palette as C
 from .audio import Audio
 from .character_view import CharacterWindow
 from .game_menu import GameMenu
+from .gamepad import Gamepad
 from .hud import Hud
+from .icons import Icons
 from .iso import Camera, MapRenderer
 from .item_windows import InventoryWindow, ShopWindow, StashWindow
 from .keys import CONSUMABLE_KEYS, KeyMap
 from .loot_view import GroundView
 from .screens import CreditsScreen, OptionsScreen, TitleScreen
 from .settings import Settings
+from .skill_drag import RIGHT, SkillDrag
 from .skill_tree_view import SkillTreeWindow
 from .spell_view import SpellView
 from .sprites import ActorSprites, ArtDownload, EffectArt, SpriteLibrary
@@ -121,6 +124,8 @@ class Game:
         self.shop_view = ShopWindow(self)
         self.character_view = CharacterWindow(self)
         self.tree_view = SkillTreeWindow(self)
+        self.drag = SkillDrag(self)
+        self.pad = Gamepad(self)
         self.waypoint_menu: list[tuple[pygame.Rect, str]] | None = None  # open while standing on a waypoint
         self.stash_store = SaveStore.for_stash(save_dir)
         self.talk_to: str | None = None  # NPC role being walked to (vendor | stash)
@@ -129,7 +134,9 @@ class Game:
         self.vision = Vision()
         self.sprites = ActorSprites(SpriteLibrary(art_dir=art_dir))
         sound_cfg = load_sound_config()
-        self.art = ArtDownload(self.sprites.lib, sounds=sound_cfg)
+        self.art = ArtDownload(self.sprites.lib, extras=[sound_cfg, load_icon_config()])
+        self.icons = Icons(self.sprites.lib.art_dir, self.art.extras[1])
+        self.hud.icons = self.icons
         self.audio = Audio(self, sound_cfg, self.sprites.lib.art_dir, self.settings)
         self.shake = 0.0  # seconds of screen shake left (a critical hit, M1-05)
         self.effects = EffectArt(self.sprites.lib)
@@ -204,9 +211,9 @@ class Game:
         behind a loading screen (Esc plays at once and lets the download go on in the background)."""
         lib = self.sprites.lib
         missing = self.art.missing()  # sheets and sounds
-        sheets = len(lib.missing())
+        sheets = len(lib.missing())  # the rest: sounds and icons
         no_look = lib.without_look(t.id for t in self.data.monsters.types)
-        print(f"[art] {lib.art_dir / 'sprites'}: {lib.total() - sheets}/{lib.total()} sheets ready, {len(missing) - sheets} sound(s) missing", flush=True)
+        print(f"[art] {lib.art_dir / 'sprites'}: {lib.total() - sheets}/{lib.total()} sheets ready, {len(missing) - sheets} other file(s) missing", flush=True)
         if no_look:
             print(f"[art] no art defined for: {', '.join(no_look)} (magenta stand-ins)", flush=True)
             self.hud.add(f"No art yet for: {', '.join(no_look)} (magenta squares).", C.MUTED)
@@ -233,6 +240,8 @@ class Game:
             self.clock.tick(30)
         note = self.art.poll()
         self._build_map()  # the tiles may have just arrived
+        self.audio.reload()
+        self.icons.reload()
         for line in self.art.problems if self.art.state == "failed" else []:
             print(f"[art]   - {line}", flush=True)
         print(f"[art] {note}", flush=True)
@@ -507,20 +516,37 @@ class Game:
     def _on_key_up(self, key: int) -> None:
         """Letting go of a channelled skill's key (Whirlwind) stops it."""
         slot = self.keys.slot_for(key)
-        skill = self.session.skill_bar.skill_at(slot) if slot is not None else None
+        self._release(self.session.skill_bar.skill_at(slot) if slot is not None else None)
+
+    def _release(self, skill: str | None) -> None:
         if skill is not None and self.data.node(skill).channeled:
             self.world.apply(ReleaseSkill(self.session.player_id, skill))
 
-    def use_slot(self, slot: int) -> None:
-        skill = self.session.skill_bar.skill_at(slot)
+    def set_right_skill(self, node_id: str | None) -> None:
+        r = self.session.skill_bar.set_right(node_id)
+        if node_id is None:
+            self.hud.add("Right click cleared.", C.MUTED)
+        else:
+            name = self.data.node(node_id).name
+            self.hud.add(f"{name} on the right click." if r is Bind.OK else f"{name}: {r.value}", C.TEXT if r is Bind.OK else C.MUTED)
+
+    def use_slot(self, slot: int, aim: tuple[float, float] | None = None) -> None:
+        self.use_skill(self.session.skill_bar.skill_at(slot), f"Key {self.keys.slot_label(slot)} is empty: click the slot to choose a skill.", aim)
+
+    def use_skill(self, skill: str | None, empty: str, aim: tuple[float, float] | None = None) -> None:
+        """A bar key or the right click: the skill aimed at the mouse (or the monster under it, or the nearest).
+        ``aim`` (the gamepad): aimed at that point, and at the nearest monster instead of the one under the mouse."""
         if skill is None:
-            self.hud.add(f"Key {self.keys.slot_label(slot)} is empty: click the slot to choose a skill.", C.MUTED)
+            self.hud.add(empty, C.MUTED)
             return
-        if self.data.node(skill).spell is not None or skill in GROUND_BOW_SKILLS:  # aimed at the mouse, or at the monster under it
+        reach = max(3.0, self.world.player_reach(self.player))  # a bow reaches farther
+        if aim is not None:
+            target = self.nearest_monster(max(reach, self.pad.cfg["attackReachTiles"]))
+        elif self.data.node(skill).spell is not None or skill in GROUND_BOW_SKILLS:  # aimed at the mouse, or at the monster under it
             target = self.hovered
         else:
-            target = self.hovered or self.nearest_monster(max(3.0, self.world.player_reach(self.player)))  # a bow reaches farther
-        gx, gy = self.mouse_grid()
+            target = self.hovered or self.nearest_monster(reach)
+        gx, gy = aim if aim is not None else self.mouse_grid()
         msg = self.world.apply(UseSkill(self.session.player_id, skill, target.id if target else None, gx, gy))
         if msg:
             self.hud.add(msg, C.MUTED)
@@ -531,14 +557,19 @@ class Game:
         bar, keys = self.session.skill_bar, self.keys
         node_id = self.tree_view.node_at(pos)
         if node_id is not None:
-            return self._skill_lines(node_id, f"Hover and press {keys.bar_labels} to put it on that key.")
-        slot = None if self.ui.over_ui else self.slot_under_mouse()
+            hint = f"Hover and press {keys.bar_labels}, or drag it to the bar  ·  Right-click: the right-click skill"
+            return self._skill_lines(node_id, hint)
+        slot = None if self.ui.over_ui or self.drag.skill else self.drag.slot_at(pos)
+        if slot == RIGHT:
+            if bar.right is None:
+                return [Line("Right click: empty", "title"), Line("Right-click a skill in the trees, or drag one here.", "hint")]
+            return self._skill_lines(bar.right, "Right click in the world uses it  ·  Right-click here: clear")
         if slot is None:
             return None
         node_id = bar.skill_at(slot)
         if node_id is None:
-            return [Line(f"Key {keys.slot_label(slot)}: empty", "title"), Line("Click to choose a skill for this key.", "hint")]
-        return self._skill_lines(node_id, "Click: choose another skill  ·  Right-click: clear this key")
+            return [Line(f"Key {keys.slot_label(slot)}: empty", "title"), Line("Click to choose a skill, or drag one here.", "hint")]
+        return self._skill_lines(node_id, "Click: choose another  ·  Drag: move it  ·  Right-click: clear this key")
 
     def _skill_lines(self, node_id: str, hint: str) -> list[Line]:
         lines = describe_skill(self.data, self.session.skills, node_id, is_implemented(node_id))
@@ -562,10 +593,14 @@ class Game:
             if ev.type == pygame.KEYDOWN and ev.key == pygame.K_F1:
                 self.ui.toggle_console()
                 continue
+            if self.pad.handle(ev):
+                continue  # the gamepad (menus too)
             if self.options.handle(ev) or self.credits.handle(ev) or self.title.handle(ev):
                 continue  # full-screen menus take everything
             if self.menu.handle(ev):
                 continue  # paused: the menu takes everything
+            if not self.dead and self.drag.handle(ev):
+                continue  # skills dragged to the bar, clicks on the bar
             if self.ui.process(ev) or self.ui.typing:
                 continue  # the interface (windows, text field) consumed the event
             if not self.dead and any(w.handle(ev) for w in self.windows):
@@ -574,6 +609,8 @@ class Game:
                 self._on_click(ev.button)
             elif ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
                 self.hold = None
+            elif ev.type == pygame.MOUSEBUTTONUP and ev.button == 3:
+                self._release(self.session.skill_bar.right)
             elif ev.type == pygame.KEYDOWN:
                 self._on_key(ev.key)
             elif ev.type == pygame.KEYUP:
@@ -585,8 +622,10 @@ class Game:
 
         # guard: hold the guard key, shield pointed at the mouse
         held = not self.ui.typing and self.keys.held("guard")
-        gx, gy = self.mouse_grid()
-        self.world.apply(SetGuard(pid, bool(held), gx - self.player.x, gy - self.player.y))
+        if held or not self.pad.guarding:
+            gx, gy = self.mouse_grid()
+            self.world.apply(SetGuard(pid, bool(held), gx - self.player.x, gy - self.player.y))
+        self.pad.update()  # the sticks: walking and the guard
 
     def over_waypoint_menu(self, pos) -> bool:
         if not self.waypoint_menu:
@@ -633,12 +672,13 @@ class Game:
                         break
             self.waypoint_menu = None
             return
-        slot = self.slot_under_mouse()
-        if slot is not None:  # the bar: left picks a skill for the key, right clears it
-            if button == 1:
-                self.ui.open_picker(slot)
-            elif button == 3:
-                self.bind_slot(slot, None)
+        slot = self.drag.slot_at(pygame.mouse.get_pos())
+        if slot is not None:  # the bar (left clicks and drags are SkillDrag's): right clears the key
+            if button == 3:
+                self.set_right_skill(None) if slot == RIGHT else self.bind_slot(slot, None)
+            return
+        if button == 3:  # right click in the world: the right-click skill (GDD 7.1)
+            self.use_skill(self.session.skill_bar.right, "Right click has no skill: right-click one in the trees (T).")
             return
         if button != 1:
             return
@@ -706,7 +746,10 @@ class Game:
             else:
                 self.use_slot(slot)
             return
-        action = self.keys.action_for(key)
+        self.do_action(self.keys.action_for(key))
+
+    def do_action(self, action: str | None) -> None:
+        """A keyboard or gamepad action (data/ui/keys.json names)."""
         if action == "townPortal":
             msg = self.world.apply(OpenPortal(self.session.player_id))
             if msg:
@@ -887,6 +930,7 @@ class Game:
             tip = self.skill_tooltip() if under in (None, self.tree_view) else None
             if tip:
                 draw_tooltip(screen, self.fonts, tip, pygame.mouse.get_pos())
+            self.drag.draw(screen)
         self.menu.draw(screen)
         self.options.draw(screen)
         self.credits.draw(screen)
@@ -1156,6 +1200,7 @@ class Game:
             self.hud.add(note, C.GOLD if self.art.state == "done" else C.LIFE)
             self._build_map()
             self.audio.reload()
+            self.icons.reload()
         self.audio.watch_hero(self.player)
         self.shake = max(0.0, self.shake - DT)
         self.ui.update(DT)
