@@ -538,8 +538,10 @@ class EffectArt:
         self.clock += dt
 
     def loot_sheet(self, drop) -> str | None:
-        from ..core.items import GoldDrop, ItemDrop, PotionDrop
+        from ..core.items import ChestDrop, GoldDrop, ItemDrop, PotionDrop
 
+        if isinstance(drop, ChestDrop):  # drawn as a map object (tilemap.MapArt.chest)
+            return None
         if isinstance(drop, ItemDrop):
             return self.loot.get("items", {}).get(drop.item.base.id)
         if isinstance(drop, GoldDrop):

@@ -117,7 +117,14 @@ class ItemDrop:
     item: Item
 
 
-Drop = GoldDrop | PotionDrop | ScrollDrop | ItemDrop
+@dataclass(frozen=True)
+class ChestDrop:
+    """A closed chest (M5-03): "picking it up" opens it, and what it holds falls around it."""
+
+    level: int
+
+
+Drop = GoldDrop | PotionDrop | ScrollDrop | ItemDrop | ChestDrop
 
 
 def drop_name(drop: Drop) -> str:
@@ -128,6 +135,8 @@ def drop_name(drop: Drop) -> str:
         return f"{drop.kind.capitalize()} Potion"
     if isinstance(drop, ScrollDrop):
         return drop.name or f"{drop.kind.capitalize()} Scroll"
+    if isinstance(drop, ChestDrop):
+        return "Chest"
     return drop.item.name
 
 

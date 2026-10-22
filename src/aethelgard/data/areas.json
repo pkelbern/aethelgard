@@ -13,5 +13,22 @@
         { "id": "crypt",     "name": "Forgotten Crypt",   "kind": "dungeon", "levelMin": 9, "levelMax": 11, "floors": 3, "links": ["hills"], "families": ["undead"], "normalPacks": 16, "boss": "act1_boss", "waypoint": true }
       ]
     }
-  ]
+  ],
+  "prefabs": {
+    "_comment": "Hand-made pieces from the Tiled editor (M5-03, M5-04), stamped by the seed: data/maps/prefabs/*.tmx with the logic tileset (floor, wall, water, road); empty cells keep what the generator made. Objects: chest (opened by clicking: drops like a monster of rank chestLootAs at the area level), spawn (a pack starts there), entry (open pieces: a path joins it to the rest of the map), connector (rooms: where corridors come in). open = pieces for open areas (openPerArea [min, max] per area, at least minTilesFromEntry from the arrival point); rooms = rooms that replace a rectangle room on a dungeon floor (roomsPerFloor). areas = only there (empty = any area of that kind).",
+    "openPerArea": [1, 2],
+    "roomsPerFloor": [1, 2],
+    "minTilesFromEntry": 14,
+    "chestLootAs": "champion",
+    "open": [
+      { "id": "bandit_camp",  "map": "maps/prefabs/bandit_camp.tmx",  "weight": 2, "areas": ["plains", "woods", "hills"] },
+      { "id": "ruins",        "map": "maps/prefabs/ruins.tmx",        "weight": 2 },
+      { "id": "stone_circle", "map": "maps/prefabs/stone_circle.tmx", "weight": 1, "areas": ["woods", "hills"] }
+    ],
+    "rooms": [
+      { "id": "pillar_hall", "map": "maps/prefabs/pillar_hall.tmx", "weight": 2 },
+      { "id": "cross_vault", "map": "maps/prefabs/cross_vault.tmx", "weight": 1, "areas": ["crypt"] },
+      { "id": "guard_post",  "map": "maps/prefabs/guard_post.tmx",  "weight": 2 }
+    ]
+  }
 }

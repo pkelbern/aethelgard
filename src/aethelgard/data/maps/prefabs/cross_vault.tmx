@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="9" height="9" tilewidth="16" tileheight="16" infinite="0" nextlayerid="3" nextobjectid="7">
+ <properties>
+  <property name="note" value="Dungeon room: replaces a rectangle room. connector = where corridors join it; chest = a chest; spawn = a pack."/>
+ </properties>
+ <tileset firstgid="1" source="../logic.tsx"/>
+ <layer id="1" name="terrain" width="9" height="9">
+  <data encoding="csv">
+2,2,2,2,1,2,2,2,2,
+2,2,2,2,1,2,2,2,2,
+2,2,2,1,1,1,2,2,2,
+2,2,1,1,1,1,1,2,2,
+1,1,1,1,1,1,1,1,1,
+2,2,1,1,1,1,1,2,2,
+2,2,2,1,1,1,2,2,2,
+2,2,2,2,1,2,2,2,2,
+2,2,2,2,1,2,2,2,2
+</data>
+ </layer>
+ <objectgroup id="2" name="objects">
+  <object id="1" name="connector" type="connector" x="64" y="0" width="16" height="16"/>
+  <object id="2" name="connector" type="connector" x="0" y="64" width="16" height="16"/>
+  <object id="3" name="chest" type="chest" x="64" y="64" width="16" height="16"/>
+  <object id="4" name="connector" type="connector" x="128" y="64" width="16" height="16"/>
+  <object id="5" name="spawn" type="spawn" x="64" y="80" width="16" height="16"/>
+  <object id="6" name="connector" type="connector" x="64" y="128" width="16" height="16"/>
+ </objectgroup>
+</map>

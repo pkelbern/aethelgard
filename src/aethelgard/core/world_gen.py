@@ -12,7 +12,7 @@ from enum import Enum
 import numpy as np
 import tcod
 
-from .data import AreaDef, GameData
+from .data import AreaDef, GameData, PrefabDef
 from .rng import Rng
 
 WALL, FLOOR = 0, 1
@@ -53,6 +53,9 @@ class AreaLayout:
     seed: int = 0
     attempts: int = 1
     markers: dict[str, tuple[Cell, dict]] = field(default_factory=dict)  # NPCs and named points (Tiled maps)
+    chests: list[Cell] = field(default_factory=list)  # closed chests (prefabs, M5-03)
+    connectors: list[Cell] = field(default_factory=list)  # a prefab room's doors (M5-04)
+    mask: np.ndarray | None = None  # a prefab: the cells it sets (bool [y, x]); the others keep the generated map
 
     @classmethod
     def filled(cls, w: int, h: int, tile: int = WALL) -> AreaLayout:
@@ -156,6 +159,7 @@ class AreaGenerator:
         L.tiles[:, 0] = L.tiles[:, -1] = WALL
         for _ in range(4):
             _smooth(L)
+        prefab_rng = rng.fork("prefabs")  # its own stream: adding a piece does not reshuffle the rest of the map
 
         center = (w // 2, h // 2)
         L.entry = center
@@ -174,10 +178,13 @@ class AreaGenerator:
                 k += 1
             L.exits.append(Exit(pos, kind, link))
 
+        joins = self._place_open_prefabs(L, area, center, prefab_rng)
         _carve_room(L, center, 4)
         for e in L.exits:
             _carve_path(L, center, e.pos, 1, rng)
             _carve_room(L, e.pos, 3 if e.kind == ExitKind.ENTRANCE else 2)  # room around it: its touch zone is open ground
+        for c in joins:  # each piece's way in, joined to the middle of the map
+            _carve_path(L, c, center, 0, prefab_rng)
         L.tiles[0, :] = L.tiles[-1, :] = WALL
         L.tiles[:, 0] = L.tiles[:, -1] = WALL
         for e in L.exits:
@@ -196,38 +203,61 @@ class AreaGenerator:
         L.seed = rng.seed
         rooms: list[tuple[int, int, int, int]] = []
         target = rng.randint(9, 13)
+        prefab_rng = rng.fork("prefabs")
+        pf = self._d.areas.prefabs
+        wanted = [self._pick(self._prefabs_for(pf.rooms, area), prefab_rng) for _ in range(prefab_rng.randint(*pf.rooms_per_floor))]
+        wanted = [p for p in wanted if p is not None]
+        made: dict[int, AreaLayout] = {}  # room index → the prefab stamped there
         for _ in range(300):
             if len(rooms) >= target:
                 break
-            rw, rh = rng.randint(6, 11), rng.randint(6, 11)
+            piece = wanted[0] if rooms and wanted else None  # room 0 (the arrival) stays a plain room
+            rw, rh = (piece.width, piece.height) if piece else (rng.randint(6, 11), rng.randint(6, 11))
             x, y = rng.randint(2, L.width - rw - 3), rng.randint(2, L.height - rh - 3)
             if any(x < r[0] + r[2] + 2 and x + rw + 2 > r[0] and y < r[1] + r[3] + 2 and y + rh + 2 > r[1] for r in rooms):
                 continue
+            if piece:
+                made[len(rooms)] = wanted.pop(0)
             rooms.append((x, y, rw, rh))
-        for x0, y0, rw, rh in rooms:
-            L.tiles[y0 : y0 + rh, x0 : x0 + rw] = FLOOR
+        for i, (x0, y0, rw, rh) in enumerate(rooms):
+            if i in made:
+                stamp(L, made[i], x0, y0)
+            else:
+                L.tiles[y0 : y0 + rh, x0 : x0 + rw] = FLOOR
 
-        def center(r):
-            return (r[0] + r[2] // 2, r[1] + r[3] // 2)
+        def center(i: int) -> Cell:
+            r = rooms[i]
+            mid = (r[0] + r[2] // 2, r[1] + r[3] // 2)
+            return _nearest_floor(L, mid) if i in made else mid
+
+        def door(i: int, toward: Cell) -> Cell:
+            """Where a corridor meets room i: a prefab's connector nearest the other room, else the middle."""
+            if i not in made or not made[i].connectors:
+                return center(i)
+            x0, y0 = rooms[i][:2]
+            return min(((x0 + cx, y0 + cy) for cx, cy in made[i].connectors), key=lambda c: manhattan(c, toward))
 
         def manhattan(a: Cell, b: Cell) -> int:
             return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
+        def join(i: int, j: int) -> None:
+            _carve_l(L, door(i, center(j)), door(j, center(i)), rng)
+
         connected = [0]
         for i in range(1, len(rooms)):
-            j = min(connected, key=lambda c: manhattan(center(rooms[c]), center(rooms[i])))
-            _carve_l(L, center(rooms[i]), center(rooms[j]), rng)
+            j = min(connected, key=lambda c: manhattan(center(c), center(i)))
+            join(i, j)
             connected.append(i)
         if len(rooms) > 3:
             for _ in range(rng.randint(1, 2)):
-                _carve_l(L, center(rng.choice(rooms)), center(rng.choice(rooms)), rng)
+                join(rng.randint(0, len(rooms) - 1), rng.randint(0, len(rooms) - 1))
 
-        L.entry = center(rooms[0])
+        L.entry = center(0)
         up_kind = ExitKind.ENTRANCE if floor == 0 else ExitKind.STAIRS_UP
         L.exits.append(Exit(L.entry, up_kind, area.links[0] if floor == 0 and area.links else None))
 
         dist = L.distances_from(L.entry)
-        reachable = [center(r) for r in rooms[1:] if dist[center(r)[1], center(r)[0]] >= 0]
+        reachable = [center(i) for i in range(1, len(rooms)) if dist[center(i)[1], center(i)[0]] >= 0]
         far = max(reachable, key=lambda c: dist[c[1], c[0]]) if reachable else L.entry
         if floor >= area.floors - 1:
             if area.boss:
@@ -238,6 +268,41 @@ class AreaGenerator:
             L.waypoint = _waypoint_spot(L, (L.entry[0] + WAYPOINT_EXIT_GAP, L.entry[1]))
         _place_spawns(L, spawn_count, 10, 5, rng)
         return L
+
+    # ------------------------------------------------------------ hand-made pieces (M5-03, M5-04)
+
+    def _prefabs_for(self, defs: list[PrefabDef], area: AreaDef) -> list[tuple[AreaLayout, int]]:
+        return [(self._tiled(p.map), p.weight) for p in defs if not p.areas or area.id in p.areas]
+
+    @staticmethod
+    def _pick(options: list[tuple[AreaLayout, int]], rng: Rng) -> AreaLayout | None:
+        if not options:
+            return None
+        return options[rng.weighted({i: w for i, (_, w) in enumerate(options)})][0]
+
+    def _place_open_prefabs(self, L: AreaLayout, area: AreaDef, center: Cell, rng: Rng) -> list[Cell]:
+        """Stamps hand-made pieces away from the arrival point and the exits; returns each one's way in."""
+        pf = self._d.areas.prefabs
+        options = self._prefabs_for(pf.open, area)
+        placed: list[tuple[int, int, int, int]] = []
+        joins: list[Cell] = []
+        for _ in range(rng.randint(*pf.open_per_area) if options else 0):
+            piece = self._pick(options, rng)
+            pw, ph = piece.width, piece.height
+            for _ in range(60):
+                x, y = rng.randint(2, L.width - pw - 3), rng.randint(2, L.height - ph - 3)
+                mid = (x + pw // 2, y + ph // 2)
+                if math.hypot(mid[0] - center[0], mid[1] - center[1]) < pf.min_tiles_from_entry + max(pw, ph) / 2:
+                    continue
+                if any(math.hypot(mid[0] - e.pos[0], mid[1] - e.pos[1]) < max(pw, ph) / 2 + 5 for e in L.exits):
+                    continue
+                if any(x < r[0] + r[2] + 2 and x + pw + 2 > r[0] and y < r[1] + r[3] + 2 and y + ph + 2 > r[1] for r in placed):
+                    continue
+                stamp(L, piece, x, y)
+                placed.append((x, y, pw, ph))
+                joins.append((x + piece.entry[0], y + piece.entry[1]))
+                break
+        return joins
 
 
 # ---------------------------------------------------------------- helpers
@@ -392,12 +457,27 @@ def _place_spawns(L: AreaLayout, count: int, min_dist: int, spacing: int, rng: R
 # ---------------------------------------------------------------- hand-made maps (Tiled)
 
 
+def stamp(L: AreaLayout, piece: AreaLayout, x0: int, y0: int) -> None:
+    """Copies a prefab onto the map at (x0, y0): the cells it sets, its chests and its pack spots."""
+    h, w = piece.tiles.shape
+    region = L.tiles[y0 : y0 + h, x0 : x0 + w]
+    mask = piece.mask if piece.mask is not None else np.ones_like(piece.tiles, dtype=bool)
+    region[mask] = piece.tiles[mask]
+    for cx, cy in piece.chests:
+        L.chests.append((x0 + cx, y0 + cy))
+        L.set((x0 + cx, y0 + cy), FLOOR)
+    for cx, cy in piece.spawn_points:
+        L.spawn_points.append((x0 + cx, y0 + cy))
+        L.set((x0 + cx, y0 + cy), FLOOR)
+
+
 def load_tiled_map(relative_path: str) -> AreaLayout:
     """Loads a map from the Tiled editor (https://www.mapeditor.org) with pytmx.
 
     Convention: orthogonal map where each tile is one logic cell; the tile's ``walkable``
     property says whether it is floor. Objects: ``entry`` (arrival), ``exit`` (property
-    ``target`` = area), ``waypoint`` and ``npc`` (property ``role``). The game draws it isometric.
+    ``target`` = area), ``waypoint`` and ``npc`` (property ``role``); prefabs also use ``chest``, ``spawn``
+    and ``connector``, and cells left empty (no tile) are not part of the piece (``mask``). The game draws it isometric.
     """
     from importlib import resources
 
@@ -408,7 +488,9 @@ def load_tiled_map(relative_path: str) -> AreaLayout:
         tmx = pytmx.TiledMap(str(real))
     layer = next(lay for lay in tmx.visible_layers if isinstance(lay, pytmx.TiledTileLayer))
     L = AreaLayout.filled(tmx.width, tmx.height, WALL)
+    L.mask = np.zeros((tmx.height, tmx.width), dtype=bool)
     for x, y, gid in layer:
+        L.mask[y, x] = gid != 0
         props = tmx.get_tile_properties_by_gid(gid) or {}
         if props.get("walkable"):
             L.tiles[y, x] = FLOOR
@@ -425,4 +507,10 @@ def load_tiled_map(relative_path: str) -> AreaLayout:
             L.waypoint = cell
         elif kind == "npc":
             L.markers[obj.name] = (cell, dict(obj.properties))
+        elif kind == "chest":
+            L.chests.append(cell)
+        elif kind == "spawn":
+            L.spawn_points.append(cell)
+        elif kind == "connector":
+            L.connectors.append(cell)
     return L

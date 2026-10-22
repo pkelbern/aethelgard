@@ -40,7 +40,7 @@ Repository = "https://github.com/SEU_USUARIO/aethelgard"
 where = ["src"]
 
 [tool.setuptools.package-data]
-aethelgard = ["data/*.json", "data/maps/*.tmx", "data/maps/*.tsx", "data/maps/*.png", "data/ui/*.json"]
+aethelgard = ["data/*.json", "data/maps/*.tmx", "data/maps/prefabs/*.tmx", "data/maps/*.tsx", "data/maps/*.png", "data/ui/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

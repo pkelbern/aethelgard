@@ -114,6 +114,7 @@
       "entrance":   { "sheet": "flare/tiles/grassland", "tile": 227, "scale": 1.25 },
       "exit":       { "sheet": "flare/tiles/grassland", "tile": 138, "scale": 1.2 },
       "stash":      { "sheet": "flare/tiles/grassland", "tile": 76, "scale": 0.8 },
+      "chest":      { "sheet": "flare/tiles/grassland", "tile": 77, "scale": 0.7 },
       "vendor":     { "look": "trader" }
     }
   },

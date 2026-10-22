@@ -48,7 +48,7 @@ from .events import (
     StashChanged,
     WaypointReached,
 )
-from .items import GoldDrop, GroundItem, ItemDrop, SharedStash
+from .items import ChestDrop, GoldDrop, GroundItem, ItemDrop, SharedStash
 from .maneuvers import Dash, Maneuvers
 from .monster_ai import MonsterBrains
 from .monsters import MonsterInstance, PackKind
@@ -598,6 +598,10 @@ class World:
         else:
             layout, packs = host.enter_area(area_id, floor)
             self.monsters, self.ground = {}, {}
+            level = self.data.area(area_id).level_for_floor(floor)
+            for cx, cy in layout.chests:  # closed chests of the hand-made pieces (M5-03): opened like a pick-up
+                self.ground[self._next_ground] = GroundItem(self._next_ground, ChestDrop(level), float(cx), float(cy))
+                self._next_ground += 1
         self.layout, self.area_id, self.floor = layout, area_id, floor
         self.projectiles.clear()
         self.spells.clear()
@@ -1579,6 +1583,13 @@ class World:
         return g
 
     def _take(self, p: PlayerActor, g: GroundItem) -> bool:
+        if isinstance(g.drop, ChestDrop):  # a chest opens: what it holds falls around it
+            s = p.session
+            del self.ground[g.id]
+            for drop in s.loot.roll_drops(self.data.areas.prefabs.chest_loot_as, g.drop.level, s.stat("magicFind"), s.loot_rng):
+                self.drop_at(drop, g.x, g.y, s.world_rng)
+            self.bus.publish(LootPicked(p.player_id, g.drop, True))
+            return True
         stored = p.session.collect(g.drop)
         if stored:
             del self.ground[g.id]

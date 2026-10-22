@@ -165,10 +165,10 @@ Status: [x] feito e testado · [ ] com a marca **escrito, validar** = código pr
   AreaGenerator com validação e 100 seeds por área nos testes.
 - [x] **M5-02** Transições: bordas, entradas, escadas _(código, ~0.5 d)_  
   Chegada ao lado da saída de origem, sem voltar sem querer. Saída é uma zona (raio `exits.touchRadiusTiles` 1,4) que dispara ao entrar nela; chegar dentro dela não leva de volta. No mapa: área dourada pulsando do tamanho da zona, placa/escada/boca de caverna maiores, nome do destino numa plaqueta por cima de tudo, sem árvores num raio de 3 células.
-- [ ] **M5-03** Prefabs feitos à mão nas áreas abertas _(código, ~3 d)_  
-  Acampamentos, ruínas, santuários e baús desenhados no Tiled (.tmx) e carimbados na geração pela seed.
-- [ ] **M5-04** Salas pré-montadas nas masmorras _(código, ~3 d)_  
-  Trocar retângulos por salas desenhadas no Tiled, com conectores marcados como objetos.
+- [ ] **M5-03** Prefabs feitos à mão nas áreas abertas _(código, ~3 d)_ — **escrito, validar**  
+  Acampamentos, ruínas, santuários e baús desenhados no Tiled (.tmx) e carimbados na geração pela seed. Feito: data/maps/prefabs/*.tmx com o mesmo tileset lógico da vila; célula vazia = mantém o gerado; objetos chest, spawn (pack começa ali), entry (um caminho liga ao centro do mapa). 1–2 peças por área aberta (areas.json prefabs: openPerArea, minTilesFromEntry, filtro por área), longe da chegada e das saídas, com fluxo de RNG próprio. Peças iniciais: Bandit Camp (paliçada, baú, 2 packs), Ruins, Stone Circle. Baús: clicar abre (mesmo caminho do pegar item) e cai o que um monstro Champion do nível da área deixaria (chestLootAs); aberto fica aberto até o fim do jogo. Validar: quantidade de baús x ritmo de itens.
+- [ ] **M5-04** Salas pré-montadas nas masmorras _(código, ~3 d)_ — **escrito, validar**  
+  Trocar retângulos por salas desenhadas no Tiled, com conectores marcados como objetos. Feito: 1–2 salas por andar (roomsPerFloor) trocam retângulos (nunca a sala de chegada); corredores entram pelo connector mais perto da outra sala. Salas iniciais: Pillar Hall, Cross Vault (só cripta), Guard Post, com baús e packs. Desenhar mais no Tiled: só criar o .tmx e listar em areas.json.
 - [ ] **M5-09** Continuidade entre áreas _(código, ~0.5 d)_ — **escrito, validar**  
   areas.json mapPos coloca as áreas no mapa do ato: a saída para um vizinho fica na borda voltada para ele, e a volta na borda oposta, no mesmo ponto ao longo da borda (a vila, feita à mão, fixa o ponto). validate() exige vizinhos lado a lado.
 - [ ] **M5-10** Começo mais leve _(balanceamento, ~0.3 d)_ — **escrito, validar**  

@@ -81,6 +81,7 @@ def test_kills_drop_loot_on_the_ground_and_picking_it_up_fills_the_backpack(data
     s.inventory.items.clear()  # start from an empty backpack (new characters carry a bow and a sword)
     w = World([s])
     w.enter_area("crypt", 2)  # the boss always drops magic items
+    w.ground.clear()  # no chests (prefab rooms): only the monsters' drops
     picked = []
     s.bus.subscribe(LootPicked, picked.append)
     p = w.players[0]

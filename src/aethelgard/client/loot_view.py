@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pygame
 
-from ..core.items import GoldDrop, GroundItem, ItemDrop, PotionDrop, drop_name
+from ..core.items import ChestDrop, GoldDrop, GroundItem, ItemDrop, PotionDrop, drop_name
 from . import palette as C
 from .iso import Camera
 
@@ -71,6 +71,9 @@ class GroundView:
             liquid = C.LIFE if d.kind == "life" else C.ENERGY
             pygame.draw.rect(screen, liquid, (sx - 3, sy - 10, 6, 8), border_radius=2)
             pygame.draw.rect(screen, C.TEXT, (sx - 1, sy - 13, 2, 3))
+        elif isinstance(d, ChestDrop):
+            pygame.draw.rect(screen, (96, 64, 32), (sx - 9, sy - 12, 18, 12), border_radius=2)
+            pygame.draw.rect(screen, (200, 170, 90), (sx - 9, sy - 12, 18, 12), 1, border_radius=2)
         elif isinstance(d, ItemDrop):
             pygame.draw.polygon(screen, color, [(sx, sy - 9), (sx + 7, sy - 3), (sx, sy + 3), (sx - 7, sy - 3)])
             pygame.draw.polygon(screen, (0, 0, 0), [(sx, sy - 9), (sx + 7, sy - 3), (sx, sy + 3), (sx - 7, sy - 3)], 1)

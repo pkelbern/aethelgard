@@ -487,8 +487,30 @@ class ActDef:
 
 
 @dataclass
+class PrefabDef:
+    """A hand-made piece from the Tiled editor (data/maps/prefabs/*.tmx), stamped by the seed (M5-03, M5-04).
+    ``areas`` limits it to those areas (empty = any area of its kind)."""
+
+    id: str = ""
+    map: str = ""
+    weight: int = 1
+    areas: list[str] = field(default_factory=list)
+
+
+@dataclass
+class PrefabsData:
+    open_per_area: list[int] = field(default_factory=lambda: [0, 0])  # [min, max] pieces in an open area
+    rooms_per_floor: list[int] = field(default_factory=lambda: [0, 0])  # [min, max] hand-made rooms on a dungeon floor
+    min_tiles_from_entry: int = 12  # open areas: pieces are kept away from the arrival point
+    chest_loot_as: str = "champion"  # a chest drops what a monster of this rank drops, at the area level
+    open: list[PrefabDef] = field(default_factory=list)
+    rooms: list[PrefabDef] = field(default_factory=list)
+
+
+@dataclass
 class AreasData:
     acts: list[ActDef] = field(default_factory=list)
+    prefabs: PrefabsData = field(default_factory=PrefabsData)
 
 
 # ---------------------------------------------------------------- character
@@ -1081,6 +1103,13 @@ def validate(d: GameData) -> list[str]:
         errors += [f"areas: '{a.id}' uses missing family '{f}'" for f in a.families if f not in families]
         if a.boss and a.boss not in boss_ids:
             errors.append(f"areas: '{a.id}' has missing boss '{a.boss}'")
+    pf = d.areas.prefabs
+    if pf.chest_loot_as not in d.items.drop_count:
+        errors.append(f"areas: prefabs chestLootAs '{pf.chest_loot_as}' has no dropCount in items.json")
+    for p in pf.open + pf.rooms:
+        errors += [f"areas: prefab '{p.id}' names missing area '{x}'" for x in p.areas if x not in area_ids]
+        if not p.map or p.weight <= 0:
+            errors.append(f"areas: prefab '{p.id}' needs a map and a positive weight")
     by_id = {a.id: a for a in d.all_areas}
     for a in d.all_areas:
         for lk in a.links:

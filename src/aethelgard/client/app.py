@@ -22,7 +22,7 @@ from ..core.events import (
     StashChanged,
     WaypointReached,
 )
-from ..core.items import GoldDrop, ItemDrop, drop_name
+from ..core.items import ChestDrop, GoldDrop, ItemDrop, drop_name
 from ..core.progression import Bind
 from ..core.saves import SaveStore
 from ..core.session import GameSession
@@ -375,6 +375,9 @@ class Game:
             return
         d = e.drop
         text = drop_name(d)
+        if isinstance(d, ChestDrop):
+            self.hud.add("Chest opened.", C.GOLD)
+            return
         if isinstance(d, ItemDrop):
             text += f"  ({d.item.base.name}, iLvl {d.item.item_level})"
         if not e.stored:
@@ -857,6 +860,8 @@ class Game:
             wp = art.waypoint(self.world.area_id in self.session.waypoints) if self.world.layout.waypoint else None
             if wp is not None and self.vision.explored[wp.y, wp.x]:
                 props.append(wp)
+            chests = [g for g in self.visible_drops() if isinstance(g.drop, ChestDrop)]
+            props += [c for c in (art.chest(g.x, g.y) for g in chests) if c is not None]
         for prop in props:
             if prop.flat:  # stairs going down, the waypoint: part of the floor
                 self.map.draw_prop(screen, cam, prop)
@@ -864,7 +869,8 @@ class Game:
         self.map.draw_markers(screen, cam, self.fonts["tiny"], self.area_names, self.vision.explored)
         drops = self.visible_drops()
         self.sprites.draw_corpses(screen, cam, self.vision.sees)  # bodies lie under what they dropped
-        self.ground_view.draw_shapes(screen, cam, drops)
+        shapes = drops if art is None else [g for g in drops if not isinstance(g.drop, ChestDrop)]  # chests with art are props
+        self.ground_view.draw_shapes(screen, cam, shapes)
         self._draw_portal()
         self._draw_corpses()
         self.spell_view.draw_ground(screen)

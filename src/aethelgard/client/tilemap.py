@@ -209,6 +209,13 @@ class MapArt:
                 objs.append(prop)
         return objs, npcs
 
+    def chest(self, x: float, y: float) -> Prop | None:
+        """A closed chest (M5-03), sorted with the actors like the other map objects."""
+        prop = self._object("chest", round(x), round(y))
+        if prop is not None:
+            prop.x, prop.y, prop.depth = x, y, x + y
+        return prop
+
     def waypoint(self, active: bool) -> Prop | None:
         wp = self.layout.waypoint
         return self._object("waypoint", wp[0], wp[1], 1 if active else 0) if wp else None
